@@ -4,7 +4,7 @@
 - 简单的面部检测（使用OpenCV）
 - 基于亮度的简单情绪估计
 - 诗词响应
-- 唐宋八大家Q版形象生成
+- 唐宋八大家静态形象显示
 - 简单的Gradio界面
 """
 
@@ -14,23 +14,6 @@ import numpy as np
 import gradio as gr
 import random
 from PIL import Image
-
-# 导入Q版卡通形象生成模块 - 优先使用静态图像生成，避免diffusers库的兼容性问题
-CARTOON_ENABLED = True
-try:
-    # 优先使用静态图像生成模块
-    import static_cartoon
-    get_poet_image = static_cartoon.get_poet_image
-    print("使用静态图像生成模块")
-except ImportError as e:
-    print(f"无法导入静态图像生成模块: {e}")
-    # 如果静态模块导入失败，尝试导入diffusers模块
-    try:
-        from cartoon_generator import get_poet_image
-        print("使用diffusers图像生成模块")
-    except ImportError as e:
-        print(f"无法导入卡通形象生成模块: {e}")
-        CARTOON_ENABLED = False
 
 # -------- 面部表情情绪识别 --------
 def detect_face_emotion(image):
@@ -175,7 +158,6 @@ def analyze_text_sentiment(text):
         return 'neutral'
 
 # -------- 诗词情绪响应库 --------
-# -------- 诗词情绪响应库 --------
 poem_dict = {
     "happy": {
         "韩愈": "野老与人争席罢，海鸥何事更相疑。",
@@ -245,12 +227,31 @@ def get_poem_for_emotion(emotion):
     poet, poem = random.choice(list(emotion_poems.items()))
     return poet, poem
 
+# -------- 静态图片加载函数 --------
+def get_poet_image(poet_name):
+    """
+    从静态图片文件夹加载对应诗人的图片
+    """
+    try:
+        image_path = os.path.join("images", "tangsong", f"{poet_name}.png")
+        if os.path.exists(image_path):
+            img = Image.open(image_path)
+            return img
+        else:
+            print(f"找不到{poet_name}的图片")
+            # 创建一个带有诗人名字的空白图片
+            blank_img = Image.new('RGB', (300, 300), color=(255, 255, 255))
+            return blank_img
+    except Exception as e:
+        print(f"加载诗人图片出错: {e}")
+        return Image.new('RGB', (300, 300), color=(255, 255, 255))
+
 # -------- 主函数 --------
 def main_app(text_input, image_input):
     """
     简化版主函数：
     输入: 文本输入, 摄像头图像
-    输出: 表情结果, 诗词文字, 文人卡通形象
+    输出: 情绪文本结果, 诗词文字, 文人静态图像
     """
     # 面部表情识别
     face_emotion = None
@@ -274,59 +275,54 @@ def main_app(text_input, image_input):
     poet, poem_text = get_poem_for_emotion(chosen_emotion)
     poem = f"{poet}《{poem_text}》"
     
-    # 获取文人卡通形象
-    poet_image = None
-    if CARTOON_ENABLED:
-        try:
-            # 生成与情绪匹配的卡通形象
-            poet_image = get_poet_image(poet, chosen_emotion)
-            # 将PIL图像转换为numpy数组用于Gradio展示
-            poet_image = np.array(poet_image)
-        except Exception as e:
-            print(f"生成卡通形象失败: {e}")
-            poet_image = np.ones((256, 256, 3), dtype=np.uint8) * 255
-    else:
-        # 如果卡通形象功能不可用，创建空白图像
-        poet_image = np.ones((256, 256, 3), dtype=np.uint8) * 255
-        cv2.putText(poet_image, f"{poet}", 
-                   (20, 128), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+    # 获取文人静态图片
+    poet_image = get_poet_image(poet)
+    # 将PIL图像转换为numpy数组用于Gradio展示
+    poet_image = np.array(poet_image)
     
-    # 在图像上显示情绪
-    if image_input is not None:
-        # 复制图像以不覆盖原图
-        output_image = image_input.copy()
-        # 添加文本
-        cv2.putText(output_image, f"情绪: {chosen_emotion}", 
-                   (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    else:
-        # 创建空白图像
-        output_image = np.ones((300, 400, 3), dtype=np.uint8) * 255
-        cv2.putText(output_image, f"情绪: {chosen_emotion}", 
-                   (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+    # 返回情绪检测结果文本而非图像
+    emotion_result = f"检测到的情绪: {chosen_emotion}"
     
-    return output_image, poem, poet_image
+    return emotion_result, poem, poet_image
 
 # -------- Gradio 前端界面 --------
-iface = gr.Interface(
-    fn=main_app,
-    inputs=[
-        gr.Textbox(label="请输入文本描述您的感受"),
-        gr.Image(label="或使用摄像头")
-    ],
-    outputs=[
-        gr.Image(label="情绪识别结果"),
-        gr.Textbox(label="诗词回应"),
-        gr.Image(label="文人卡通形象")
-    ],
-    title="儿童情绪识别与文化心理疏导系统",
-    description="通过面部表情和文本分析儿童情绪，提供诗词和唐宋八大家Q版形象进行文化心理疏导。",
-    examples=[
-        ["我今天很开心", None],
-        ["我感到非常悲伤", None],
-        ["我现在很生气", None],
-        ["我被吓到了", None]
-    ]
-)
+with gr.Blocks(title="儿童情绪识别与文化心理疏导系统") as iface:
+    gr.Markdown("# 儿童情绪识别与文化心理疏导系统")
+    gr.Markdown("通过面部表情和文本分析儿童情绪，提供诗词和唐宋八大家静态形象进行文化心理疏导。")
+    
+    with gr.Row():
+        with gr.Column():
+            # 左侧输入区域
+            text_input = gr.Textbox(label="请输入文本描述您的感受")
+            
+            # 示例放在文本框下方
+            gr.Examples(
+                examples=[
+                    ["我今天很开心"],
+                    ["我感到非常悲伤"],
+                    ["我现在很生气"],
+                    ["我被吓到了"]
+                ],
+                inputs=[text_input]
+            )
+            
+            image_input = gr.Image(label="或使用摄像头")
+            submit_btn = gr.Button("提交")
+            # 情绪识别结果显示在左侧提交按钮下方
+            emotion_output = gr.Textbox(label="情绪识别结果")
+            
+        with gr.Column():
+            # 右侧输出区域
+            poem_output = gr.Textbox(label="诗词回应")
+            # 将"文人卡通形象"标签改为"文人静态形象"
+            image_output = gr.Image(label="文人静态形象")
+    
+    # 设置提交按钮功能
+    submit_btn.click(
+        fn=main_app,
+        inputs=[text_input, image_input],
+        outputs=[emotion_output, poem_output, image_output]
+    )
 
 if __name__ == "__main__":
     print("\n" + "="*50)
