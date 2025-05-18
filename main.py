@@ -13,7 +13,50 @@ import cv2
 import numpy as np
 import gradio as gr
 import random
+import logging
+import threading
+import socket
+import signal
+import sys
+import time
+from datetime import datetime
 from PIL import Image
+
+# -------- 配置日志记录 --------
+def setup_logger():
+    """设置日志记录器"""
+    # 创建logs目录（如果不存在）
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+    
+    # 生成日志文件名，包含日期和时间
+    log_filename = f'logs/emotion_culture_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+    
+    # 配置根日志记录器
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    
+    # 创建文件处理器
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setLevel(logging.INFO)
+    
+    # 创建控制台处理器
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    
+    # 创建格式化器
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+    console_handler.setFormatter(formatter)
+    
+    # 添加处理器到记录器
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+    
+    return logger
+
+# 初始化日志记录器
+logger = setup_logger()
 
 # -------- 情绪翻译字典 --------
 emotion_translation = {
@@ -295,7 +338,15 @@ def get_poet_image(poet_name):
             img = Image.open(image_path)
             # 缩小为原来的一半大小
             width, height = img.size
-            img = img.resize((width // 2, height // 2), Image.LANCZOS)
+            try:
+                # 尝试使用LANCZOS（新版Pillow中可能已重命名）
+                img = img.resize((width // 2, height // 2), Image.LANCZOS)
+            except AttributeError:
+                # 如果LANCZOS不可用，尝试使用Lanczos或BICUBIC
+                try:
+                    img = img.resize((width // 2, height // 2), Image.Resampling.LANCZOS)
+                except AttributeError:
+                    img = img.resize((width // 2, height // 2), Image.BICUBIC)
             return img
         else:
             print(f"找不到{poet_name}的图片")
@@ -321,6 +372,19 @@ def get_guochao_image(emotion):
         image_path = os.path.join("images", "guochao", f"{character_name}.png")
         if os.path.exists(image_path):
             img = Image.open(image_path)
+            # 如果图像太大，缩小它
+            if max(img.size) > 800:
+                ratio = 800 / max(img.size)
+                new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+                try:
+                    # 尝试使用LANCZOS（新版Pillow中可能已重命名）
+                    img = img.resize(new_size, Image.LANCZOS)
+                except AttributeError:
+                    # 如果LANCZOS不可用，尝试使用Lanczos或BICUBIC
+                    try:
+                        img = img.resize(new_size, Image.Resampling.LANCZOS)
+                    except AttributeError:
+                        img = img.resize(new_size, Image.BICUBIC)
             return img, character_name
         else:
             print(f"找不到{character_name}的图片")
@@ -349,6 +413,184 @@ def get_rich_poem_interpretation(poet, poem_text, emotion):
     
     return rich_interpretation
 
+# -------- 调整摄像头图像尺寸 --------
+def process_image(image):
+    """处理上传的图像或摄像头捕获的图像，缩小到原来的一半"""
+    if image is None:
+        return None
+    
+    # 使用PIL处理图像
+    pil_image = Image.fromarray(image)
+    width, height = pil_image.size
+    # 缩小到原来的一半
+    try:
+        # 尝试使用LANCZOS（新版Pillow中可能已重命名）
+        pil_image = pil_image.resize((width // 2, height // 2), Image.LANCZOS)
+    except AttributeError:
+        # 如果LANCZOS不可用，尝试使用Lanczos或BICUBIC
+        try:
+            pil_image = pil_image.resize((width // 2, height // 2), Image.Resampling.LANCZOS)
+        except AttributeError:
+            pil_image = pil_image.resize((width // 2, height // 2), Image.BICUBIC)
+    # 转回numpy数组
+    return np.array(pil_image)
+
+# -------- 端口管理 --------
+def check_port_in_use(port):
+    """检查端口是否被占用"""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(1)
+            result = s.connect_ex(('localhost', port))
+            return result == 0
+    except Exception as e:
+        logger.error(f"检查端口 {port} 时出错: {e}")
+        return True  # 如果发生错误，保守假设端口被占用
+
+def find_and_kill_process_by_port(port):
+    """找到并杀死占用指定端口的进程"""
+    try:
+        # 不同操作系统下查找占用端口进程的命令
+        if sys.platform.startswith('win'):
+            # Windows
+            cmd = f'netstat -ano | findstr :{port}'
+            output = os.popen(cmd).read()
+            if output:
+                lines = output.strip().split('\n')
+                for line in lines:
+                    parts = line.strip().split()
+                    if len(parts) > 4 and parts[1].endswith(f':{port}'):
+                        pid = parts[-1]
+                        logger.info(f"找到使用端口 {port} 的进程 PID: {pid}")
+                        try:
+                            os.system(f'taskkill /PID {pid} /F')
+                            logger.info(f"成功终止进程 {pid}")
+                            return True
+                        except Exception as e:
+                            logger.error(f"终止进程时出错: {e}")
+        else:
+            # Unix/Linux/MacOS
+            # 使用更具体的命令找出所有可能占用端口的进程
+            cmd = f"lsof -i :{port}"
+            output = os.popen(cmd).read()
+            if output:
+                lines = output.strip().split('\n')
+                killed_any = False
+                pids_found = []
+                for line in lines:
+                    if line and not line.startswith("COMMAND"):  # 跳过标题行
+                        parts = line.strip().split()
+                        if len(parts) > 1:
+                            pid = parts[1]
+                            if pid not in pids_found: # 避免重复记录和尝试杀死同一个PID
+                                pids_found.append(pid)
+                                logger.info(f"找到使用端口 {port} 的进程 PID: {pid}")
+                                try:
+                                    # 使用更强力的信号终止进程
+                                    os.system(f'kill -9 {pid}')
+                                    logger.info(f"已发送SIGKILL到进程 {pid} (端口 {port})")
+                                    killed_any = True
+                                except Exception as e:
+                                    logger.error(f"终止进程 {pid} (端口 {port}) 时出错: {e}")
+                
+                # macOS特有的端口清理 (移除sudo命令，避免权限问题)
+                if sys.platform == 'darwin' and pids_found: # 只有在找到PID时才尝试这个
+                    try:
+                        # 不使用sudo，避免权限问题
+                        os.system(f"lsof -i :{port} | grep -v PID | awk '{{print $2}}' | xargs kill -9 2>/dev/null || true")
+                        logger.info(f"已尝试进一步释放端口 {port} (macOS特定操作)")
+                    except Exception as e:
+                        logger.error(f"macOS特定端口释放操作出错: {e}")
+                
+                return killed_any or not pids_found # 如果杀死了任何进程，或者本来就没找到进程，都认为"处理"过了
+            else: # lsof 未输出任何内容
+                logger.info(f"未找到使用端口 {port} 的活动进程 (lsof无输出)。")
+                return True # 没有进程占用，认为是成功的状态
+    except Exception as e:
+        logger.error(f"查找或终止占用端口 {port} 的进程时出错: {e}")
+    
+    logger.warning(f"未能明确找到或终止使用端口 {port} 的进程。")
+    return False
+
+def ensure_port_available(port):
+    """确保端口可用，如果被占用则尝试释放"""
+    if not check_port_in_use(port):
+        logger.info(f"端口 {port} 可用")
+        return True
+
+    logger.warning(f"端口 {port} 已被占用。将尝试释放它。")
+    
+    for attempt in range(1, 3): # 尝试两次 (attempt 1 和 2)
+        logger.info(f"开始释放端口 {port} 的第 {attempt} 次尝试。")
+        
+        # 尝试终止进程
+        find_and_kill_process_by_port(port) 
+        # find_and_kill_process_by_port 内部会记录日志，我们在这里不判断其返回值，
+        # 因为即使它报告失败，端口也可能因其他原因被释放。
+        # 主要依赖后续的 check_port_in_use。
+
+        # 等待并检查端口是否释放
+        logger.info(f"第 {attempt} 次尝试：现在检查端口 {port} 是否已释放（最多等待5秒）。")
+        for i in range(5):  # 等待最多5秒
+            if not check_port_in_use(port):
+                logger.info(f"端口 {port} 在第 {attempt} 次尝试后成功释放（等待 {i+1} 秒后）。")
+                return True # 成功释放
+            if i < 4: # 避免在最后一次检查后打印 "等待中"
+                 logger.info(f"等待端口 {port} 释放... {i+1}/5")
+            time.sleep(1)
+        
+        logger.warning(f"在第 {attempt} 次尝试后，等待5秒后端口 {port} 仍被占用。")
+
+        if attempt == 2: # 如果这是最后一次尝试
+            logger.error(f"经过 {attempt} 次尝试，无法释放端口 {port}。")
+            
+    return False # 如果两次尝试都失败
+
+# -------- 多线程启动Gradio服务 --------
+def launch_gradio_server(interface, primary_port=7890, port_range=(7890, 7900)):
+    """在单独的线程中启动Gradio服务器，提供备选端口范围"""
+    def run_server():
+        try:
+            target_port = None
+            # 尝试使用指定端口
+            if ensure_port_available(primary_port):
+                target_port = primary_port
+                logger.info(f"将使用首选端口 {target_port} 启动Gradio服务")
+            else:
+                # 如果首选端口不可用或无法释放，在指定范围内查找可用端口
+                logger.warning(f"首选端口 {primary_port} 不可用或无法释放，将在范围 {port_range[0]}-{port_range[1]} 内寻找可用端口")
+                for port_to_try in range(port_range[0], port_range[1] + 1):
+                    if port_to_try == primary_port: # 已经尝试过主端口
+                        continue
+                    if not check_port_in_use(port_to_try): # 只检查，不尝试强制释放备选端口
+                        target_port = port_to_try
+                        logger.info(f"找到备选可用端口 {target_port}")
+                        break
+                
+                if target_port is None:
+                    logger.error(f"在范围 {port_range[0]}-{port_range[1]} 内未找到其他可用端口。将尝试让 Gradio 自动选择端口。")
+                    # target_port 保持 None，Gradio 会自动选择
+            
+            # 启动Gradio服务
+            logger.info(f"正在启动Gradio服务 (尝试端口: {'自动选择' if target_port is None else target_port})...")
+            interface.launch(
+                server_name="0.0.0.0",
+                server_port=target_port, # 如果 None, Gradio 会自动选择
+                share=True,
+                prevent_thread_lock=True # 确保非阻塞
+            )
+            logger.info("Gradio `interface.launch()` 已调用。服务应在后台线程启动。")
+            logger.info("请检查控制台输出，Gradio通常会打印访问URL (本地和共享链接，如果share=True成功)。")
+
+        except Exception as e:
+            logger.error(f"启动Gradio服务时出错: {e}")
+
+    server_thread = threading.Thread(target=run_server)
+    server_thread.daemon = True  # 设置为守护线程，主程序退出时自动退出
+    server_thread.start()
+    
+    return server_thread
+
 # -------- 主函数 --------
 def main_app(text_input, image_input):
     """
@@ -356,6 +598,10 @@ def main_app(text_input, image_input):
     输入: 文本输入, 摄像头图像
     输出: 情绪文本结果, 诗词文字与解读, 文人静态图像, 国潮形象, 安抚文案
     """
+    # 处理图像尺寸
+    if image_input is not None:
+        image_input = process_image(image_input)
+        
     # 面部表情识别
     face_emotion = None
     if image_input is not None:
@@ -398,15 +644,132 @@ def main_app(text_input, image_input):
     
     return emotion_result, rich_poem_interpretation, poet_image, guochao_response, guochao_image
 
+# -------- 国风CSS样式 --------
+css = """
+:root {
+    --main-color: #e60000;
+    --secondary-color: #ffd700;
+    --text-color: #333;
+    --background-color: #f5f5f5;
+    --border-color: #d4a017;
+}
+
+body {
+    background-color: var(--background-color);
+    background-image: url('https://img.freepik.com/free-vector/chinese-cloud-pattern-background-red_53876-135689.jpg');
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    font-family: 'Ma Shan Zheng', cursive, sans-serif;
+}
+
+.gradio-container {
+    max-width: 95% !important;
+    margin: 0 auto;
+    background-color: rgba(255, 255, 255, 0.9);
+    border-radius: 15px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(5px);
+    border: 2px solid var(--border-color);
+    padding: 20px;
+}
+
+h1 {
+    color: var(--main-color) !important;
+    text-align: center;
+    font-size: 2.5em !important;
+    margin-bottom: 20px !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 10px;
+}
+
+button {
+    background-color: var(--main-color) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 5px !important;
+    padding: 8px 16px !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    font-weight: bold !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) !important;
+}
+
+button:hover {
+    background-color: #b30000 !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.label {
+    color: var(--main-color) !important;
+    font-weight: bold !important;
+    font-size: 1.1em !important;
+    margin-bottom: 5px !important;
+}
+
+input, textarea {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 5px !important;
+    padding: 8px !important;
+    background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.image-preview {
+    border: 3px solid var(--border-color) !important;
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.textbox-container {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 10px !important;
+    padding: 10px !important;
+    background-color: #fffaf0 !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1) !important;
+}
+
+.footer {
+    text-align: center;
+    margin-top: 20px;
+    color: var(--text-color);
+    font-size: 0.9em;
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.fade-in {
+    animation: fadeIn 1s ease-in-out;
+}
+
+/* 添加一些中国传统元素的装饰 */
+.chinese-pattern {
+    background-image: url('https://png.pngtree.com/png-vector/20190726/ourlarge/pngtree-chinese-style-border-png-image_1610935.jpg');
+    background-size: contain;
+    background-repeat: repeat-x;
+    height: 30px;
+    margin: 20px 0;
+}
+"""
+
 # -------- Gradio 前端界面 --------
-with gr.Blocks(title="儿童情绪识别与文化心理疏导系统") as iface:
-    gr.Markdown("# 儿童情绪识别与文化心理疏导系统")
+with gr.Blocks(title="儿童情绪识别与文化心理疏导系统", css=css) as iface:
+    with gr.Row(elem_classes="fade-in"):
+        gr.Markdown("# 儿童情绪识别与文化心理疏导系统")
+    
+    gr.HTML('<div class="chinese-pattern"></div>')
     gr.Markdown("通过面部表情和文本分析儿童情绪，提供诗词和文化形象进行心理疏导。")
     
     with gr.Row():
-        with gr.Column():
-            # 左侧输入区域
-            text_input = gr.Textbox(label="请输入文本描述您的感受")
+        # 左侧栏 - 输入区域
+        with gr.Column(scale=1):
+            text_input = gr.Textbox(label="请输入文本描述您的感受", elem_classes="textbox-container")
             
             # 示例放在文本框下方
             gr.Examples(
@@ -419,21 +782,27 @@ with gr.Blocks(title="儿童情绪识别与文化心理疏导系统") as iface:
                 inputs=[text_input]
             )
             
-            image_input = gr.Image(label="或使用摄像头")
-            submit_btn = gr.Button("提交")
+            image_input = gr.Image(label="或使用摄像头", elem_classes="image-preview")
+            submit_btn = gr.Button("提交", variant="primary")
             # 情绪识别结果显示在左侧提交按钮下方
-            emotion_output = gr.Textbox(label="情绪识别结果")
-            
-        with gr.Column():
-            # 右侧上方输出区域 - 唐宋八大家
+            emotion_output = gr.Textbox(label="情绪识别结果", elem_classes="textbox-container")
+        
+        # 右侧栏 - 输出区域
+        with gr.Column(scale=2):
+            # 上方两个图像并排
             with gr.Row():
-                poet_image_output = gr.Image(label="文人静态形象")
-                poem_output = gr.Textbox(label="诗词回应与解读", lines=8)
+                poet_image_output = gr.Image(label="文人静态形象", elem_classes="image-preview")
+                guochao_image_output = gr.Image(label="国潮卡通形象", elem_classes="image-preview")
             
-            # 右侧下方输出区域 - 国潮卡通
+            # 下方两个文本框
             with gr.Row():
-                guochao_image_output = gr.Image(label="国潮卡通形象")
-                comfort_output = gr.Textbox(label="安抚文案", lines=6)
+                with gr.Column():
+                    poem_output = gr.Textbox(label="诗词回应与解读", lines=8, elem_classes="textbox-container")
+                with gr.Column():
+                    comfort_output = gr.Textbox(label="安抚文案", lines=8, elem_classes="textbox-container")
+    
+    gr.HTML('<div class="chinese-pattern"></div>')
+    gr.HTML('<div class="footer">© 2023 儿童情绪识别与文化心理疏导系统 | 传统文化与现代科技的融合</div>')
     
     # 设置提交按钮功能
     submit_btn.click(
@@ -442,20 +811,54 @@ with gr.Blocks(title="儿童情绪识别与文化心理疏导系统") as iface:
         outputs=[emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output]
     )
 
-if __name__ == "__main__":
-    print("\n" + "="*50)
-    print("准备启动Gradio界面，请稍等...")
-    print("="*50 + "\n")
-    # 强制刷新输出缓冲区
-    import sys
-    sys.stdout.flush()
+def ensure_image_directories():
+    """确保图像目录存在"""
+    required_dirs = [
+        os.path.join("images"),
+        os.path.join("images", "tangsong"),
+        os.path.join("images", "guochao")
+    ]
     
+    for directory in required_dirs:
+        if not os.path.exists(directory):
+            logger.info(f"创建目录: {directory}")
+            os.makedirs(directory)
+            
+    # 检查图像文件是否存在
+    tangsong_images = os.listdir(os.path.join("images", "tangsong")) if os.path.exists(os.path.join("images", "tangsong")) else []
+    guochao_images = os.listdir(os.path.join("images", "guochao")) if os.path.exists(os.path.join("images", "guochao")) else []
+    
+    if not tangsong_images:
+        logger.warning("唐宋八大家图片目录为空，将使用空白图片代替")
+    
+    if not guochao_images:
+        logger.warning("国潮卡通形象目录为空，将使用空白图片代替")
+
+if __name__ == "__main__":
     try:
-        print("开始启动Gradio服务...")
-        sys.stdout.flush()
-        # 将server_port设为None让Gradio自动选择可用端口
-        iface.launch(server_name="0.0.0.0", server_port=None, share=True)
-        print("Gradio服务已启动！")
+        logger.info("="*50)
+        logger.info("准备启动儿童情绪识别与文化心理疏导系统...")
+        logger.info("="*50)
+        
+        # 确保图像目录存在
+        ensure_image_directories()
+        
+        # 端口配置
+        primary_port = 8080
+        port_range = (8080, 8100)  # 提供备选端口范围
+        
+        # 启动Gradio服务器线程
+        server_thread = launch_gradio_server(iface, primary_port=primary_port, port_range=port_range)
+        
+        # 保持主线程运行，可以在这里添加其他功能
+        try:
+            while True:
+                # 主线程保持活跃，但不消耗太多CPU
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("收到键盘中断，正在安全退出...")
+            # 这里不需要做额外工作，因为server_thread是守护线程
+    
     except Exception as e:
-        print(f"启动Gradio服务出错: {e}")
-        sys.stdout.flush() 
+        logger.error(f"程序运行过程中出错: {e}")
+        sys.exit(1) 
