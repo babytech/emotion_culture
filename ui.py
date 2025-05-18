@@ -199,22 +199,16 @@ def create_ui(main_app_func):
         main_app_func: 主应用函数，处理用户输入并返回结果
         
     返回:
-        Gradio界面对象
+        gr.Blocks: Gradio界面实例
     """
-    with gr.Blocks(title="青少年情绪识别与文化心理疏导系统", css=css) as iface:
-        # 全局标题
-        with gr.Row(elem_classes="fade-in"):
-            gr.Markdown("# 青少年情绪识别与文化心理疏导系统")
+    with gr.Blocks(css=css, theme=gr.themes.Soft(primary_hue="red", secondary_hue="orange")) as iface:
+        gr.Markdown("<h1 style='text-align: center; color: #FF4500;'>儿童情绪识别与文化心理疏导系统 (简化版)</h1>")
         
-        # 顶部区域：描述、文本输入
-        with gr.Column(): 
-            gr.Markdown("通过面部表情、文本和语音分析儿童情绪，提供诗词和文化形象进行心理疏导。")
-            text_input = gr.Textbox(label="请输入文本描述您的感受", elem_classes="textbox-container")
-
-        # 例子和语音输入在同一行
         with gr.Row():
-            with gr.Column(scale=2): # 例子占较大比例
-                gr.Markdown("### 例子")
+            with gr.Column(scale=2):
+                gr.Markdown("### 步骤 1: 输入信息")
+                text_input = gr.Textbox(lines=6, label="写下你的想法或感受:", placeholder="例如：今天我感到很开心！")
+                
                 gr.Examples(
                     examples=[
                         ["我今天很开心，阳光明媚！"],
@@ -228,75 +222,101 @@ def create_ui(main_app_func):
                         ["感觉有点孤单，想找人聊聊天。"],
                         ["收到了朋友的礼物，心里暖暖的。"]
                     ],
-                    inputs=[text_input]
+                    inputs=[text_input],
+                    label="或者试试这些例子："
                 )
-            with gr.Column(scale=1): # 语音输入占较小比例
-                audio_input = gr.Audio(
-                    label="或使用语音输入",
-                    type="filepath",
-                    sources=["microphone"],
-                    elem_classes="custom-audio-input" # 添加自定义类以便CSS定位
-                )
+                
+                with gr.Accordion("🎤 语音输入 (可选)", open=False):
+                    audio_input = gr.Audio(sources=["microphone"], type="filepath", label="或者，说出你的感受:", elem_classes="custom-audio-input")
 
-        gr.HTML('<div class="chinese-pattern"></div>') # 分割线
-
-        # 中间三栏图像区域 - 添加自定义class以控制间距
-        with gr.Row(elem_classes="compact-row"): 
-            with gr.Column(scale=1):
-                image_input = gr.Image(label="使用摄像头", elem_classes="image-preview") 
-            with gr.Column(scale=1):
-                poet_image_output = gr.Image(label="唐宋八大家", elem_classes="image-preview")
-            with gr.Column(scale=1):
-                guochao_image_output = gr.Image(label="国潮卡通形象", elem_classes="image-preview")
-
-        # 下方对应三栏的输出和控制区域
-        with gr.Row():
-            # 左栏：摄像头下的控制和输出
-            with gr.Column(scale=1):
+                emotion_output = gr.Textbox(label="情绪识别结果:", interactive=False, elem_classes="textbox-container")
+                
+                gr.Markdown("### 步骤 2: 上传或拍摄照片 (可选)")
+                image_input = gr.Image(sources=["upload", "webcam"], type="numpy", label="上传图片或使用摄像头", height=300, elem_classes="image-preview")
+                
+            with gr.Column(scale=3):
+                gr.Markdown("### 步骤 3: 查看结果 ✨")
+                
                 with gr.Row():
-                    reset_btn = gr.Button("重置", elem_id="reset_button_custom")
-                    submit_btn = gr.Button("提交", variant="primary", elem_id="submit_button_custom")
-                emotion_output = gr.Textbox(label="情绪识别结果", elem_classes="textbox-container")
+                    with gr.Column(scale=1):
+                        poet_image_output = gr.Image(label="文人雅士", type="numpy", interactive=False, height=300, elem_classes="image-preview")
+                    with gr.Column(scale=2):
+                        poem_output = gr.Textbox(label="诗词与解读:", lines=10, interactive=False, elem_classes="textbox-container")
+
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        guochao_image_output = gr.Image(label="国潮伙伴", type="numpy", interactive=False, height=300, elem_classes="image-preview")
+                    with gr.Column(scale=2):
+                        comfort_output = gr.Textbox(label="来自国潮伙伴的慰藉:", lines=5, interactive=False, elem_classes="textbox-container")
             
-            # 中栏：唐宋八大家下的诗词解读
-            with gr.Column(scale=1):
-                poem_output = gr.Textbox(label="诗词回应与解读", lines=10, elem_classes="textbox-container")
-            
-            # 右栏：国潮卡通形象下的安抚文案
-            with gr.Column(scale=1):
-                comfort_output = gr.Textbox(label="安抚文案", lines=10, elem_classes="textbox-container")
+        # 分割线
+        gr.Markdown("<div class='chinese-pattern'></div>", elem_classes="fade-in")
+
+        with gr.Row(elem_classes="compact-row"):
+            submit_button = gr.Button("提交分析", variant="primary", elem_id="submit_button_custom")
+            reset_button = gr.Button("重置所有", variant="secondary", elem_id="reset_button_custom")
+
+        # 页脚
+        gr.Markdown("<p class='footer'>© 2024 儿童情绪识别与文化心理疏导系统. </p>")
         
-        gr.HTML('<div class="chinese-pattern"></div>') # 底部分割线
-        gr.HTML('<div class="footer">© 2023 儿童情绪识别与文化心理疏导系统 | 传统文化与现代科技的融合</div>')
-        
-        # 定义重置函数
+        # 定义清除函数
         def reset_all():
             # 清除所有输入和输出
             # 输入：text_input, image_input, audio_input
             # 输出：emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output
-            return None, None, None, "", "", None, "", None
+            return (
+                "",  # text_input
+                None, # image_input
+                None, # audio_input
+                "",   # emotion_output
+                "",   # poem_output
+                None, # poet_image_output
+                "",   # comfort_output
+                None  # guochao_image_output
+            )
 
-        # 设置重置按钮功能
-        reset_btn.click(
-            fn=reset_all,
-            inputs=None, # 重置函数不需要输入
-            outputs=[
-                text_input, 
-                image_input, 
-                audio_input, 
-                emotion_output, 
-                poem_output, 
-                poet_image_output, 
-                comfort_output, 
-                guochao_image_output
-            ]
-        )
-        
-        # 设置提交按钮功能
-        submit_btn.click(
+        # 绑定提交按钮的点击事件
+        submit_button.click(
             fn=main_app_func,
             inputs=[text_input, image_input, audio_input],
             outputs=[emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output]
         )
+        
+        # 绑定重置按钮的点击事件
+        reset_button.click(
+            fn=reset_all,
+            inputs=[], # 无需输入
+            outputs=[
+                text_input, image_input, audio_input,
+                emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output
+            ]
+        )
+        
+    return iface
+
+if __name__ == '__main__':
+    # 这是一个用于测试UI模块的简单示例
+    # 在实际应用中，main_app_func 会从 main.py 导入
     
-    return iface 
+    def mock_main_app(text, image, audio):
+        print(f"测试文本: {text}")
+        print(f"测试图像形状: {image.shape if image is not None else '无图像'}")
+        print(f"测试音频路径: {audio if audio else '无音频'}")
+        
+        # 模拟返回一些数据
+        emotion_res = "情绪: 开心"
+        poem_res = "《登高》\n杜甫\n风急天高猿啸哀，渚清沙白鸟飞回。\n无边落木萧萧下，不尽长江滚滚来。\n万里悲秋常作客，百年多病独登台。\n艰难苦恨繁霜鬓，潦倒新停浊酒杯。"
+        
+        # 模拟图像输出 (创建空白图像)
+        import numpy as np
+        from PIL import Image
+        
+        blank_image_data_poet = np.array(Image.new('RGB', (300, 400), color = 'skyblue'))
+        blank_image_data_guochao = np.array(Image.new('RGB', (350, 350), color = 'lightgreen'))
+        
+        comfort_res = "开心牛牛：\n今天真是美好的一天！"
+        
+        return emotion_res, poem_res, blank_image_data_poet, comfort_res, blank_image_data_guochao
+
+    iface = create_ui(mock_main_app)
+    iface.launch(server_name="0.0.0.0", server_port=7860) 
