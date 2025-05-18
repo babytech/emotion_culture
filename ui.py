@@ -116,6 +116,18 @@ input, textarea {
     height: 30px;
     margin: 20px 0;
 }
+
+/* 语音输入按钮样式 */
+.audio-input-btn {
+    background-color: var(--secondary-color) !important;
+    color: var(--text-color) !important;
+    font-weight: bold !important;
+    border: 2px solid var(--border-color) !important;
+}
+
+.audio-input-btn:hover {
+    background-color: #e6c300 !important;
+}
 """
 
 def create_ui(main_app_func):
@@ -133,7 +145,7 @@ def create_ui(main_app_func):
             gr.Markdown("# 儿童情绪识别与文化心理疏导系统")
         
         gr.HTML('<div class="chinese-pattern"></div>')
-        gr.Markdown("通过面部表情和文本分析儿童情绪，提供诗词和文化形象进行心理疏导。")
+        gr.Markdown("通过面部表情、文本和语音分析儿童情绪，提供诗词和文化形象进行心理疏导。")
         
         with gr.Row():
             # 左侧栏 - 输入区域
@@ -150,6 +162,15 @@ def create_ui(main_app_func):
                     ],
                     inputs=[text_input]
                 )
+                
+                # 添加语音输入组件
+                with gr.Row():
+                    audio_input = gr.Audio(
+                        label="或使用语音输入",
+                        type="filepath",
+                        sources=["microphone"],
+                        elem_classes="audio-input"
+                    )
                 
                 image_input = gr.Image(label="或使用摄像头", elem_classes="image-preview")
                 submit_btn = gr.Button("提交", variant="primary")
@@ -176,7 +197,7 @@ def create_ui(main_app_func):
         # 设置提交按钮功能
         submit_btn.click(
             fn=main_app_func,
-            inputs=[text_input, image_input],
+            inputs=[text_input, image_input, audio_input],
             outputs=[emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output]
         )
     

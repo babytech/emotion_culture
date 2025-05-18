@@ -6,6 +6,7 @@
 - 诗词响应
 - 唐宋八大家静态形象显示
 - 简单的Gradio界面
+- 语音情绪识别
 """
 
 import os
@@ -26,6 +27,9 @@ from ui import create_ui
 
 # 导入emotion模块中的函数和变量
 from emotion import comfort_text, guochao_characters, detect_face_emotion, analyze_text_sentiment
+
+# 导入语音情绪识别模块
+from speech import analyze_speech_emotion
 
 # -------- 配置日志记录 --------
 def setup_logger():
@@ -299,10 +303,10 @@ def launch_gradio_server(interface, primary_port=7890, port_range=(7890, 7900)):
     return server_thread
 
 # -------- 主函数 --------
-def main_app(text_input, image_input):
+def main_app(text_input, image_input, audio_input=None):
     """
     简化版主函数：
-    输入: 文本输入, 摄像头图像
+    输入: 文本输入, 摄像头图像, 语音输入
     输出: 情绪文本结果, 诗词文字与解读, 文人静态图像, 国潮形象, 安抚文案
     """
     # 处理图像尺寸
@@ -320,8 +324,16 @@ def main_app(text_input, image_input):
         text_emotion = analyze_text_sentiment(text_input)
         print(f"文本情感分析结果: {text_emotion}")
     
-    # 决定使用的情绪
+    # 语音情绪分析
+    speech_emotion = None
+    if audio_input:
+        speech_emotion = analyze_speech_emotion(audio_input)
+        print(f"语音情感分析结果: {speech_emotion}")
+    
+    # 决定使用的情绪 - 优先级：面部 > 语音 > 文本
     chosen_emotion = face_emotion if face_emotion else None
+    if not chosen_emotion and speech_emotion:
+        chosen_emotion = speech_emotion
     if not chosen_emotion and text_emotion:
         chosen_emotion = text_emotion
     if not chosen_emotion:
