@@ -7,6 +7,10 @@ import json
 import random
 from PIL import Image
 import numpy as np
+import logging # 添加logging模块导入
+
+# 获取一个logger实例，可以与main.py中的logger配置联动，或独立配置
+logger = logging.getLogger(__name__)
 
 class CultureManager:
     def __init__(self):
@@ -90,11 +94,13 @@ class CultureManager:
                             img = img.resize(new_size, Image.BICUBIC)
                 return img
             else:
-                print(f"找不到诗人 {poet_name} 的图片")
+                # print(f"找不到诗人 {poet_name} 的图片") # 改为日志记录
+                logger.warning(f"图片未找到: 诗人 '{poet_name}'，路径: '{image_path}'。将使用空白图像。")
                 # 返回一个空白图像
                 return Image.new('RGB', (300, 300), color=(255, 255, 255))
         except Exception as e:
-            print(f"加载诗人图片出错: {e}")
+            # print(f"加载诗人图片出错: {e}") # 改为日志记录
+            logger.error(f"加载诗人 '{poet_name}' 的图片时发生错误 (路径: '{image_path if 'image_path' in locals() else '未知'}'): {e}")
             return Image.new('RGB', (300, 300), color=(255, 255, 255))
     
     def translate_emotion(self, emotion):

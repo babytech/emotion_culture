@@ -33,109 +33,138 @@ def detect_face_emotion(image):
         # 转换为灰度图
         gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         
-        # 对图像进行均衡化处理，增强对比度
-        equalized_gray = cv2.equalizeHist(gray)
+        # 1. 预处理：高斯模糊去噪
+        blurred_gray = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # 2. 预处理：自适应直方图均衡化 (CLAHE) 以改善局部对比度和光照
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        enhanced_gray = clahe.apply(blurred_gray)
         
         # 加载各种级联分类器
         face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
         smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
         eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_eye.xml')
         
-        # 检测人脸
-        faces = face_cascade.detectMultiScale(equalized_gray, 1.1, 4)
+        # 检测人脸 - 调整参数
+        # scaleFactor: 图像在每个比例下的缩减量。较小的值（如1.05）会增加检测时间，但可能提高检测率。
+        # minNeighbors: 每个候选矩形应该拥有的邻居数量。较高的值可以减少误报，但可能会漏检。
+        # minSize: 最小可能对象大小。小于此值的对象将被忽略。
+        faces = face_cascade.detectMultiScale(enhanced_gray, scaleFactor=1.05, minNeighbors=5, minSize=(30, 30))
         
         # 如果检测到人脸
         if len(faces) > 0:
             # 初始化情绪概率
             emotion_scores = {
-                'happy': 0,
-                'sad': 0,
-                'angry': 0,
-                'surprise': 0,
-                'neutral': 0,
-                'fear': 0
+                'happy': 0.0, # 使用浮点数以便更精细地调整
+                'sad': 0.0,
+                'angry': 0.0,
+                'surprise': 0.0,
+                'neutral': 0.1, # 默认给一点中性分
+                'fear': 0.0
             }
             
-            for (x, y, w, h) in faces:
-                # 提取人脸区域
-                roi_gray = equalized_gray[y:y+h, x:x+w]
-                roi_color = image[y:y+h, x:x+w]
-                
-                # 计算人脸区域的直方图特征
-                hist = cv2.calcHist([roi_gray], [0], None, [256], [0, 256])
-                hist_norm = hist / hist.sum()  # 归一化直方图
-                
-                # 1. 检测笑容 - 直接与快乐情绪相关
-                smiles = smile_cascade.detectMultiScale(roi_gray, 1.8, 20)
-                if len(smiles) > 0:
-                    # 根据笑容大小和位置给予快乐情绪分数
-                    smile_size = sum(w*h for (_, _, w, h) in smiles)
-                    smile_ratio = smile_size / (roi_gray.shape[0] * roi_gray.shape[1])
-                    emotion_scores['happy'] += 0.7 * min(smile_ratio * 10, 1.0)
-                
-                # 2. 检测眼睛 - 用于判断惊讶、恐惧和悲伤
-                eyes = eye_cascade.detectMultiScale(roi_gray, 1.1, 3)
-                eye_count = len(eyes)
-                
-                if eye_count >= 2:
-                    # 计算眼睛大小和位置
-                    eye_sizes = [w*h for (_, _, w, h) in eyes]
-                    avg_eye_size = sum(eye_sizes) / len(eye_sizes)
-                    eye_size_ratio = avg_eye_size / (roi_gray.shape[0] * roi_gray.shape[1])
-                    
-                    # 眼睛大意味着可能是惊讶
-                    if eye_size_ratio > 0.03:  # 阈值需要根据实际情况调整
-                        emotion_scores['surprise'] += 0.6
-                    
-                    # 上半部区域（眉毛和眼睛区域）的分析 - 用于检测愤怒
-                    upper_half = roi_gray[0:int(h/2), :]
-                    
-                    # 计算上半部分的边缘密度，愤怒时眉头会紧皱
-                    edges = cv2.Canny(upper_half, 100, 200)
-                    edge_density = np.sum(edges > 0) / (upper_half.shape[0] * upper_half.shape[1])
-                    
-                    # 边缘密度高意味着眉头可能皱起，愤怒的迹象
-                    if edge_density > 0.1:  # 阈值需要根据实际情况调整
-                        emotion_scores['angry'] += 0.5
-                
-                # 3. 嘴部区域分析 - 用于判断悲伤和中性
-                mouth_region = roi_gray[int(2*h/3):h, :]
-                
-                # 计算嘴部区域的梯度
-                sobelx = cv2.Sobel(mouth_region, cv2.CV_64F, 1, 0, ksize=3)
-                sobely = cv2.Sobel(mouth_region, cv2.CV_64F, 0, 1, ksize=3)
-                abs_sobelx = cv2.convertScaleAbs(sobelx)
-                abs_sobely = cv2.convertScaleAbs(sobely)
-                grad = cv2.addWeighted(abs_sobelx, 0.5, abs_sobely, 0.5, 0)
-                
-                # 计算嘴部区域的梯度强度
-                mouth_grad_mean = np.mean(grad)
-                
-                # 如果没有笑容且嘴部梯度强度高，可能是悲伤
-                if len(smiles) == 0 and mouth_grad_mean > 20:
-                    emotion_scores['sad'] += 0.4
-                
-                # 4. 整体人脸暗度和对比度分析 - 作为辅助判断，但不是主要依据
-                avg_intensity = np.mean(roi_gray)
-                contrast = np.std(roi_gray)
-                
-                # 如果其他情绪得分都不高，使用强度和对比度作为辅助
-                if max(emotion_scores.values()) < 0.3:
-                    if contrast > 60:  # 高对比度可能表示情绪波动
-                        emotion_scores['neutral'] += 0.2
-                    else:
-                        emotion_scores['neutral'] += 0.4
+            # 通常只处理最大的人脸
+            (x, y, w, h) = max(faces, key=lambda item: item[2] * item[3])
             
-            # 如果所有情绪分数都很低，增加中性情绪的权重
-            if max(emotion_scores.values()) < 0.3:
-                emotion_scores['neutral'] = 0.5
+            # 提取人脸区域
+            roi_gray = enhanced_gray[y:y+h, x:x+w]
+            # roi_color = image[y:y+h, x:x+w] # roi_color 似乎未使用，注释掉
+
+            # 1. 检测笑容 - 主要与快乐情绪相关
+            # minNeighbors 调整：较高的值意味着对笑容的检测更为严格
+            smiles = smile_cascade.detectMultiScale(roi_gray, scaleFactor=1.7, minNeighbors=22, minSize=(25, 25))
+            if len(smiles) > 0:
+                emotion_scores['happy'] += 0.8 # 笑容是快乐的强特征
+                emotion_scores['neutral'] -= 0.2 # 有笑容时减少中性分
             
-            # 根据情绪分数确定最终情绪
-            max_emotion = max(emotion_scores.items(), key=lambda x: x[1])
-            if max_emotion[1] > 0:
-                return max_emotion[0]
-            else:
+            # 2. 检测眼睛 - 用于判断惊讶、恐惧
+            # minNeighbors 调整：适当增加以减少误报
+            eyes = eye_cascade.detectMultiScale(roi_gray, scaleFactor=1.1, minNeighbors=10, minSize=(20,20))
+            eye_count = len(eyes)
+            
+            if eye_count >= 2:
+                # 计算眼睛的平均睁开程度（近似，基于眼睛区域的高度相对于人脸高度）
+                avg_eye_height_ratio = sum(eh / h for (_, ey, ew, eh) in eyes) / eye_count if eye_count > 0 else 0
+                
+                # 眼睛睁得很大可能是惊讶或恐惧
+                if avg_eye_height_ratio > 0.15: # 阈值需要实验调整
+                    emotion_scores['surprise'] += 0.6
+                    emotion_scores['fear'] += 0.3 # 睁大眼睛也可能与恐惧有关
+                elif avg_eye_height_ratio < 0.08 and len(smiles) == 0: # 眼睛较小且无笑容，可能偏向悲伤
+                    emotion_scores['sad'] += 0.3
+
+                # 眉毛区域分析 (简化版：分析眼睛上部区域的特征)
+                # 我们假设眉毛在眼睛上方。取眼睛区域的上半部分作为眉毛区域的代理。
+                # 这个区域的纹理和边缘可以间接反映眉毛状态。
+                for (ex, ey, ew, eh) in eyes:
+                    eyebrow_roi_y_start = max(0, ey - eh // 2) # 眼睛区域上方
+                    eyebrow_roi_y_end = ey
+                    eyebrow_region = roi_gray[eyebrow_roi_y_start:eyebrow_roi_y_end, ex:ex+ew]
+                    if eyebrow_region.size > 0:
+                        # 愤怒时眉毛通常会皱紧，导致边缘增多
+                        edges_eyebrow = cv2.Canny(eyebrow_region, 50, 150)
+                        eyebrow_edge_density = np.sum(edges_eyebrow > 0) / (eyebrow_region.size + 1e-6) # 避免除以零
+                        if eyebrow_edge_density > 0.2: # 阈值需要实验调整
+                            emotion_scores['angry'] += 0.5
+                            emotion_scores['neutral'] -= 0.1
+            elif eye_count == 0 and len(faces) > 0: # 没有检测到睁开的眼睛，但检测到了人脸
+                emotion_scores['sad'] += 0.2 # 可能是闭眼或者非常悲伤
+                emotion_scores['neutral'] += 0.1
+
+            # 3. 嘴部区域分析 (当没有检测到笑容时)
+            if len(smiles) == 0:
+                # 近似嘴部区域（人脸下半部分）
+                mouth_roi_y_start = y + h // 2
+                mouth_region = enhanced_gray[mouth_roi_y_start:y+h, x:x+w]
+                if mouth_region.size > 0:
+                    # 悲伤时嘴部可能下撇，可以通过分析水平边缘来粗略判断
+                    # 使用 Sobel 算子检测水平边缘
+                    sobel_y = cv2.Sobel(mouth_region, cv2.CV_64F, 0, 1, ksize=5)
+                    # 悲伤时嘴部下撇，可能导致强烈的负向垂直梯度（即水平边缘）
+                    # 这里简化为分析梯度强度，更复杂的形状分析需要轮廓检测
+                    mean_abs_sobel_y = np.mean(np.abs(sobel_y))
+                    if mean_abs_sobel_y > 30: # 阈值需要实验调整
+                        emotion_scores['sad'] += 0.4
+                        emotion_scores['neutral'] -= 0.1
+            
+            # 4. 对愤怒情绪的进一步判断：结合眉毛和无笑容
+            if emotion_scores['angry'] > 0.3 and len(smiles) == 0:
+                emotion_scores['angry'] += 0.2 # 如果有皱眉迹象且无笑容，更可能是愤怒
+            else: # 如果有笑容，则不太可能是愤怒
+                emotion_scores['angry'] *= 0.5
+
+
+            # 5. 光照和对比度作为辅助（主要用于区分中性）
+            # 全局直方图均衡化已经尝试改善光照，这里不再重复计算强度和对比度，
+            # 因为CLAHE处理后的图像对比度可能已经较高。
+            # 主要通过其他特征是否显著来判断是否为中性。
+
+            # 规范化情绪分数，使得总和为1 (可选，但有助于比较)
+            # total_score = sum(emotion_scores.values())
+            # if total_score > 0:
+            #     for k in emotion_scores:
+            #         emotion_scores[k] /= total_score
+            
+            # 如果所有其他特定情绪分数都很低，则更倾向于中性
+            specific_emotion_scores = [emotion_scores[k] for k in emotion_scores if k != 'neutral']
+            if max(specific_emotion_scores) < 0.3: # 如果没有明显的情绪特征
+                emotion_scores['neutral'] += 0.3 # 增加中性情绪的权重
+            
+            # 找到分数最高的情绪
+            # 如果最高分过低，或者与第二高分差距不大，也可以偏向 neutral
+            sorted_emotions = sorted(emotion_scores.items(), key=lambda item: item[1], reverse=True)
+            
+            best_emotion, best_score = sorted_emotions[0]
+            
+            # 最终决策逻辑:
+            # 如果最高分显著高于其他（特别是高于0.3的基础置信度），则采纳
+            # 否则，如果中性分数也比较高，或者没有特别突出的情绪，则为中性
+            if best_score < 0.35 and emotion_scores['neutral'] > 0.2: # 如果最高分不够自信，且中性有一定分数
                 return 'neutral'
+            if best_score < 0.25: # 如果最高分实在太低
+                 return 'neutral'
+
+            return best_emotion
         else:
             return 'neutral'  # 如果没有检测到人脸，返回中性
     except Exception as e:
