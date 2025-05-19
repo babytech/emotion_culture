@@ -179,15 +179,49 @@ def analyze_text_sentiment(text):
     if not text:
         return None
     
-    positive_words = ['高兴', '开心', '快乐', '愉快', '好', '棒', '喜欢', '爱']
-    negative_words = ['悲伤', '难过', '伤心', '痛苦', '不好', '讨厌', '厌恶', '恨']
+    # 扩展词汇
+    positive_words = [
+        '高兴', '开心', '快乐', '愉快', '好', '棒', '喜欢', '爱', '惊喜', '幸运', '满足', '幸福', '完美', '顺利'
+    ]
+    negative_words = [
+        '悲伤', '难过', '伤心', '痛苦', '不好', '讨厌', '厌恶', '恨', '失望', '郁闷', '烦恼', '糟糕', '倒霉', '失败', 
+        '不开心', '不快乐', '不顺利', '不满意', '生气', '愤怒', '沮丧', '担忧', '害怕', '恐惧',
+        '没考好', '考砸了', '考得不好', '成绩差', '不舒服'
+    ]
+    surprise_words = ['惊喜', '惊讶', '哇', '竟然', '居然']
+    angry_words = ['生气', '愤怒', '气死', '怒', '火大']
+    fear_words = ['害怕', '恐惧', '担心', '恐怖', '吓']
+
+    text_lower = text.lower() # 转换为小写以匹配更多可能
+
+    positive_count = sum(1 for word in positive_words if word in text_lower)
+    negative_count = sum(1 for word in negative_words if word in text_lower)
+    surprise_count = sum(1 for word in surprise_words if word in text_lower)
+    angry_count = sum(1 for word in angry_words if word in text_lower)
+    fear_count = sum(1 for word in fear_words if word in text_lower)
     
-    positive_count = sum(1 for word in positive_words if word in text)
-    negative_count = sum(1 for word in negative_words if word in text)
+    # 调试信息，可以根据需要取消注释
+    # print(f"文本: '{text_lower}'")
+    # print(f"Positive: {positive_count}, Negative: {negative_count}, Surprise: {surprise_count}, Angry: {angry_count}, Fear: {fear_count}")
+
+    # 优先处理更具体的情绪
+    if angry_count > 0 and angry_count >= positive_count and angry_count >= negative_count:
+        return 'angry'
+    if fear_count > 0 and fear_count >= positive_count and fear_count >= negative_count:
+        return 'fear' 
+    # Surprise 通常与 happy 有重叠，如果同时有 happy 词，可能更偏向 happy
+    if surprise_count > 0 and positive_count == 0 and negative_count == 0: # 纯粹的惊讶
+        return 'surprise'
     
+    # 然后是主要的积极和消极判断
     if positive_count > negative_count:
+        # 如果有惊喜词，并且积极词占优，也可以认为是 happy (惊喜的一种)
+        if surprise_count > 0:
+             return 'happy' # 或者 'surprise' 如果希望更突出惊喜
         return 'happy'
     elif negative_count > positive_count:
-        return 'sad'
+        return 'sad' # "难过" 和 "有点难过" 都会落在这里
+    elif surprise_count > 0: # 如果正负词一样多（比如都是0），但有惊喜词
+        return 'surprise'
     else:
         return 'neutral'

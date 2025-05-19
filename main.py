@@ -322,7 +322,12 @@ def main_app(text_input, image_input, audio_input=None):
     text_emotion = None
     if text_input:
         text_emotion = analyze_text_sentiment(text_input)
-        print(f"文本情感分析结果: {text_emotion}")
+        # 修改print语句以同时显示中文翻译
+        if text_emotion: # 确保text_emotion不是None
+            translated_text_emotion = culture_manager.translate_emotion(text_emotion)
+            print(f"文本情感分析结果 (原始): {text_emotion}, 翻译为: {translated_text_emotion}")
+        else:
+            print(f"文本情感分析结果: 未能识别出明确情绪")
     
     # 语音情绪分析
     speech_emotion = None

@@ -173,6 +173,66 @@ input, textarea {
     background-color: #367c39 !important; /* 深绿色 */
 }
 
+/* 为 Examples 中的示例添加不同背景色 */
+/* Base style for buttons within the custom examples area */
+#custom_examples_area div[data-testid="dataset"] button {
+    background-image: none !important; /* Override global button background images/gradients */
+    border: 1px solid var(--border-color) !important;
+    border-radius: 5px !important;
+    padding: 8px 12px !important;
+    margin-bottom: 5px !important;
+    font-weight: normal !important; /* Override bold from global button if desired */
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1) !important; /* Softer shadow than global button */
+}
+
+/* Odd-numbered example buttons within the custom examples area */
+#custom_examples_area div[data-testid="dataset"] button:nth-child(odd) {
+    background-color: #e6f7ff !important; /* 淡蓝色 */
+    color: #333333 !important; /* 深色文字，确保可读性 */
+}
+
+/* Even-numbered example buttons within the custom examples area */
+#custom_examples_area div[data-testid="dataset"] button:nth-child(even) {
+    background-color: #fff0e6 !important; /* 淡橙色 */
+    color: #333333 !important; /* 深色文字，确保可读性 */
+}
+
+/* Hover effect for odd example buttons */
+#custom_examples_area div[data-testid="dataset"] button:nth-child(odd):hover {
+    background-color: #d0eefc !important; /* 略深的淡蓝色 */
+    color: #000000 !important; /* 确保悬停时文字仍清晰 */
+    filter: none !important; /* Remove general hover filter if it causes issues */
+    transform: translateY(-1px) !important;
+}
+
+/* Hover effect for even example buttons */
+#custom_examples_area div[data-testid="dataset"] button:nth-child(even):hover {
+    background-color: #ffe0cc !important; /* 略深的淡橙色 */
+    color: #000000 !important; /* 确保悬停时文字仍清晰 */
+    filter: none !important;
+    transform: translateY(-1px) !important;
+}
+
+/* 修改 "语音输入 (可选)" Accordion 标题的背景色 */
+.custom-audio-accordion .label-wrap > .label, /* Gradio 较新版本可能使用这种结构 */
+.custom-audio-accordion > button, /* Gradio 某些版本Accordion标题是button */
+.custom-audio-accordion > div[role="button"], /* 或者是一个带role=button的div */
+.custom-audio-accordion summary /* HTML5 details/summary 结构 */
+{
+    background-color: #28a745 !important; /* 绿色 */
+    color: white !important; /* 白色文字以确保可见性 */
+    border-radius: 5px !important;
+    padding: 8px 12px !important; /* 调整内边距 */
+    border: none !important; /* 移除边框，如果需要 */
+}
+
+.custom-audio-accordion .label-wrap > .label:hover,
+.custom-audio-accordion > button:hover,
+.custom-audio-accordion > div[role="button"]:hover,
+.custom-audio-accordion summary:hover {
+    background-color: #218838 !important; /* 深一点的绿色 */
+}
+
 /* 减少特定行之间的垂直间距 */
 .compact-row {
     margin-top: 5px !important;  /* 减少上方外边距 */
@@ -223,10 +283,11 @@ def create_ui(main_app_func):
                         ["收到了朋友的礼物，心里暖暖的。"]
                     ],
                     inputs=[text_input],
-                    label="或者试试这些例子："
+                    label="或者试试这些例子：",
+                    elem_id="custom_examples_area"
                 )
                 
-                with gr.Accordion("🎤 语音输入 (可选)", open=False):
+                with gr.Accordion("🎤 语音输入 (可选)", open=False, elem_classes="custom-audio-accordion"):
                     audio_input = gr.Audio(sources=["microphone"], type="filepath", label="或者，说出你的感受:", elem_classes="custom-audio-input")
 
                 emotion_output = gr.Textbox(label="情绪识别结果:", interactive=False, elem_classes="textbox-container")
@@ -239,7 +300,7 @@ def create_ui(main_app_func):
                 
                 with gr.Row():
                     with gr.Column(scale=1):
-                        poet_image_output = gr.Image(label="文人雅士", type="numpy", interactive=False, height=300, elem_classes="image-preview")
+                        poet_image_output = gr.Image(label="唐宋八大家", type="numpy", interactive=False, height=300, elem_classes="image-preview")
                     with gr.Column(scale=2):
                         poem_output = gr.Textbox(label="诗词与解读:", lines=10, interactive=False, elem_classes="textbox-container")
 
