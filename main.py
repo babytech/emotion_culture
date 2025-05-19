@@ -31,6 +31,9 @@ from emotion import comfort_text, guochao_characters, detect_face_emotion, analy
 # 导入语音情绪识别模块
 from speech import analyze_speech_emotion
 
+# 导入 email_utils 中的邮件发送函数
+from email_utils import send_analysis_email, send_email
+
 # -------- 配置日志记录 --------
 def setup_logger():
     """设置日志记录器"""
@@ -302,74 +305,116 @@ def launch_gradio_server(interface, primary_port=7890, port_range=(7890, 7900)):
     
     return server_thread
 
-# -------- 主函数 --------
-def main_app(text_input, image_input, audio_input=None):
-    """
-    简化版主函数：
-    输入: 文本输入, 摄像头图像, 语音输入
-    输出: 情绪文本结果, 诗词文字与解读, 文人静态图像, 国潮形象, 安抚文案
-    """
-    # 处理图像尺寸
-    if image_input is not None:
-        image_input = process_image(image_input)
-        
-    # 面部表情识别
-    face_emotion = None
-    if image_input is not None:
-        face_emotion = detect_face_emotion(image_input)
-        
-    # 文本情感分析
-    text_emotion = None
-    if text_input:
-        text_emotion = analyze_text_sentiment(text_input)
-        # 修改print语句以同时显示中文翻译
-        if text_emotion: # 确保text_emotion不是None
-            translated_text_emotion = culture_manager.translate_emotion(text_emotion)
-            print(f"文本情感分析结果 (原始): {text_emotion}, 翻译为: {translated_text_emotion}")
-        else:
-            print(f"文本情感分析结果: 未能识别出明确情绪")
-    
-    # 语音情绪分析
-    speech_emotion = None
-    if audio_input:
-        speech_emotion = analyze_speech_emotion(audio_input)
-        print(f"语音情感分析结果: {speech_emotion}")
-    
-    # 决定使用的情绪 - 优先级：面部 > 语音 > 文本
-    chosen_emotion = face_emotion if face_emotion else None
-    if not chosen_emotion and speech_emotion:
-        chosen_emotion = speech_emotion
-    if not chosen_emotion and text_emotion:
-        chosen_emotion = text_emotion
-    if not chosen_emotion:
-        chosen_emotion = "neutral"
-    
-    # 诗词情绪响应
-    poet, poem_text = get_poem_for_emotion(chosen_emotion)
-    
-    # 生成丰富的诗词解读
-    rich_poem_interpretation = get_rich_poem_interpretation(poet, poem_text, chosen_emotion)
-    
-    # 获取文人静态图片
-    poet_image = get_poet_image(poet)
-    poet_image = np.array(poet_image)
-    
-    # 获取国潮卡通形象
-    guochao_image, character_name = get_guochao_image(chosen_emotion)
-    guochao_image = np.array(guochao_image)
-    
-    # 获取情绪安抚文案
-    comfort = comfort_text.get(chosen_emotion, comfort_text["neutral"])
-    guochao_response = f"{character_name}：\n{comfort}"
-    
-    # 返回情绪识别结果文本（中文翻译）
-    emotion_cn = culture_manager.translate_emotion(chosen_emotion)
-    emotion_result = f"检测到的情绪: {emotion_cn}"
-    
-    return emotion_result, rich_poem_interpretation, poet_image, guochao_response, guochao_image
+class AppLogic:
+    def __init__(self):
+        # 移除 SMTP 服务器配置，这些现在由 email_utils.py 通过 .env 文件处理
+        # self.smtp_server = os.environ.get("SMTP_SERVER", "smtp.example.com")
+        # self.smtp_port = int(os.environ.get("SMTP_PORT", 587))
+        # self.smtp_sender_email = os.environ.get("SMTP_SENDER_EMAIL", "your_email@example.com")
+        # self.smtp_sender_password = os.environ.get("SMTP_SENDER_PASSWORD", "your_password_or_app_key")
+        pass # __init__ 目前不需要做任何事，但保留以备将来扩展
 
-# 使用ui.py创建界面
-iface = create_ui(main_app)
+    def process_analysis(self, text_input, image_input, audio_input=None):
+        """
+        主分析函数：
+        输入: 文本输入, 摄像头图像, 语音输入
+        输出: 情绪文本结果, 诗词文字与解读, 文人静态图像, 国潮形象, 安抚文案
+        """
+        logger.info(f"接收到分析请求: 文本='{text_input}', 图像存在={image_input is not None}, 音频存在={audio_input is not None}")
+        # 处理图像尺寸
+        processed_image_input = None
+        if image_input is not None:
+            processed_image_input = process_image(image_input)
+            
+        # 面部表情识别
+        face_emotion = None
+        if processed_image_input is not None:
+            face_emotion = detect_face_emotion(processed_image_input)
+            logger.info(f"面部情绪识别结果: {face_emotion}")
+            
+        # 文本情感分析
+        text_emotion = None
+        if text_input:
+            text_emotion = analyze_text_sentiment(text_input)
+            if text_emotion:
+                translated_text_emotion = culture_manager.translate_emotion(text_emotion)
+                logger.info(f"文本情感分析结果 (原始): {text_emotion}, 翻译为: {translated_text_emotion}")
+            else:
+                logger.info(f"文本情感分析结果: 未能识别出明确情绪")
+        
+        # 语音情绪分析
+        speech_emotion = None
+        if audio_input:
+            speech_emotion = analyze_speech_emotion(audio_input)
+            logger.info(f"语音情感分析结果: {speech_emotion}")
+        
+        # 决定使用的情绪 - 优先级：面部 > 语音 > 文本
+        chosen_emotion = face_emotion if face_emotion else None
+        if not chosen_emotion and speech_emotion:
+            chosen_emotion = speech_emotion
+        if not chosen_emotion and text_emotion:
+            chosen_emotion = text_emotion
+        if not chosen_emotion:
+            chosen_emotion = "neutral"
+        logger.info(f"最终选择的情绪: {chosen_emotion}")
+        
+        # 诗词情绪响应
+        poet, poem_text = get_poem_for_emotion(chosen_emotion)
+        
+        # 生成丰富的诗词解读
+        rich_poem_interpretation = get_rich_poem_interpretation(poet, poem_text, chosen_emotion)
+        
+        # 获取文人静态图片
+        poet_pil_image = get_poet_image(poet) # PIL Image
+        poet_image_np = np.array(poet_pil_image) if poet_pil_image else None
+        
+        # 获取国潮卡通形象
+        guochao_pil_image, character_name = get_guochao_image(chosen_emotion) # PIL Image, name
+        guochao_image_np = np.array(guochao_pil_image) if guochao_pil_image else None
+        
+        # 获取情绪安抚文案
+        comfort = comfort_text.get(chosen_emotion, comfort_text["neutral"])
+        guochao_response = f"{character_name}：\\n{comfort}"
+        
+        # 返回情绪识别结果文本（中文翻译）
+        emotion_cn = culture_manager.translate_emotion(chosen_emotion)
+        emotion_result = f"检测到的情绪: {emotion_cn}"
+        
+        return emotion_result, rich_poem_interpretation, poet_image_np, guochao_response, guochao_image_np
+
+    def send_email_function(self, to_email, thoughts, user_photo_np, poet_image_np, poem, guochao_image_np, comfort):
+        logger.info(f"请求发送邮件到: {to_email}")
+        if not to_email or "@" not in to_email or "." not in to_email:
+            logger.warning("AppLogic: 无效的邮箱地址。")
+            return "邮箱地址无效，请输入正确的邮箱。"
+
+        # 调用 email_utils 中的函数来处理邮件发送
+        try:
+            success, message = send_analysis_email(
+                to_email=to_email,
+                thoughts=thoughts,
+                user_photo_np=user_photo_np,
+                poet_image_np=poet_image_np,
+                poem=poem,
+                guochao_image_np=guochao_image_np,
+                comfort=comfort
+            )
+            if success:
+                logger.info(f"邮件发送成功，来自 email_utils 的消息: {message}")
+            else:
+                logger.error(f"邮件发送失败，来自 email_utils 的消息: {message}")
+            return message
+        except Exception as e:
+            logger.error(f"调用 send_analysis_email 时发生意外错误: {e}", exc_info=True)
+            return f"发送邮件过程中发生意外错误: {str(e)}"
+
+# 实例化应用逻辑
+app_logic = AppLogic()
+
+# 将 AppLogic 实例的 process_analysis 方法传递给 create_ui
+# ui.py 中的 main_app_func 将是 app_logic 实例
+# 这样 ui.py 就可以调用 app_logic.send_email_function
+iface = create_ui(app_logic)
 
 def ensure_image_directories():
     """确保图像目录存在"""

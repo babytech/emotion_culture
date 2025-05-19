@@ -1,0 +1,27 @@
+# IDE and OS specific files
+.idea/
+*.DS_Store
+
+# Python specific files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+.venv/
+ENV/
+env/
+
+# Environment variables file - contains sensitive credentials
+.env
+
+# Log files
+logs/
+*.log
+
+# Other common ignores
+*.swp
+*.swo
+*.bak 

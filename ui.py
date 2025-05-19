@@ -309,6 +309,13 @@ def create_ui(main_app_func):
                         guochao_image_output = gr.Image(label="国潮伙伴", type="numpy", interactive=False, height=300, elem_classes="image-preview")
                     with gr.Column(scale=2):
                         comfort_output = gr.Textbox(label="来自国潮伙伴的慰藉:", lines=5, interactive=False, elem_classes="textbox-container")
+                
+                # 新增：步骤 4 - 发送电子邮件
+                gr.Markdown("### 步骤 4: 发送电子邮件 (可选)")
+                email_input = gr.Textbox(label="请输入您的邮箱地址:", placeholder="your_email@example.com", elem_id="email_input_custom")
+                send_email_button = gr.Button("发送到邮箱", elem_id="send_email_button_custom")
+                email_status_output = gr.Textbox(label="邮件发送状态:", interactive=False, elem_classes="textbox-container")
+
             
         # 分割线
         gr.Markdown("<div class='chinese-pattern'></div>", elem_classes="fade-in")
@@ -325,6 +332,7 @@ def create_ui(main_app_func):
             # 清除所有输入和输出
             # 输入：text_input, image_input, audio_input
             # 输出：emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output
+            # 新增：email_input, email_status_output
             return (
                 "",  # text_input
                 None, # image_input
@@ -333,23 +341,53 @@ def create_ui(main_app_func):
                 "",   # poem_output
                 None, # poet_image_output
                 "",   # comfort_output
-                None  # guochao_image_output
+                None, # guochao_image_output
+                "", # email_input
+                ""  # email_status_output
             )
 
         # 绑定提交按钮的点击事件
         submit_button.click(
-            fn=main_app_func,
+            fn=main_app_func.process_analysis,
             inputs=[text_input, image_input, audio_input],
             outputs=[emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output]
         )
         
+        # 新增：绑定发送邮件按钮的点击事件
+        # 注意：send_email_function 需要在 main.py 中定义并传递给 create_ui
+        # 目前我们先假设它会被传递进来
+        if hasattr(main_app_func, 'send_email_function') and callable(main_app_func.send_email_function):
+            send_email_button.click(
+                fn=main_app_func.send_email_function,
+                inputs=[
+                    email_input,            # 邮箱地址
+                    text_input,             # 步骤1 用户写下的想法与感受
+                    image_input,            # 步骤2 用户上传或拍摄照片
+                    poet_image_output,      # 步骤3 唐宋八大家卡通人物图片
+                    poem_output,            # 步骤3 诗词回应
+                    guochao_image_output,   # 步骤3 为用户生成的卡通形象 (国潮伙伴)
+                    comfort_output          # 步骤3 安抚情绪鼓励的话语 (来自国潮伙伴的慰藉)
+                ],
+                outputs=[email_status_output]
+            )
+        else:
+            # 如果没有提供邮件发送函数，则按钮点击时显示提示信息
+            def show_email_feature_not_implemented():
+                return "邮件发送功能暂未实现。"
+            send_email_button.click(
+                fn=show_email_feature_not_implemented,
+                inputs=[],
+                outputs=[email_status_output]
+            )
+
         # 绑定重置按钮的点击事件
         reset_button.click(
             fn=reset_all,
             inputs=[], # 无需输入
             outputs=[
                 text_input, image_input, audio_input,
-                emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output
+                emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output,
+                email_input, email_status_output # 新增重置项
             ]
         )
         
@@ -379,5 +417,24 @@ if __name__ == '__main__':
         
         return emotion_res, poem_res, blank_image_data_poet, comfort_res, blank_image_data_guochao
 
-    iface = create_ui(mock_main_app)
+    # 为了测试邮件功能，我们需要一个模拟的 main_app_func 对象，它有一个 send_email_function 方法
+    class MockMainApp:
+        def __call__(self, text, image, audio):
+            return mock_main_app(text, image, audio)
+
+        def send_email_function(self, email, thoughts, user_photo, poet_img, poem, guochao_img, comfort):
+            print(f"模拟发送邮件到: {email}")
+            print(f"想法: {thoughts}")
+            print(f"用户照片: {'有' if user_photo is not None else '无'}")
+            print(f"诗人图片: {'有' if poet_img is not None else '无'}")
+            print(f"诗词: {poem}")
+            print(f"国潮形象: {'有' if guochao_img is not None else '无'}")
+            print(f"慰藉语: {comfort}")
+            if not email:
+                return "请输入邮箱地址。"
+            if "@" not in email or "." not in email: # 简单邮箱格式校验
+                return "邮箱格式不正确。"
+            return f"邮件已发送到 {email} (模拟)。"
+
+    iface = create_ui(MockMainApp()) # 使用新的 MockMainApp 实例
     iface.launch(server_name="0.0.0.0", server_port=7860) 
