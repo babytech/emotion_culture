@@ -262,7 +262,7 @@ def create_ui(main_app_func):
         gr.Blocks: Gradio界面实例
     """
     with gr.Blocks(css=css, theme=gr.themes.Soft(primary_hue="red", secondary_hue="orange")) as iface:
-        gr.Markdown("<h1 style='text-align: center; color: #FF4500;'>儿童情绪识别与文化心理疏导系统 (简化版)</h1>")
+        gr.Markdown("<h1 style='text-align: center; color: #FF4500;'>青少年情绪识别与文化心理疏导系统</h1>")
         
         with gr.Row():
             with gr.Column(scale=2):
@@ -299,15 +299,15 @@ def create_ui(main_app_func):
                 gr.Markdown("### 步骤 3: 查看结果 ✨")
                 
                 with gr.Row():
-                    with gr.Column(scale=1):
-                        poet_image_output = gr.Image(label="唐宋八大家", type="numpy", interactive=False, height=300, elem_classes="image-preview")
-                    with gr.Column(scale=2):
+                    with gr.Column(scale=1.1):
+                        poet_image_output = gr.Image(label="唐宋八大家", type="numpy", interactive=False, height=330, elem_classes="image-preview")
+                    with gr.Column(scale=1.9):
                         poem_output = gr.Textbox(label="诗词与解读:", lines=10, interactive=False, elem_classes="textbox-container")
 
                 with gr.Row():
-                    with gr.Column(scale=1):
-                        guochao_image_output = gr.Image(label="国潮伙伴", type="numpy", interactive=False, height=300, elem_classes="image-preview")
-                    with gr.Column(scale=2):
+                    with gr.Column(scale=1.1):
+                        guochao_image_output = gr.Image(label="国潮伙伴", type="numpy", interactive=False, height=330, elem_classes="image-preview")
+                    with gr.Column(scale=1.9):
                         comfort_output = gr.Textbox(label="来自国潮伙伴的慰藉:", lines=5, interactive=False, elem_classes="textbox-container")
                 
                 # 新增：步骤 4 - 发送电子邮件
@@ -325,7 +325,7 @@ def create_ui(main_app_func):
             reset_button = gr.Button("重置所有", variant="secondary", elem_id="reset_button_custom")
 
         # 页脚
-        gr.Markdown("<p class='footer'>© 2024 儿童情绪识别与文化心理疏导系统. </p>")
+        gr.Markdown("<p class='footer'>© 2024 青少年情绪识别与文化心理疏导系统. </p>")
         
         # 定义清除函数
         def reset_all():

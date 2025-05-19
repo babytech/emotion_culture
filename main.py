@@ -1,5 +1,5 @@
 """
-简化版 - 儿童情绪识别与文化心理疏导系统
+青少年情绪识别与文化心理疏导系统
 使用最少的依赖，主要功能包括：
 - 简单的面部检测（使用OpenCV）
 - 基于亮度的简单情绪估计
@@ -374,7 +374,7 @@ class AppLogic:
         
         # 获取情绪安抚文案
         comfort = comfort_text.get(chosen_emotion, comfort_text["neutral"])
-        guochao_response = f"{character_name}：\\n{comfort}"
+        guochao_response = f"{character_name}：\n{comfort}"
         
         # 返回情绪识别结果文本（中文翻译）
         emotion_cn = culture_manager.translate_emotion(chosen_emotion)
@@ -442,7 +442,7 @@ def ensure_image_directories():
 if __name__ == "__main__":
     try:
         logger.info("="*50)
-        logger.info("准备启动儿童情绪识别与文化心理疏导系统...")
+        logger.info("准备启动青少年情绪识别与文化心理疏导系统...")
         logger.info("="*50)
         
         # 确保图像目录存在

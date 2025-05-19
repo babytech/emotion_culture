@@ -25,3 +25,12 @@ logs/
 *.swp
 *.swo
 *.bak 
+
+# ignore all files starting with ._
+._*
+
+# ignore all files starting with .vscode
+.vscode/*
+
+# ignore all files starting with .venv
+.venv/*

@@ -120,7 +120,7 @@ def send_analysis_email(to_email, thoughts, user_photo_np, poet_image_np, poem, 
     """
     Prepares and sends the analysis email with all content and images.
     """
-    subject = '来自"儿童情绪识别与文化心理疏导系统"的分析结果'
+    subject = '来自"青少年情绪识别与文化心理疏导系统"的分析结果'
     
     temp_image_paths = [] # To store paths of temporary images for cleanup
 
@@ -163,7 +163,7 @@ def send_analysis_email(to_email, thoughts, user_photo_np, poet_image_np, poem, 
     </head>
     <body>
         <div class="container">
-            <h2>儿童情绪识别与文化心理疏导结果</h2>
+            <h2>青少年情绪识别与文化心理疏导结果</h2>
             
             <h3>您的想法与感受：</h3>
             <p>{thoughts if thoughts else "您没有输入想法或感受。"}</p>
@@ -228,7 +228,7 @@ if __name__ == '__main__':
     <html>
         <body>
             <h1>测试邮件</h1>
-            <p>这是一封来自儿童情绪识别与文化心理疏导系统的测试邮件。</p>
+            <p>这是一封来自青少年情绪识别与文化心理疏导系统的测试邮件。</p>
             <p>情绪诗词图片:</p>
             <img src="cid:poet_image_cid" alt="诗人图片" width="200">
             <p>国潮伙伴图片:</p>
@@ -268,7 +268,7 @@ if __name__ == '__main__':
         else:
             success, message = send_email(
                 recipient_email=test_recipient,
-                subject="[测试] 儿童情绪识别系统邮件",
+                subject="[测试] 青少年情绪识别系统邮件",
                 html_body=dummy_html,
                 image_attachments=images_to_attach
             )
