@@ -21,6 +21,8 @@ import sys
 import time
 from datetime import datetime
 from PIL import Image
+import pyttsx3
+import platform
 
 # 导入UI模块
 from ui import create_ui
@@ -69,6 +71,116 @@ def setup_logger():
 
 # 初始化日志记录器
 logger = setup_logger()
+
+# -------- 文本转语音函数 --------
+def speak_text_in_thread(text_to_speak, gender='female'):
+    """
+    使用 pyttsx3 在单独的线程中朗读文本，优先使用'月' (Yue) 语音。
+    """
+    def speak():
+        try:
+            logger.info("TTS speak_text_in_thread: 尝试初始化 pyttsx3 引擎...")
+            engine = pyttsx3.init()
+            system_platform = platform.system() # 获取平台信息，以备后续特定逻辑
+            logger.info(f"TTS speak_text_in_thread: 引擎已初始化。当前平台: {system_platform}")
+
+            voices = engine.getProperty('voices')
+            logger.info(f"TTS speak_text_in_thread: 找到 {len(voices)} 个可用语音。")
+            # 调试时可以取消注释下一行以查看所有语音的详细信息
+            # for i, voice in enumerate(voices):
+            #     try:
+            #         lang_str = ", ".join(voice.languages) if hasattr(voice, 'languages') and voice.languages else "N/A"
+            #         gender_str = voice.gender if hasattr(voice, 'gender') and voice.gender else "N/A"
+            #         logger.info(f"  语音 {i}: ID='{voice.id}', 名称='{voice.name}', 性别='{gender_str}', 语言='{lang_str}'")
+            #     except Exception as e_voice_attr:
+            #         logger.warning(f"  语音 {i}: ID='{getattr(voice, 'id', 'N/A')}', 名称='{getattr(voice, 'name', 'N/A')}' (获取部分属性失败: {e_voice_attr})")
+
+            chosen_voice_id = None
+            chosen_voice_name = "未选择"
+
+            # 1. 优先尝试精确查找名为 "月" 或 "Yue" 的语音
+            preferred_voice_names = ["月", "Yue"] # "Yue (Premium)" 也可以加入，但 "Yue" 应该能匹配到
+            logger.info(f"TTS speak_text_in_thread: 尝试精确查找首选中文语音 (名称包含: {', '.join(preferred_voice_names)})...")
+            for voice in voices:
+                if hasattr(voice, 'name') and voice.name:
+                    for preferred_name in preferred_voice_names:
+                        if preferred_name.lower() in voice.name.lower(): # 不区分大小写匹配
+                            # 确保它也支持中文，以防有其他语言的Yue
+                            if hasattr(voice, 'languages') and voice.languages and any('zh' in lang.lower() for lang in voice.languages):
+                                chosen_voice_id = voice.id
+                                chosen_voice_name = voice.name
+                                logger.info(f"TTS speak_text_in_thread:  => 精确匹配成功: 找到指定中文语音 '{chosen_voice_name}' (ID: {chosen_voice_id})")
+                                break 
+                    if chosen_voice_id: 
+                        break
+            
+            if chosen_voice_id:
+                logger.info(f"TTS speak_text_in_thread: 首选语音 '{chosen_voice_name}' 已找到并选中。")
+            else:
+                logger.info("TTS speak_text_in_thread: 未能通过精确名称查找到首选语音'月'或'Yue'。将继续通用选择逻辑...")
+                # 2. 如果未找到精确匹配，执行之前的通用女性和中文语音选择逻辑
+                if gender == 'female': # 只有当要求女声时才应用后续的通用女声逻辑
+                    for voice in voices:
+                        name_lower = voice.name.lower() if hasattr(voice, 'name') and voice.name else ""
+                        is_female_by_name = "female" in name_lower or "女孩" in name_lower or "女声" in name_lower
+                        is_female_by_gender = hasattr(voice, 'gender') and voice.gender and voice.gender.lower() == 'female'
+                        is_female = is_female_by_name or is_female_by_gender
+
+                        supports_chinese_by_lang = hasattr(voice, 'languages') and voice.languages and any('zh' in lang.lower() for lang in voice.languages)
+                        # macOS 上常见的其他中文语音名，作为后备补充
+                        supports_chinese_by_name_macos = "ting-ting" in name_lower or "mei-jia" in name_lower or "sin-ji" in name_lower 
+                        supports_chinese = supports_chinese_by_lang or (system_platform == 'Darwin' and supports_chinese_by_name_macos)
+
+                        if is_female and supports_chinese:
+                            chosen_voice_id = voice.id
+                            chosen_voice_name = voice.name
+                            logger.info(f"TTS speak_text_in_thread:  => 通用选择：找到支持中文的女性语音 '{chosen_voice_name}' (ID: {chosen_voice_id})")
+                            break
+                    
+                    if not chosen_voice_id: # 如果没有找到中文女声，退一步选择任何女声
+                        for voice in voices:
+                            name_lower = voice.name.lower() if hasattr(voice, 'name') and voice.name else ""
+                            is_female_by_name = "female" in name_lower or "女孩" in name_lower or "女声" in name_lower
+                            is_female_by_gender = hasattr(voice, 'gender') and voice.gender and voice.gender.lower() == 'female'
+                            is_female = is_female_by_name or is_female_by_gender
+                            if is_female:
+                                chosen_voice_id = voice.id
+                                chosen_voice_name = voice.name
+                                logger.info(f"TTS speak_text_in_thread:  => 通用选择：找到女性语音 '{chosen_voice_name}' (ID: {chosen_voice_id}) (可能非中文)")
+                                break
+            
+            # 3.最后的后备逻辑：如果以上都没有选定语音
+            if not chosen_voice_id:
+                logger.info("TTS speak_text_in_thread: 未通过特定名称或性别/语言组合找到语音。尝试通用后备方案...")
+                if voices: # 如果有任何可用语音
+                    # 可以选择第一个，或者对于macOS，尝试系统默认（但pyttsx3不直接暴露这个）
+                    # 简单起见，我们用第一个作为最终后备
+                    chosen_voice_id = voices[0].id
+                    chosen_voice_name = voices[0].name if hasattr(voices[0], 'name') else '[未知名称]'
+                    logger.info(f"TTS speak_text_in_thread:  => 后备选择：使用第一个可用语音 '{chosen_voice_name}' (ID: {chosen_voice_id})")
+                else:
+                    logger.error("TTS speak_text_in_thread: 严重错误 - 无任何可用TTS语音!")
+                    return # 无法继续
+
+            logger.info(f"TTS speak_text_in_thread: --- 语音选择完毕 ---")
+            if chosen_voice_id:
+                logger.info(f"TTS speak_text_in_thread: 最终设置语音为: '{chosen_voice_name}' (ID: {chosen_voice_id})")
+                engine.setProperty('voice', chosen_voice_id)
+            else:
+                logger.warning("TTS speak_text_in_thread: 未能选择任何语音，将使用驱动默认语音（如果有）。")
+            
+            engine.setProperty('rate', 180) # 您可以根据需要调整语速
+            logger.info(f"TTS speak_text_in_thread: 准备朗读文本 (长度: {len(text_to_speak)} chars): '{text_to_speak[:100]}...'")
+            engine.say(text_to_speak)
+            logger.info("TTS speak_text_in_thread: engine.say() 已调用。")
+            engine.runAndWait()
+            logger.info("TTS speak_text_in_thread: engine.runAndWait() 已完成。")
+        except Exception as e:
+            logger.error(f"TTS speak_text_in_thread: 文本转语音时发生错误: {e}", exc_info=True)
+
+    tts_thread = threading.Thread(target=speak)
+    tts_thread.daemon = True # 主程序退出时，线程也退出
+    tts_thread.start()
 
 # -------- 导入文化模块 --------
 from culture import CultureManager
@@ -379,7 +491,32 @@ class AppLogic:
         # 返回情绪识别结果文本（中文翻译）
         emotion_cn = culture_manager.translate_emotion(chosen_emotion)
         emotion_result = f"检测到的情绪: {emotion_cn}"
+
+        # 按照指定顺序播报语音
+        # 1. 诗词与解读
+        if rich_poem_interpretation:
+            speak_text_in_thread(f"请听诗词与解读：{rich_poem_interpretation}")
         
+        # 2. 来自国潮伙伴的慰藉 (等待上一句播报完毕或有一定延时，简单起见这里直接连续调用，pyttsx3的runAndWait会阻塞当前线程，但我们是在独立线程中调用)
+        # 为了确保顺序，理想情况下应该在speak_text_in_thread内部处理队列或使用回调
+        # 但对于两个独立的调用，只要它们各自在自己的线程中，并且不期望它们同时发声，这种方式也基本可行。
+        # 如果需要严格的先后顺序且一个完成后再开始下一个，那么应该将它们合并成一个调用，或者使用更复杂的线程同步。
+        # 为了简单，这里分两次调用，并依赖它们各自完成。
+        # 或者，更好的方式是有一个TTS队列管理器，但现在我们先简单处理。
+
+        # 为了确保诗词播报完成后再播报慰藉，可以稍微调整 speak_text_in_thread，
+        # 或者在这里简单地将它们组合成一个更长的文本，由一个 speak_text_in_thread 调用完成。
+        # 后者更简单可靠。
+
+        full_speech_text = ""
+        if rich_poem_interpretation:
+            full_speech_text += f"请听诗词与解读：\n{rich_poem_interpretation}\n\n"
+        if guochao_response:
+            full_speech_text += f"接下来，是来自国潮伙伴的慰藉：\n{guochao_response}"
+        
+        if full_speech_text:
+            speak_text_in_thread(full_speech_text)
+            
         return emotion_result, rich_poem_interpretation, poet_image_np, guochao_response, guochao_image_np
 
     def send_email_function(self, to_email, thoughts, user_photo_np, poet_image_np, poem, guochao_image_np, comfort):
