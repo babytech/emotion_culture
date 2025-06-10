@@ -465,6 +465,7 @@ class AppLogic:
         输出: 情绪文本结果, 诗词文字与解读, 文人静态图像, 国潮形象, 安抚文案
         """
         logger.info(f"接收到分析请求: 文本='{text_input}', 图像存在={image_input is not None}, 音频存在={audio_input is not None}")
+        
         # 处理图像尺寸
         processed_image_input = None
         if image_input is not None:
@@ -492,15 +493,49 @@ class AppLogic:
             speech_emotion = analyze_speech_emotion(audio_input)
             logger.info(f"语音情感分析结果: {speech_emotion}")
         
-        # 决定使用的情绪 - 优先级：面部 > 语音 > 文本
-        chosen_emotion = face_emotion if face_emotion else None
-        if not chosen_emotion and speech_emotion:
-            chosen_emotion = speech_emotion
-        if not chosen_emotion and text_emotion:
-            chosen_emotion = text_emotion
-        if not chosen_emotion:
-            chosen_emotion = "neutral"
-        logger.info(f"最终选择的情绪: {chosen_emotion}")
+        # 新的情绪选择逻辑
+        # 1. 初始化情绪权重字典
+        emotion_weights = {
+            'happy': 0.0,
+            'sad': 0.0,
+            'angry': 0.0,
+            'surprise': 0.0,
+            'neutral': 0.0,
+            'fear': 0.0
+        }
+        
+        # 2. 根据不同模态的情绪结果分配权重
+        if text_input and text_emotion:  # 文本情绪权重最高
+            emotion_weights[text_emotion] += 0.5  # 文本情绪基础权重
+            
+            # 如果其他模态的情绪与文本情绪一致，增加权重
+            if face_emotion == text_emotion:
+                emotion_weights[text_emotion] += 0.2  # 面部表情验证
+            if speech_emotion == text_emotion:
+                emotion_weights[text_emotion] += 0.2  # 语音情绪验证
+                
+        # 如果没有文本输入，则面部表情和语音情绪权重相等
+        else:
+            if face_emotion:
+                emotion_weights[face_emotion] += 0.4
+            if speech_emotion:
+                emotion_weights[speech_emotion] += 0.4
+        
+        # 3. 处理补充情绪信息
+        if face_emotion and face_emotion != text_emotion:
+            emotion_weights[face_emotion] += 0.2
+        if speech_emotion and speech_emotion != text_emotion:
+            emotion_weights[speech_emotion] += 0.2
+            
+        # 4. 如果没有任何情绪被检测到，或所有权重都是0
+        if all(weight == 0.0 for weight in emotion_weights.values()):
+            chosen_emotion = 'neutral'
+            logger.info("没有检测到明确的情绪，使用neutral作为默认值")
+        else:
+            # 选择权重最高的情绪
+            chosen_emotion = max(emotion_weights.items(), key=lambda x: x[1])[0]
+            logger.info(f"情绪权重分布: {emotion_weights}")
+            logger.info(f"选择权重最高的情绪: {chosen_emotion}")
         
         # 诗词情绪响应
         poet, poem_text = get_poem_for_emotion(chosen_emotion)

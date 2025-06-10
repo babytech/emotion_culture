@@ -63,6 +63,8 @@ def send_email(recipient_email, subject, html_body, image_attachments=None):
     sender_password = os.getenv("EMAIL_SENDER_PASSWORD")
     smtp_server = os.getenv("SMTP_SERVER_HOST", "smtp.gmail.com") # Default to Gmail
     smtp_port = int(os.getenv("SMTP_SERVER_PORT", 587)) # Default to Gmail TLS port
+    print(f"Sender email: {sender_email}")
+    print(f"SMTP server: {smtp_server}, SMTP port: {smtp_port}")
 
     if not all([sender_email, sender_password, smtp_server, smtp_port]):
         return False, "Email configuration missing. Please set EMAIL_SENDER_ADDRESS, EMAIL_SENDER_PASSWORD, SMTP_SERVER_HOST, and SMTP_SERVER_PORT environment variables."
@@ -100,10 +102,19 @@ def send_email(recipient_email, subject, html_body, image_attachments=None):
 
 
         # Send the email
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()  # Secure the connection
-            server.login(sender_email, sender_password)
-            server.sendmail(sender_email, recipient_email, msg_root.as_string())
+        if smtp_port == 587:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()  # Secure the connection
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, recipient_email, msg_root.as_string())
+        elif smtp_port == 465:
+            with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, recipient_email, msg_root.as_string())
+        else:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.login(sender_email, sender_password)
+                server.sendmail(sender_email, recipient_email, msg_root.as_string())
         
         return True, "邮件发送成功！"
     except smtplib.SMTPAuthenticationError:
