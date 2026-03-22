@@ -1,0 +1,128 @@
+import random
+import uuid
+from typing import Optional
+
+import numpy as np
+from PIL import Image
+
+from app.schemas.analyze import (
+    AnalyzeRequest,
+    AnalyzeResponse,
+    EmotionResult,
+    EmotionSources,
+    GuochaoResult,
+    PoemResult,
+)
+from app.services.pc_bridge import (
+    CultureManager,
+    analyze_speech_emotion,
+    analyze_text_sentiment,
+    comfort_text,
+    detect_face_emotion,
+    guochao_characters,
+)
+from app.services.storage_service import cleanup_temp_files, resolve_media_paths
+
+
+_culture_manager = CultureManager()
+_emotions = ("happy", "sad", "angry", "surprise", "neutral", "fear")
+
+
+def _load_image_numpy(image_path: str) -> np.ndarray:
+    with Image.open(image_path) as image:
+        return np.array(image.convert("RGB"))
+
+
+def _select_emotion(
+    text_input: Optional[str],
+    text_emotion: Optional[str],
+    face_emotion: Optional[str],
+    speech_emotion: Optional[str],
+) -> tuple[str, dict[str, float]]:
+    weights = {key: 0.0 for key in _emotions}
+
+    if text_input and text_emotion:
+        weights[text_emotion] += 0.5
+        if face_emotion == text_emotion:
+            weights[text_emotion] += 0.2
+        if speech_emotion == text_emotion:
+            weights[text_emotion] += 0.2
+    else:
+        if face_emotion:
+            weights[face_emotion] += 0.4
+        if speech_emotion:
+            weights[speech_emotion] += 0.4
+
+    if face_emotion and face_emotion != text_emotion:
+        weights[face_emotion] += 0.2
+    if speech_emotion and speech_emotion != text_emotion:
+        weights[speech_emotion] += 0.2
+
+    if all(value == 0.0 for value in weights.values()):
+        return "neutral", weights
+
+    best = max(weights.items(), key=lambda item: item[1])[0]
+    return best, weights
+
+
+def _pick_guochao_name(emotion: str) -> str:
+    choices = guochao_characters.get(emotion, guochao_characters["neutral"])
+    return random.choice(choices)
+
+
+def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
+    resolved = resolve_media_paths(payload)
+    try:
+        text_emotion = analyze_text_sentiment(payload.text) if payload.text else None
+        face_emotion = None
+        if resolved.image_path:
+            face_emotion = detect_face_emotion(_load_image_numpy(resolved.image_path))
+
+        speech_emotion = None
+        if resolved.audio_path:
+            speech_emotion = analyze_speech_emotion(resolved.audio_path)
+
+        chosen_emotion, weights = _select_emotion(
+            text_input=payload.text,
+            text_emotion=text_emotion,
+            face_emotion=face_emotion,
+            speech_emotion=speech_emotion,
+        )
+
+        poet, poem_text = _culture_manager.get_poem_for_emotion(chosen_emotion)
+        interpretation = _culture_manager.get_rich_poem_interpretation(
+            poet=poet,
+            poem_text=poem_text,
+            emotion=chosen_emotion,
+        )
+
+        character_name = _pick_guochao_name(chosen_emotion)
+        comfort = comfort_text.get(chosen_emotion, comfort_text["neutral"])
+        emotion_label = _culture_manager.translate_emotion(chosen_emotion)
+
+        return AnalyzeResponse(
+            request_id=f"ana_{uuid.uuid4().hex[:12]}",
+            emotion=EmotionResult(
+                code=chosen_emotion,
+                label=emotion_label,
+                sources=EmotionSources(
+                    text=text_emotion,
+                    face=face_emotion,
+                    speech=speech_emotion,
+                ),
+                weights=weights,
+            ),
+            poem=PoemResult(
+                poet=poet,
+                text=poem_text,
+                interpretation=interpretation,
+            ),
+            poet_image_url=f"/assets/tangsong/{poet}.png",
+            guochao=GuochaoResult(
+                name=character_name,
+                comfort=comfort,
+            ),
+            guochao_image_url=f"/assets/guochao/{character_name}.png",
+        )
+    finally:
+        cleanup_temp_files(resolved.cleanup_paths)

@@ -3,6 +3,7 @@
 """
 
 import gradio as gr
+import inspect
 
 # -------- 国风CSS样式 --------
 css = """
@@ -251,6 +252,24 @@ body {
 }
 """
 
+UI_THEME = gr.themes.Soft(primary_hue="red", secondary_hue="orange")
+BLOCKS_LAUNCH_PARAMS = inspect.signature(gr.Blocks.launch).parameters
+BLOCKS_INIT_KWARGS = {}
+
+if "theme" not in BLOCKS_LAUNCH_PARAMS:
+    BLOCKS_INIT_KWARGS["theme"] = UI_THEME
+if "css" not in BLOCKS_LAUNCH_PARAMS:
+    BLOCKS_INIT_KWARGS["css"] = css
+
+def build_launch_kwargs():
+    """在 Gradio 6 及以上版本通过 launch() 注入主题与样式。"""
+    launch_kwargs = {}
+    if "theme" in BLOCKS_LAUNCH_PARAMS:
+        launch_kwargs["theme"] = UI_THEME
+    if "css" in BLOCKS_LAUNCH_PARAMS:
+        launch_kwargs["css"] = css
+    return launch_kwargs
+
 def create_ui(main_app_func):
     """
     创建Gradio用户界面
@@ -261,7 +280,7 @@ def create_ui(main_app_func):
     返回:
         gr.Blocks: Gradio界面实例
     """
-    with gr.Blocks(css=css, theme=gr.themes.Soft(primary_hue="red", secondary_hue="orange")) as iface:
+    with gr.Blocks(**BLOCKS_INIT_KWARGS) as iface:
         gr.Markdown("<h1 style='text-align: center; color: #FF4500;'>青少年情绪识别与文化心理疏导系统</h1>")
         
         with gr.Row():
@@ -299,15 +318,15 @@ def create_ui(main_app_func):
                 gr.Markdown("### 步骤 3: 查看结果 ✨")
                 
                 with gr.Row():
-                    with gr.Column(scale=1.1):
+                    with gr.Column(scale=11):
                         poet_image_output = gr.Image(label="唐宋八大家", type="numpy", interactive=False, height=330, elem_classes="image-preview")
-                    with gr.Column(scale=1.9):
+                    with gr.Column(scale=19):
                         poem_output = gr.Textbox(label="诗词与解读:", lines=10, interactive=False, elem_classes="textbox-container")
 
                 with gr.Row():
-                    with gr.Column(scale=1.1):
+                    with gr.Column(scale=11):
                         guochao_image_output = gr.Image(label="国潮伙伴", type="numpy", interactive=False, height=330, elem_classes="image-preview")
-                    with gr.Column(scale=1.9):
+                    with gr.Column(scale=19):
                         comfort_output = gr.Textbox(label="来自国潮伙伴的慰藉:", lines=5, interactive=False, elem_classes="textbox-container")
                 
                 # 新增：步骤 4 - 发送电子邮件
@@ -391,6 +410,7 @@ def create_ui(main_app_func):
             ]
         )
         
+    iface._launch_kwargs = build_launch_kwargs()
     return iface
 
 if __name__ == '__main__':
@@ -437,4 +457,4 @@ if __name__ == '__main__':
             return f"邮件已发送到 {email} (模拟)。"
 
     iface = create_ui(MockMainApp()) # 使用新的 MockMainApp 实例
-    iface.launch(server_name="0.0.0.0", server_port=7860) 
+    iface.launch(server_name="0.0.0.0", server_port=7860, **getattr(iface, "_launch_kwargs", {}))

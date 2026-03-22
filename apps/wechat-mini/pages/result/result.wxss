@@ -1,0 +1,148 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.empty {
+  padding: 26rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.empty-title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.emotion {
+  padding: 24rpx;
+}
+
+.emotion-title {
+  font-size: 30rpx;
+  margin-bottom: 14rpx;
+}
+
+.emotion-badge {
+  display: inline-block;
+  padding: 10rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 28rpx;
+  font-weight: 700;
+  border: 2rpx solid transparent;
+}
+
+.emotion-happy {
+  color: #0f6c4d;
+  background: #e8f7ee;
+  border-color: #83cfa8;
+}
+
+.emotion-sad {
+  color: #345580;
+  background: #eef4ff;
+  border-color: #a7bfe5;
+}
+
+.emotion-angry {
+  color: #832f2c;
+  background: #ffefef;
+  border-color: #e6a2a0;
+}
+
+.emotion-surprise {
+  color: #7e4f14;
+  background: #fff5e5;
+  border-color: #e8c083;
+}
+
+.emotion-neutral {
+  color: #5f5d57;
+  background: #f4f2ec;
+  border-color: #d4cec1;
+}
+
+.emotion-fear {
+  color: #52477d;
+  background: #f3f0ff;
+  border-color: #c4b5ea;
+}
+
+.section {
+  padding: 24rpx;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.poet-tag {
+  font-size: 24rpx;
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  background: #f4e5cf;
+  color: #835628;
+}
+
+.result-image {
+  width: 100%;
+  height: 300rpx;
+  border-radius: 16rpx;
+}
+
+.img-placeholder {
+  height: 200rpx;
+  border-radius: 16rpx;
+  background: #f8f1e3;
+  border: 2rpx dashed #e1c48f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8e7d62;
+}
+
+.poem-text {
+  margin-top: 16rpx;
+  white-space: pre-wrap;
+  line-height: 1.8;
+  font-size: 29rpx;
+}
+
+.interpretation {
+  margin-top: 12rpx;
+  line-height: 1.6;
+  font-size: 27rpx;
+}
+
+.comfort {
+  margin-top: 16rpx;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  font-size: 29rpx;
+}
+
+.email-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 14rpx;
+  border: 2rpx solid rgba(161, 38, 27, 0.2);
+  background: #fffcf7;
+  padding: 16rpx;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+}
+
+.email-status {
+  margin-top: 12rpx;
+  font-size: 26rpx;
+}

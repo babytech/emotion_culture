@@ -16,6 +16,8 @@ env/
 
 # Environment variables file - contains sensitive credentials
 .env
+**/.env
+services/wechat-api/.env
 
 # Log files
 logs/
@@ -34,3 +36,6 @@ logs/
 
 # ignore all files starting with .venv
 .venv/*
+
+# Gradio runtime files
+.gradio/

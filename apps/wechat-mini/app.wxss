@@ -1,0 +1,49 @@
+:root {
+  --paper: #f5efe4;
+  --ink: #2d1f17;
+  --accent: #a1261b;
+  --accent-2: #d8a24d;
+  --muted: #8f7f72;
+  --card: #fffaf1;
+}
+
+page {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(216, 162, 77, 0.2), transparent 40%),
+    radial-gradient(circle at 90% 0%, rgba(161, 38, 27, 0.16), transparent 42%),
+    var(--paper);
+  color: var(--ink);
+  font-family: "KaiTi", "STKaiti", serif;
+}
+
+.container {
+  padding: 24rpx;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 20rpx;
+  border: 2rpx solid rgba(161, 38, 27, 0.12);
+  box-shadow: 0 10rpx 30rpx rgba(46, 31, 22, 0.08);
+}
+
+.btn {
+  border-radius: 999rpx !important;
+  padding: 0 28rpx !important;
+  font-size: 30rpx !important;
+}
+
+.btn-primary {
+  color: #fff !important;
+  background: linear-gradient(135deg, #a1261b, #c94335) !important;
+}
+
+.btn-secondary {
+  color: #603f24 !important;
+  background: linear-gradient(135deg, #f7e2bf, #eec27a) !important;
+}
+
+.text-muted {
+  color: var(--muted);
+}

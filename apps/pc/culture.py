@@ -11,6 +11,7 @@ import logging # 添加logging模块导入
 
 # 获取一个logger实例，可以与main.py中的logger配置联动，或独立配置
 logger = logging.getLogger(__name__)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 class CultureManager:
     def __init__(self):
@@ -28,7 +29,8 @@ class CultureManager:
     def _load_poems_data(self):
         """从JSON文件加载诗词数据"""
         try:
-            with open('poems.json', 'r', encoding='utf-8') as file:
+            poem_path = os.path.join(BASE_DIR, 'poems.json')
+            with open(poem_path, 'r', encoding='utf-8') as file:
                 return json.load(file)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             print(f"加载诗词数据失败: {e}")
@@ -74,7 +76,7 @@ class CultureManager:
         """
         try:
             # 构建诗人图片路径
-            image_path = os.path.join("images", "tangsong", f"{poet_name}.png")
+            image_path = os.path.join(BASE_DIR, "images", "tangsong", f"{poet_name}.png")
             
             # 如果文件存在则加载
             if os.path.exists(image_path):

@@ -36,15 +36,23 @@ from speech import analyze_speech_emotion
 # 导入 email_utils 中的邮件发送函数
 from email_utils import send_analysis_email, send_email
 
+# 统一基于当前文件位置解析资源路径，避免运行目录变化导致找不到图片/数据
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def app_path(*parts):
+    """构建基于当前应用目录的绝对路径。"""
+    return os.path.join(BASE_DIR, *parts)
+
 # -------- 配置日志记录 --------
 def setup_logger():
     """设置日志记录器"""
     # 创建logs目录（如果不存在）
-    if not os.path.exists('logs'):
-        os.makedirs('logs')
+    logs_dir = app_path("logs")
+    if not os.path.exists(logs_dir):
+        os.makedirs(logs_dir)
     
     # 生成日志文件名，包含日期和时间
-    log_filename = f'logs/emotion_culture_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+    log_filename = app_path("logs", f'emotion_culture_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log')
     
     # 配置根日志记录器
     logger = logging.getLogger()
@@ -241,7 +249,7 @@ def get_guochao_image(emotion):
         character_name = random.choice(characters)
         
         # 加载对应的图片
-        image_path = os.path.join("images", "guochao", f"{character_name}.png")
+        image_path = app_path("images", "guochao", f"{character_name}.png")
         if os.path.exists(image_path):
             img = Image.open(image_path)
             # 如果图像太大，缩小它
@@ -431,11 +439,13 @@ def launch_gradio_server(interface, primary_port=7890, port_range=(7890, 7900)):
             
             # 启动Gradio服务
             logger.info(f"正在启动Gradio服务 (尝试端口: {'自动选择' if target_port is None else target_port})...")
+            launch_kwargs = getattr(interface, "_launch_kwargs", {})
             interface.launch(
                 server_name="0.0.0.0",
                 server_port=target_port, # 如果 None, Gradio 会自动选择
                 share=True,
-                prevent_thread_lock=True # 确保非阻塞
+                prevent_thread_lock=True, # 确保非阻塞
+                **launch_kwargs
             )
             logger.info("Gradio `interface.launch()` 已调用。服务应在后台线程启动。")
             logger.info("请检查控制台输出，Gradio通常会打印访问URL (本地和共享链接，如果share=True成功)。")
@@ -608,9 +618,9 @@ iface = create_ui(app_logic)
 def ensure_image_directories():
     """确保图像目录存在"""
     required_dirs = [
-        os.path.join("images"),
-        os.path.join("images", "tangsong"),
-        os.path.join("images", "guochao")
+        app_path("images"),
+        app_path("images", "tangsong"),
+        app_path("images", "guochao")
     ]
     
     for directory in required_dirs:
@@ -619,8 +629,10 @@ def ensure_image_directories():
             os.makedirs(directory)
             
     # 检查图像文件是否存在
-    tangsong_images = os.listdir(os.path.join("images", "tangsong")) if os.path.exists(os.path.join("images", "tangsong")) else []
-    guochao_images = os.listdir(os.path.join("images", "guochao")) if os.path.exists(os.path.join("images", "guochao")) else []
+    tangsong_dir = app_path("images", "tangsong")
+    guochao_dir = app_path("images", "guochao")
+    tangsong_images = os.listdir(tangsong_dir) if os.path.exists(tangsong_dir) else []
+    guochao_images = os.listdir(guochao_dir) if os.path.exists(guochao_dir) else []
     
     if not tangsong_images:
         logger.warning("唐宋八大家图片目录为空，将使用空白图片代替")

@@ -1,0 +1,77 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.hero {
+  padding: 30rpx;
+  background:
+    linear-gradient(135deg, rgba(161, 38, 27, 0.12), rgba(216, 162, 77, 0.16)),
+    var(--card);
+}
+
+.hero-title {
+  font-size: 44rpx;
+  font-weight: 700;
+  letter-spacing: 2rpx;
+}
+
+.hero-sub {
+  margin-top: 12rpx;
+  line-height: 1.6;
+  font-size: 27rpx;
+}
+
+.section {
+  padding: 24rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.thought-input {
+  min-height: 220rpx;
+  width: 100%;
+  border-radius: 14rpx;
+  background: #fffcf7;
+  border: 2rpx solid rgba(161, 38, 27, 0.2);
+  padding: 18rpx;
+  line-height: 1.6;
+  font-size: 29rpx;
+  box-sizing: border-box;
+}
+
+.media-row {
+  display: flex;
+  gap: 14rpx;
+}
+
+.preview-wrap {
+  margin-top: 16rpx;
+}
+
+.preview-image {
+  width: 100%;
+  height: 340rpx;
+  border-radius: 16rpx;
+}
+
+.audio-status {
+  margin-top: 14rpx;
+  font-size: 26rpx;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
+}
+
+.submit-btn {
+  margin-top: 4rpx;
+}

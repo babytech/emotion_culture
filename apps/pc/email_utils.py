@@ -9,7 +9,13 @@ import numpy as np # 新增 for type hinting
 import tempfile # 新增 for temporary files
 import io # 新增 for PIL saving to bytes
 
-load_dotenv() # Load environment variables from .env file
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def app_path(*parts):
+    """构建基于当前应用目录的绝对路径。"""
+    return os.path.join(BASE_DIR, *parts)
+
+load_dotenv(app_path(".env")) # Load environment variables from the app directory
 
 # 新增辅助函数
 def _save_numpy_image_to_tempfile(image_np: np.ndarray, prefix: str = "img_") -> str | None:
@@ -248,10 +254,10 @@ if __name__ == '__main__':
     </html>
     """
     # Create dummy image files for testing
-    os.makedirs("images/tangsong", exist_ok=True)
-    os.makedirs("images/guochao", exist_ok=True)
-    dummy_poet_path = "images/tangsong/dummy_poet.png"
-    dummy_guochao_path = "images/guochao/dummy_guochao.png"
+    os.makedirs(app_path("images", "tangsong"), exist_ok=True)
+    os.makedirs(app_path("images", "guochao"), exist_ok=True)
+    dummy_poet_path = app_path("images", "tangsong", "dummy_poet.png")
+    dummy_guochao_path = app_path("images", "guochao", "dummy_guochao.png")
 
     try:
         from PIL import Image, ImageDraw

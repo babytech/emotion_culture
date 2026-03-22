@@ -1,0 +1,77 @@
+<view class="container page-root">
+  <view wx:if="{{!hasData}}" class="empty card">
+    <view class="empty-title">暂无分析结果</view>
+    <view class="text-muted">请返回上一页先提交分析。</view>
+    <button class="btn btn-secondary" bindtap="backHome">返回输入页</button>
+  </view>
+
+  <block wx:if="{{hasData}}">
+    <view class="emotion card">
+      <view class="emotion-title">识别情绪</view>
+      <view class="emotion-badge emotion-{{emotionCode}}">
+        {{emotionLabel}}（{{emotionCode}}）
+      </view>
+    </view>
+
+    <view class="section card">
+      <view class="section-head">
+        <view class="section-title">诗词回应</view>
+        <view class="poet-tag">{{poet}}</view>
+      </view>
+      <image
+        wx:if="{{poetImageUrl && !poetImageFailed}}"
+        class="result-image"
+        mode="aspectFill"
+        src="{{poetImageUrl}}"
+        binderror="onPoetImageError"
+      />
+      <view wx:if="{{!poetImageUrl || poetImageFailed}}" class="img-placeholder">
+        诗人图片暂不可用
+      </view>
+      <view class="poem-text">{{poemText}}</view>
+      <view class="interpretation text-muted">{{interpretation}}</view>
+    </view>
+
+    <view class="section card">
+      <view class="section-head">
+        <view class="section-title">国潮伙伴慰藉</view>
+        <view class="poet-tag">{{guochaoName}}</view>
+      </view>
+      <image
+        wx:if="{{guochaoImageUrl && !guochaoImageFailed}}"
+        class="result-image"
+        mode="aspectFill"
+        src="{{guochaoImageUrl}}"
+        binderror="onGuochaoImageError"
+      />
+      <view wx:if="{{!guochaoImageUrl || guochaoImageFailed}}" class="img-placeholder">
+        国潮图片暂不可用
+      </view>
+      <view class="comfort">{{comfort}}</view>
+    </view>
+
+    <view class="section card">
+      <view class="section-title">发送到邮箱（可选）</view>
+      <input
+        class="email-input"
+        type="text"
+        placeholder="your_email@example.com"
+        value="{{email}}"
+        bindinput="handleEmailInput"
+      />
+      <button
+        class="btn btn-primary"
+        loading="{{isSendingEmail}}"
+        disabled="{{isSendingEmail}}"
+        bindtap="submitEmail"
+      >
+        {{isSendingEmail ? '发送中...' : '发送结果到邮箱'}}
+      </button>
+      <view wx:if="{{emailStatus}}" class="email-status text-muted">
+        {{emailStatus}}
+      </view>
+    </view>
+
+    <button class="btn btn-secondary" bindtap="backHome">返回继续分析</button>
+  </block>
+</view>

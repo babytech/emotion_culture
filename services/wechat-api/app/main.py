@@ -1,0 +1,42 @@
+from pathlib import Path
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
+
+from app.api.analyze import router as analyze_router
+from app.api.email import router as email_router
+from app.api.health import router as health_router
+
+# Load local env file for development.
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+PC_IMAGES_DIR = REPO_ROOT / "apps" / "pc" / "images"
+
+
+app = FastAPI(
+    title="Emotion Culture WeChat API",
+    description="Backend skeleton for the WeChat mini program.",
+    version="0.1.0",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(health_router, prefix="/api", tags=["health"])
+app.include_router(analyze_router, prefix="/api", tags=["analyze"])
+app.include_router(email_router, prefix="/api", tags=["email"])
+
+if PC_IMAGES_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(PC_IMAGES_DIR)), name="assets")
+
+
+@app.get("/")
+def root() -> dict[str, str]:
+    return {"service": "emotion-culture-wechat-api", "status": "ok"}

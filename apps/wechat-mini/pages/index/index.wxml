@@ -1,0 +1,77 @@
+<view class="container page-root">
+  <view class="hero card">
+    <view class="hero-title">青少年情绪文化助手</view>
+    <view class="hero-sub text-muted">
+      输入你的想法，上传一张照片，或者录一段语音。
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">1. 写下当下感受</view>
+    <textarea
+      class="thought-input"
+      placeholder="例如：今天有点难过，考试没发挥好。"
+      maxlength="4000"
+      value="{{text}}"
+      bindinput="handleTextInput"
+    />
+  </view>
+
+  <view class="section card">
+    <view class="section-title">2. 选择图片（可选）</view>
+    <view class="media-row">
+      <button class="btn btn-secondary" bindtap="chooseImage">选择图片</button>
+      <button
+        class="btn"
+        disabled="{{!imageTempPath}}"
+        bindtap="clearImage"
+      >
+        清除
+      </button>
+    </view>
+    <view wx:if="{{imageTempPath}}" class="preview-wrap">
+      <image class="preview-image" mode="aspectFill" src="{{imageTempPath}}" />
+    </view>
+  </view>
+
+  <view class="section card">
+    <view class="section-title">3. 录音输入（可选）</view>
+    <view class="media-row">
+      <button
+        wx:if="{{!isRecording}}"
+        class="btn btn-secondary"
+        bindtap="startRecord"
+      >
+        开始录音
+      </button>
+      <button
+        wx:if="{{isRecording}}"
+        class="btn btn-primary"
+        bindtap="stopRecord"
+      >
+        停止录音
+      </button>
+      <button class="btn" disabled="{{!audioTempPath}}" bindtap="clearAudio">
+        清除
+      </button>
+    </view>
+    <view class="audio-status text-muted">
+      <text wx:if="{{isRecording}}">录音中：{{recordSeconds}} 秒</text>
+      <text wx:elif="{{audioTempPath}}">已录制音频</text>
+      <text wx:else>尚未录音</text>
+    </view>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="error card">
+    {{errorMsg}}
+  </view>
+
+  <button
+    class="btn btn-primary submit-btn"
+    loading="{{isSubmitting}}"
+    disabled="{{isSubmitting}}"
+    bindtap="submitAnalyze"
+  >
+    {{isSubmitting ? '分析中...' : '提交分析'}}
+  </button>
+</view>

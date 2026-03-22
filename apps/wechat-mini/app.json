@@ -1,0 +1,12 @@
+{
+  "pages": ["pages/index/index", "pages/result/result"],
+  "window": {
+    "navigationBarTitleText": "情绪文化助手",
+    "navigationBarBackgroundColor": "#A1261B",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#F5EFE4",
+    "backgroundTextStyle": "light"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}
