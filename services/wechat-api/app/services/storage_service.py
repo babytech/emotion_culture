@@ -11,8 +11,8 @@ import requests
 from app.schemas.analyze import AnalyzeRequest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
-PC_IMAGES_DIR = REPO_ROOT / "apps" / "pc" / "images"
+API_ROOT = Path(__file__).resolve().parents[2]
+CORE_IMAGES_DIR = Path(__file__).resolve().parents[1] / "core" / "images"
 WECHAT_API_BASE = "https://api.weixin.qq.com"
 
 _TOKEN_CACHE: dict[str, Optional[object]] = {"token": None, "expires_at": None}
@@ -37,7 +37,7 @@ def resolve_local_path(path_value: Optional[str], field_name: str) -> Optional[s
 
     candidate = Path(path_value).expanduser()
     if not candidate.is_absolute():
-        candidate = (REPO_ROOT / candidate).resolve()
+        candidate = (API_ROOT / candidate).resolve()
 
     if not candidate.exists():
         raise ValueError(f"{field_name} not found: {candidate}")
@@ -180,7 +180,7 @@ def _resolve_assets_file_id(file_id: str, field_name: str) -> Optional[str]:
     else:
         return None
 
-    base_dir = PC_IMAGES_DIR.resolve()
+    base_dir = CORE_IMAGES_DIR.resolve()
     candidate = (base_dir / relative).resolve()
 
     try:

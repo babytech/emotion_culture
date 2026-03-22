@@ -2,6 +2,10 @@
 
 This document is for WeChat mini program frontend integration with `services/wechat-api`.
 
+Runtime note:
+
+- Backend is self-contained under `services/wechat-api/app/core` and does not require `apps/pc` at deploy time.
+
 ## Base URL
 
 - Local: `http://127.0.0.1:9000`

@@ -11,8 +11,7 @@ from app.api.health import router as health_router
 
 # Load local env file for development.
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
-REPO_ROOT = Path(__file__).resolve().parents[3]
-PC_IMAGES_DIR = REPO_ROOT / "apps" / "pc" / "images"
+CORE_IMAGES_DIR = Path(__file__).resolve().parent / "core" / "images"
 
 
 app = FastAPI(
@@ -33,8 +32,8 @@ app.include_router(health_router, prefix="/api", tags=["health"])
 app.include_router(analyze_router, prefix="/api", tags=["analyze"])
 app.include_router(email_router, prefix="/api", tags=["email"])
 
-if PC_IMAGES_DIR.exists():
-    app.mount("/assets", StaticFiles(directory=str(PC_IMAGES_DIR)), name="assets")
+if CORE_IMAGES_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(CORE_IMAGES_DIR)), name="assets")
 
 
 @app.get("/")

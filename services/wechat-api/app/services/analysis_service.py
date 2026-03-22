@@ -13,14 +13,14 @@ from app.schemas.analyze import (
     GuochaoResult,
     PoemResult,
 )
-from app.services.pc_bridge import (
-    CultureManager,
-    analyze_speech_emotion,
-    analyze_text_sentiment,
+from app.core.culture import CultureManager
+from app.core.emotion import (
     comfort_text,
     detect_face_emotion,
     guochao_characters,
+    analyze_text_sentiment,
 )
+from app.core.speech import analyze_speech_emotion
 from app.services.storage_service import cleanup_temp_files, resolve_media_paths
 
 

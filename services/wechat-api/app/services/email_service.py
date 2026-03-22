@@ -3,8 +3,8 @@ from typing import Optional
 import numpy as np
 from PIL import Image
 
+from app.core.email_utils import send_analysis_email
 from app.schemas.email import SendEmailRequest, SendEmailResponse
-from app.services.pc_bridge import send_analysis_email
 from app.services.storage_service import cleanup_temp_files, resolve_input_file
 
 

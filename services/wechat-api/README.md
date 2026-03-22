@@ -6,11 +6,15 @@ This folder contains phase-2 backend scaffolding for the WeChat mini program.
 
 - FastAPI app entrypoint
 - `/api/health` health check
-- `/api/analyze` analysis endpoint (reuses `apps/pc` emotion/culture/speech logic)
-- `/api/send-email` email endpoint (reuses `apps/pc/email_utils.py`)
+- `/api/analyze` analysis endpoint
+- `/api/send-email` email endpoint
 - Request/response schemas
-- Service layer split (`analysis`, `email`, `storage`, `pc_bridge`)
+- Service layer split (`analysis`, `email`, `storage`)
 - Cloud file resolver (`cloud://` / `http(s)` -> temp local file)
+- Self-contained runtime core under `app/core`:
+  - logic modules: `culture.py`, `emotion.py`, `speech.py`, `email_utils.py`
+  - data: `poems.json`
+  - static assets: `images/tangsong`, `images/guochao`
 
 ## Current scope
 
@@ -54,5 +58,5 @@ See:
 ## Notes
 
 - This backend intentionally does **not** modify `apps/pc` runtime behavior.
-- Email sending reuses `apps/pc/email_utils.py`, but SMTP values are read from process env at runtime.
+- Backend runtime no longer depends on `apps/pc`; it can be deployed using `services/wechat-api` only.
 - For local backend debug, put SMTP vars directly in `services/wechat-api/.env`.
