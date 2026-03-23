@@ -7,6 +7,7 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import requests
+import certifi
 
 from app.schemas.analyze import AnalyzeRequest
 
@@ -36,9 +37,23 @@ def _env_truthy(name: str, default: str = "0") -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _resolve_verify_option() -> bool | str:
+    if _env_truthy("WECHAT_DISABLE_SSL_VERIFY", "0"):
+        return False
+
+    custom_ca = os.getenv("WECHAT_CA_BUNDLE", "").strip()
+    if custom_ca:
+        if not Path(custom_ca).exists():
+            raise ValueError(f"WECHAT_CA_BUNDLE file not found: {custom_ca}")
+        return custom_ca
+
+    # Force a stable CA bundle instead of relying on runtime defaults.
+    return certifi.where()
+
+
 def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.Response:
     trust_env = _env_truthy("WECHAT_REQUESTS_TRUST_ENV", "0")
-    verify_ssl = not _env_truthy("WECHAT_DISABLE_SSL_VERIFY", "0")
+    verify_option = _resolve_verify_option()
 
     with requests.Session() as session:
         session.trust_env = trust_env
@@ -47,13 +62,14 @@ def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.
                 method=method,
                 url=url,
                 timeout=timeout,
-                verify=verify_ssl,
+                verify=verify_option,
                 **kwargs,
             )
         except requests.exceptions.SSLError as exc:
+            host = urlparse(url).netloc
             raise ValueError(
-                "wechat api ssl verify failed. "
-                "check outbound proxy/certificate chain; "
+                "wechat api ssl verify failed for "
+                f"{host}. set WECHAT_CA_BUNDLE to trusted CA file; "
                 "for emergency only, set WECHAT_DISABLE_SSL_VERIFY=1"
             ) from exc
 
