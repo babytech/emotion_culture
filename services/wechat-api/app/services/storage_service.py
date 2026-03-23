@@ -129,8 +129,14 @@ def _extract_cloud_env_from_file_id(file_id: str) -> Optional[str]:
     if not file_id.startswith("cloud://"):
         return None
 
+    # fileID format is usually: cloud://<env-id>.<bucket-suffix>/path
+    # Only the part before first '.' is the real env id.
     content = file_id[len("cloud://") :]
-    env_name = content.split("/", maxsplit=1)[0].strip()
+    first_segment = content.split("/", maxsplit=1)[0].strip()
+    if not first_segment:
+        return None
+
+    env_name = first_segment.split(".", maxsplit=1)[0].strip()
     return env_name or None
 
 
