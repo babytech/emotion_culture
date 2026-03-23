@@ -52,13 +52,14 @@ def _resolve_verify_option() -> bool | str:
 
 
 def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.Response:
-    trust_env = _env_truthy("WECHAT_REQUESTS_TRUST_ENV", "1")
+    configured_trust_env = _env_truthy("WECHAT_REQUESTS_TRUST_ENV", "1")
     verify_option = _resolve_verify_option()
 
-    # Retry once with trust_env=True when SSL fails under explicit trust_env=False.
-    attempts: list[tuple[bool, bool | str]] = [(trust_env, verify_option)]
-    if verify_option is not False and not trust_env:
-        attempts.append((True, verify_option))
+    attempts: list[tuple[bool, bool | str]] = []
+    for trust_env in (configured_trust_env, not configured_trust_env):
+        candidate = (trust_env, verify_option)
+        if candidate not in attempts:
+            attempts.append(candidate)
 
     last_ssl_error: Optional[Exception] = None
     for attempt_trust_env, attempt_verify in attempts:
@@ -80,7 +81,7 @@ def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.
     raise ValueError(
         "wechat api ssl verify failed for "
         f"{host}. set WECHAT_CA_BUNDLE to trusted CA file; "
-        "or set WECHAT_REQUESTS_TRUST_ENV=1; "
+        "or verify runtime proxy/cert chain; "
         "for emergency only, set WECHAT_DISABLE_SSL_VERIFY=1"
     ) from last_ssl_error
 

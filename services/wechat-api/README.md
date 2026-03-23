@@ -101,6 +101,9 @@ Set these in Cloud Hosting environment variables (do not upload `.env`):
 Optional:
 
 - `PORT` (default `80`)
+- `WECHAT_REQUESTS_TRUST_ENV` (default `1`, backend will also retry with `0` on SSL failure)
+- `WECHAT_CA_BUNDLE` (custom CA pem path, only when runtime requires custom trust chain)
+- `WECHAT_DISABLE_SSL_VERIFY` (default `0`; emergency only)
 
 ### 4) Post-deploy checks
 
