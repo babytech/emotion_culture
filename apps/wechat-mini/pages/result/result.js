@@ -85,6 +85,7 @@ Page({
 
     const context = this._analysisContext || {};
     const req = context.request || {};
+    const resp = context.response || {};
 
     this.setData({
       isSendingEmail: true,
@@ -102,8 +103,8 @@ Page({
           .filter(Boolean)
           .join("：\n"),
         user_image_file_id: req.imageFileId || undefined,
-        poet_image_file_id: this.data.poetImageUrl || undefined,
-        guochao_image_file_id: this.data.guochaoImageUrl || undefined,
+        poet_image_file_id: resp.poet_image_url || this.data.poetImageUrl || undefined,
+        guochao_image_file_id: resp.guochao_image_url || this.data.guochaoImageUrl || undefined,
       };
 
       const result = await sendEmail(payload);

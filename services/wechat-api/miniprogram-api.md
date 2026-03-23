@@ -6,9 +6,19 @@ Runtime note:
 
 - Backend is self-contained under `services/wechat-api/app/core` and does not require `apps/pc` at deploy time.
 
-## Base URL
+## Access mode (recommended)
 
-- Local: `http://127.0.0.1:9000`
+Use `wx.cloud.callContainer` from mini program frontend.
+
+- `config.env`: your cloud environment id
+- Header `X-WX-SERVICE`: your cloud hosting service name
+- `path`: backend path (for example `/api/analyze`)
+
+`apiBaseUrl` is only needed when frontend must resolve relative image paths such as `/assets/...`.
+
+## Base URL (optional)
+
+- Local debug: `http://127.0.0.1:9000`
 - Production: your cloud host domain
 
 ## 1) Health check
@@ -132,17 +142,23 @@ Response:
 ## 5) Frontend integration flow (recommended)
 
 1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID`.
-2. Call `/api/analyze` with `text + image_file_id + audio_file_id`.
+2. Call `/api/analyze` with `text + image_file_id + audio_file_id` via `wx.cloud.callContainer`.
 3. Render returned emotion/poem/comfort data.
-4. If user sends email, call `/api/send-email`.
+4. If user sends email, call `/api/send-email` via `wx.cloud.callContainer`.
 
 ## 6) Minimal mini program request snippet
 
 ```js
-wx.request({
-  url: `${BASE_URL}/api/analyze`,
+wx.cloud.callContainer({
+  config: {
+    env: CLOUD_ENV,
+  },
+  path: "/api/analyze",
   method: "POST",
-  header: { "content-type": "application/json" },
+  header: {
+    "X-WX-SERVICE": CONTAINER_SERVICE,
+    "content-type": "application/json",
+  },
   data: {
     text: textValue,
     image_file_id: imageFileId,

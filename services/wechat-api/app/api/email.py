@@ -8,6 +8,7 @@ router = APIRouter()
 
 
 @router.post("/send-email", response_model=SendEmailResponse)
+@router.post("/send_email", response_model=SendEmailResponse)
 def send_email(payload: SendEmailRequest) -> SendEmailResponse:
     try:
         return send_analysis_result_email(payload)
