@@ -2,6 +2,63 @@ const { analyze } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
 
 const recorder = wx.getRecorderManager();
+const IMAGE_COMPRESS_SKIP_BYTES = 900 * 1024;
+const IMAGE_COMPRESS_MEDIUM_BYTES = 2 * 1024 * 1024;
+const IMAGE_COMPRESS_HEAVY_BYTES = 4 * 1024 * 1024;
+
+function getFileSize(path) {
+  return new Promise((resolve) => {
+    try {
+      wx.getFileSystemManager().stat({
+        path,
+        success(res) {
+          resolve((res.stats && res.stats.size) || 0);
+        },
+        fail() {
+          resolve(0);
+        },
+      });
+    } catch (err) {
+      resolve(0);
+    }
+  });
+}
+
+function compressImage(path, quality) {
+  return new Promise((resolve, reject) => {
+    wx.compressImage({
+      src: path,
+      quality,
+      success(res) {
+        resolve((res && res.tempFilePath) || path);
+      },
+      fail(reject),
+    });
+  });
+}
+
+async function prepareImageForUpload(path) {
+  const sizeBefore = await getFileSize(path);
+  if (sizeBefore > 0 && sizeBefore <= IMAGE_COMPRESS_SKIP_BYTES) {
+    return { path, compressed: false, sizeBefore, sizeAfter: sizeBefore };
+  }
+
+  let quality = 82;
+  if (sizeBefore >= IMAGE_COMPRESS_HEAVY_BYTES) quality = 68;
+  else if (sizeBefore >= IMAGE_COMPRESS_MEDIUM_BYTES) quality = 76;
+
+  try {
+    const compressedPath = await compressImage(path, quality);
+    const sizeAfter = await getFileSize(compressedPath);
+    if (!sizeAfter || (sizeBefore > 0 && sizeAfter >= sizeBefore)) {
+      return { path, compressed: false, sizeBefore, sizeAfter: sizeBefore };
+    }
+    return { path: compressedPath, compressed: compressedPath !== path, sizeBefore, sizeAfter };
+  } catch (err) {
+    console.warn("compressImage failed, fallback to original", err);
+    return { path, compressed: false, sizeBefore, sizeAfter: sizeBefore };
+  }
+}
 
 Page({
   data: {
@@ -84,19 +141,22 @@ Page({
 
   async chooseImage() {
     try {
-      const res = await wx.chooseMedia({
+      const res = await wx.chooseImage({
         count: 1,
-        mediaType: ["image"],
+        sizeType: ["compressed"],
         sourceType: ["camera", "album"],
       });
 
-      const file = res.tempFiles && res.tempFiles[0];
-      if (!file || !file.tempFilePath) {
+      const tempPath =
+        (res.tempFilePaths && res.tempFilePaths[0]) ||
+        (res.tempFiles && res.tempFiles[0] && res.tempFiles[0].path) ||
+        "";
+      if (!tempPath) {
         throw new Error("未获取到图片");
       }
 
       this.setData({
-        imageTempPath: file.tempFilePath,
+        imageTempPath: tempPath,
         errorMsg: "",
       });
     } catch (err) {
@@ -154,22 +214,31 @@ Page({
 
     try {
       let imageFileId = "";
+      let imageTempUrl = "";
       let audioFileId = "";
+      let audioTempUrl = "";
 
       if (imageTempPath) {
         wx.showLoading({ title: "上传图片中..." });
-        imageFileId = await uploadTempFile(imageTempPath, "images");
+        const preparedImage = await prepareImageForUpload(imageTempPath);
+        const uploadedImage = await uploadTempFile(preparedImage.path, "images");
+        imageFileId = (uploadedImage && uploadedImage.fileID) || "";
+        imageTempUrl = (uploadedImage && uploadedImage.tempFileURL) || "";
       }
 
       if (audioTempPath) {
         wx.showLoading({ title: "上传语音中..." });
-        audioFileId = await uploadTempFile(audioTempPath, "audio");
+        const uploadedAudio = await uploadTempFile(audioTempPath, "audio");
+        audioFileId = (uploadedAudio && uploadedAudio.fileID) || "";
+        audioTempUrl = (uploadedAudio && uploadedAudio.tempFileURL) || "";
       }
 
       wx.showLoading({ title: "分析中..." });
       const result = await analyze({
         text: text || undefined,
+        image_url: imageTempUrl || undefined,
         image_file_id: imageFileId || undefined,
+        audio_url: audioTempUrl || undefined,
         audio_file_id: audioFileId || undefined,
         client: {
           platform: "mp-weixin",
@@ -182,7 +251,17 @@ Page({
         request: {
           text,
           imageFileId,
+          imageTempUrl,
           audioFileId,
+          audioTempUrl,
+          imageTempPath,
+          audioTempPath,
+          image_url: imageTempUrl,
+          image_file_id: imageFileId,
+          audio_url: audioTempUrl,
+          audio_file_id: audioFileId,
+          image_temp_path: imageTempPath,
+          audio_temp_path: audioTempPath,
         },
         response: result,
       };

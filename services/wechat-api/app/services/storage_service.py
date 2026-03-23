@@ -36,6 +36,19 @@ def _env_truthy(name: str, default: str = "0") -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        parsed = int(raw)
+        if parsed <= 0:
+            return default
+        return parsed
+    except ValueError:
+        return default
+
+
 def _resolve_verify_option() -> bool | str:
     if _env_truthy("WECHAT_DISABLE_SSL_VERIFY", "0"):
         return False
@@ -61,29 +74,38 @@ def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.
         if candidate not in attempts:
             attempts.append(candidate)
 
-    last_ssl_error: Optional[Exception] = None
-    for attempt_trust_env, attempt_verify in attempts:
+    last_error: Optional[Exception] = None
+    for index, (attempt_trust_env, attempt_verify) in enumerate(attempts):
+        attempt_timeout: int | tuple[int, int] = timeout
+        # If we have a fallback route, make the first connect attempt fail fast
+        # to avoid long blocking when proxy/env chain is unavailable.
+        if len(attempts) > 1 and index == 0 and isinstance(timeout, int):
+            connect_timeout = min(3, max(1, timeout))
+            attempt_timeout = (connect_timeout, timeout)
+
         with requests.Session() as session:
             session.trust_env = attempt_trust_env
             try:
                 return session.request(
                     method=method,
                     url=url,
-                    timeout=timeout,
+                    timeout=attempt_timeout,
                     verify=attempt_verify,
                     **kwargs,
                 )
-            except requests.exceptions.SSLError as exc:
-                last_ssl_error = exc
+            except requests.exceptions.RequestException as exc:
+                last_error = exc
                 continue
 
     host = urlparse(url).netloc
+    err_type = type(last_error).__name__ if last_error else "RequestException"
     raise ValueError(
         "wechat api ssl verify failed for "
         f"{host}. set WECHAT_CA_BUNDLE to trusted CA file; "
         "or verify runtime proxy/cert chain; "
+        f"last_error={err_type}; "
         "for emergency only, set WECHAT_DISABLE_SSL_VERIFY=1"
-    ) from last_ssl_error
+    ) from last_error
 
 
 def resolve_local_path(path_value: Optional[str], field_name: str) -> Optional[str]:
@@ -136,7 +158,7 @@ def _get_access_token() -> str:
             "appid": app_id,
             "secret": app_secret,
         },
-        timeout=15,
+        timeout=_env_int("WECHAT_TOKEN_TIMEOUT_SEC", 8),
     )
     response.raise_for_status()
     payload = response.json()
@@ -185,7 +207,7 @@ def _get_cloudbase_download_url(file_id: str) -> str:
             "env": env_name,
             "file_list": [{"fileid": file_id, "max_age": 3600}],
         },
-        timeout=20,
+        timeout=_env_int("WECHAT_BATCHDOWNLOAD_TIMEOUT_SEC", 10),
     )
     response.raise_for_status()
     payload = response.json()
@@ -228,7 +250,12 @@ def _download_to_temp(url: str) -> str:
     temp_path = temp_file.name
     temp_file.close()
 
-    response = _http_request("GET", url, stream=True, timeout=30)
+    response = _http_request(
+        "GET",
+        url,
+        stream=True,
+        timeout=_env_int("WECHAT_MEDIA_DOWNLOAD_TIMEOUT_SEC", 20),
+    )
     response.raise_for_status()
 
     with open(temp_path, "wb") as file_obj:
@@ -291,6 +318,7 @@ def resolve_file_id_to_temp_path(file_id: str, field_name: str) -> str:
 
 def resolve_input_file(
     local_path: Optional[str],
+    file_url: Optional[str],
     file_id: Optional[str],
     field_name: str,
 ) -> ResolvedInputFile:
@@ -300,6 +328,16 @@ def resolve_input_file(
             cleanup_path=None,
         )
 
+    url_error: Optional[Exception] = None
+    if file_url:
+        try:
+            temp_path = resolve_file_id_to_temp_path(file_url, f"{field_name}(url)")
+            return ResolvedInputFile(path=temp_path, cleanup_path=temp_path)
+        except ValueError as exc:
+            url_error = exc
+            if not file_id:
+                raise
+
     if file_id:
         local_assets_file = _resolve_assets_file_id(file_id, field_name)
         if local_assets_file:
@@ -308,19 +346,24 @@ def resolve_input_file(
         temp_path = resolve_file_id_to_temp_path(file_id, field_name)
         return ResolvedInputFile(path=temp_path, cleanup_path=temp_path)
 
+    if url_error:
+        raise url_error
+
     return ResolvedInputFile(path=None, cleanup_path=None)
 
 
 def resolve_media_paths(payload: AnalyzeRequest) -> ResolvedMediaPaths:
     image = resolve_input_file(
         local_path=payload.image_path,
+        file_url=payload.image_url,
         file_id=payload.image_file_id,
-        field_name="image_path/image_file_id",
+        field_name="image_path/image_url/image_file_id",
     )
     audio = resolve_input_file(
         local_path=payload.audio_path,
+        file_url=payload.audio_url,
         file_id=payload.audio_file_id,
-        field_name="audio_path/audio_file_id",
+        field_name="audio_path/audio_url/audio_file_id",
     )
 
     cleanup_paths = [path for path in [image.cleanup_path, audio.cleanup_path] if path]

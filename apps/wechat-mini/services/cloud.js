@@ -43,7 +43,24 @@ async function uploadTempFile(tempFilePath, category) {
     throw new Error("upload failed: no fileID returned.");
   }
 
-  return result.fileID;
+  let tempFileURL = "";
+  try {
+    const urlResult = await wx.cloud.getTempFileURL({
+      fileList: [result.fileID],
+      // long enough for immediate analyze/email flow; fileID remains the durable fallback.
+      maxAge: 2 * 60 * 60,
+    });
+    const entry = (urlResult && urlResult.fileList && urlResult.fileList[0]) || {};
+    tempFileURL = entry.tempFileURL || "";
+  } catch (err) {
+    // Keep flow available even if temp URL fetch fails; backend can fallback to fileID.
+    console.warn("getTempFileURL failed, fallback to fileID only", err);
+  }
+
+  return {
+    fileID: result.fileID,
+    tempFileURL,
+  };
 }
 
 module.exports = {

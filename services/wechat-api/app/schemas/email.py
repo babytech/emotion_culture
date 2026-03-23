@@ -9,6 +9,7 @@ class SendEmailRequest(BaseModel):
     poem_text: Optional[str] = Field(default=None, max_length=20000)
     comfort_text: Optional[str] = Field(default=None, max_length=8000)
     user_image_path: Optional[str] = None
+    user_image_url: Optional[str] = None
     user_image_file_id: Optional[str] = None
     poet_image_path: Optional[str] = None
     poet_image_file_id: Optional[str] = None

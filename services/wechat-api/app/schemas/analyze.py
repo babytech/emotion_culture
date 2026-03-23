@@ -10,7 +10,9 @@ class ClientMeta(BaseModel):
 
 class AnalyzeRequest(BaseModel):
     text: Optional[str] = Field(default=None, max_length=4000)
+    image_url: Optional[str] = None
     image_file_id: Optional[str] = None
+    audio_url: Optional[str] = None
     audio_file_id: Optional[str] = None
     image_path: Optional[str] = Field(default=None, description="Local debug path")
     audio_path: Optional[str] = Field(default=None, description="Local debug path")

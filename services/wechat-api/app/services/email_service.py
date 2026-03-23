@@ -19,16 +19,19 @@ def _load_optional_image(path_value: Optional[str]) -> Optional[np.ndarray]:
 def send_analysis_result_email(payload: SendEmailRequest) -> SendEmailResponse:
     user_image = resolve_input_file(
         local_path=payload.user_image_path,
+        file_url=payload.user_image_url,
         file_id=payload.user_image_file_id,
-        field_name="user_image_path/user_image_file_id",
+        field_name="user_image_path/user_image_url/user_image_file_id",
     )
     poet_image = resolve_input_file(
         local_path=payload.poet_image_path,
+        file_url=None,
         file_id=payload.poet_image_file_id,
         field_name="poet_image_path/poet_image_file_id",
     )
     guochao_image = resolve_input_file(
         local_path=payload.guochao_image_path,
+        file_url=None,
         file_id=payload.guochao_image_file_id,
         field_name="guochao_image_path/guochao_image_file_id",
     )
