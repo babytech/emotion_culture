@@ -60,3 +60,58 @@ See:
 - This backend intentionally does **not** modify `apps/pc` runtime behavior.
 - Backend runtime no longer depends on `apps/pc`; it can be deployed using `services/wechat-api` only.
 - For local backend debug, put SMTP vars directly in `services/wechat-api/.env`.
+
+## Deploy to WeChat Cloud Hosting (Custom Deploy)
+
+This service is ready for Cloud Hosting custom deployment.
+
+### 1) Deploy source path
+
+Use `services/wechat-api` as the deploy directory.
+
+Required files (already prepared):
+
+- `Dockerfile`
+- `.dockerignore`
+- `requirements.txt`
+- `app/**`
+
+### 2) Console steps
+
+In WeChat Cloud Hosting console:
+
+1. Click `自定义部署`.
+2. Choose source-code deployment and point to `services/wechat-api`.
+3. Keep container listen port as `80` (Dockerfile default).
+4. Add environment variables (see below).
+5. Deploy and wait for service status to become healthy.
+
+### 3) Required environment variables
+
+Set these in Cloud Hosting environment variables (do not upload `.env`):
+
+- `WECHAT_APP_ID`
+- `WECHAT_APP_SECRET`
+- `WECHAT_CLOUDBASE_ENV`
+- `EMAIL_SENDER_ADDRESS`
+- `EMAIL_SENDER_PASSWORD`
+- `SMTP_SERVER_HOST`
+- `SMTP_SERVER_PORT`
+
+Optional:
+
+- `PORT` (default `80`)
+
+### 4) Post-deploy checks
+
+1. Open `GET /api/health`, expect `{"ok": true}`.
+2. Call `POST /api/analyze` from mini program, expect HTTP 200.
+3. Call `POST /api/send-email`, expect HTTP 200 with `success=true`.
+
+### 5) Mini program config after backend deploy
+
+Update mini program backend URL from local loopback to your cloud service domain:
+
+- `apps/wechat-mini/config/index.js` -> `apiBaseUrl`
+
+Keep `cloudEnv` unchanged if you still use the same CloudBase environment.
