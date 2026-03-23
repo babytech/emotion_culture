@@ -7,7 +7,6 @@ from typing import Optional
 from urllib.parse import urlparse
 
 import requests
-import certifi
 
 from app.schemas.analyze import AnalyzeRequest
 
@@ -47,31 +46,43 @@ def _resolve_verify_option() -> bool | str:
             raise ValueError(f"WECHAT_CA_BUNDLE file not found: {custom_ca}")
         return custom_ca
 
-    # Force a stable CA bundle instead of relying on runtime defaults.
-    return certifi.where()
+    # Keep verify=True so requests can honor REQUESTS_CA_BUNDLE/CURL_CA_BUNDLE
+    # when trust_env is enabled in cloud runtime.
+    return True
 
 
 def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.Response:
-    trust_env = _env_truthy("WECHAT_REQUESTS_TRUST_ENV", "0")
+    trust_env = _env_truthy("WECHAT_REQUESTS_TRUST_ENV", "1")
     verify_option = _resolve_verify_option()
 
-    with requests.Session() as session:
-        session.trust_env = trust_env
-        try:
-            return session.request(
-                method=method,
-                url=url,
-                timeout=timeout,
-                verify=verify_option,
-                **kwargs,
-            )
-        except requests.exceptions.SSLError as exc:
-            host = urlparse(url).netloc
-            raise ValueError(
-                "wechat api ssl verify failed for "
-                f"{host}. set WECHAT_CA_BUNDLE to trusted CA file; "
-                "for emergency only, set WECHAT_DISABLE_SSL_VERIFY=1"
-            ) from exc
+    # Retry once with trust_env=True when SSL fails under explicit trust_env=False.
+    attempts: list[tuple[bool, bool | str]] = [(trust_env, verify_option)]
+    if verify_option is not False and not trust_env:
+        attempts.append((True, verify_option))
+
+    last_ssl_error: Optional[Exception] = None
+    for attempt_trust_env, attempt_verify in attempts:
+        with requests.Session() as session:
+            session.trust_env = attempt_trust_env
+            try:
+                return session.request(
+                    method=method,
+                    url=url,
+                    timeout=timeout,
+                    verify=attempt_verify,
+                    **kwargs,
+                )
+            except requests.exceptions.SSLError as exc:
+                last_ssl_error = exc
+                continue
+
+    host = urlparse(url).netloc
+    raise ValueError(
+        "wechat api ssl verify failed for "
+        f"{host}. set WECHAT_CA_BUNDLE to trusted CA file; "
+        "or set WECHAT_REQUESTS_TRUST_ENV=1; "
+        "for emergency only, set WECHAT_DISABLE_SSL_VERIFY=1"
+    ) from last_ssl_error
 
 
 def resolve_local_path(path_value: Optional[str], field_name: str) -> Optional[str]:
