@@ -31,6 +31,33 @@ class ResolvedInputFile:
     cleanup_path: Optional[str]
 
 
+def _env_truthy(name: str, default: str = "0") -> bool:
+    value = os.getenv(name, default)
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.Response:
+    trust_env = _env_truthy("WECHAT_REQUESTS_TRUST_ENV", "0")
+    verify_ssl = not _env_truthy("WECHAT_DISABLE_SSL_VERIFY", "0")
+
+    with requests.Session() as session:
+        session.trust_env = trust_env
+        try:
+            return session.request(
+                method=method,
+                url=url,
+                timeout=timeout,
+                verify=verify_ssl,
+                **kwargs,
+            )
+        except requests.exceptions.SSLError as exc:
+            raise ValueError(
+                "wechat api ssl verify failed. "
+                "check outbound proxy/certificate chain; "
+                "for emergency only, set WECHAT_DISABLE_SSL_VERIFY=1"
+            ) from exc
+
+
 def resolve_local_path(path_value: Optional[str], field_name: str) -> Optional[str]:
     if not path_value:
         return None
@@ -73,7 +100,8 @@ def _get_access_token() -> str:
     app_id = _require_env("WECHAT_APP_ID")
     app_secret = _require_env("WECHAT_APP_SECRET")
 
-    response = requests.get(
+    response = _http_request(
+        "GET",
         f"{WECHAT_API_BASE}/cgi-bin/token",
         params={
             "grant_type": "client_credential",
@@ -97,11 +125,26 @@ def _get_access_token() -> str:
     return access_token
 
 
+def _extract_cloud_env_from_file_id(file_id: str) -> Optional[str]:
+    if not file_id.startswith("cloud://"):
+        return None
+
+    content = file_id[len("cloud://") :]
+    env_name = content.split("/", maxsplit=1)[0].strip()
+    return env_name or None
+
+
 def _get_cloudbase_download_url(file_id: str) -> str:
-    env_name = _require_env("WECHAT_CLOUDBASE_ENV")
+    env_name = _extract_cloud_env_from_file_id(file_id) or os.getenv("WECHAT_CLOUDBASE_ENV")
+    if not env_name:
+        raise ValueError(
+            "missing cloud env: file_id has no env prefix and WECHAT_CLOUDBASE_ENV is not set"
+        )
+
     access_token = _get_access_token()
 
-    response = requests.post(
+    response = _http_request(
+        "POST",
         f"{WECHAT_API_BASE}/tcb/batchdownloadfile",
         params={"access_token": access_token},
         json={
@@ -115,7 +158,7 @@ def _get_cloudbase_download_url(file_id: str) -> str:
 
     if payload.get("errcode", 0) != 0:
         raise ValueError(
-            f"cloudbase batchdownloadfile failed: {payload.get('errcode')} {payload.get('errmsg')}"
+            f"cloudbase batchdownloadfile failed (env={env_name}): {payload.get('errcode')} {payload.get('errmsg')}"
         )
 
     file_list = payload.get("file_list", [])
@@ -151,7 +194,7 @@ def _download_to_temp(url: str) -> str:
     temp_path = temp_file.name
     temp_file.close()
 
-    response = requests.get(url, stream=True, timeout=30)
+    response = _http_request("GET", url, stream=True, timeout=30)
     response.raise_for_status()
 
     with open(temp_path, "wb") as file_obj:
