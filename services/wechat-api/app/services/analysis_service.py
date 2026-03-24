@@ -43,7 +43,7 @@ def _env_int(name: str, default: int) -> int:
 def _load_image_numpy(image_path: str) -> np.ndarray:
     with Image.open(image_path) as image:
         rgb = image.convert("RGB")
-        max_edge = _env_int("ANALYZE_IMAGE_MAX_EDGE", 1024)
+        max_edge = _env_int("ANALYZE_IMAGE_MAX_EDGE", 896)
         width, height = rgb.size
         longest = max(width, height)
         if longest > max_edge:

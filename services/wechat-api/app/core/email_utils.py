@@ -1,5 +1,6 @@
 import smtplib
 import os
+import time
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
@@ -7,7 +8,6 @@ from dotenv import load_dotenv
 from PIL import Image # 新增 for NumPy to Image conversion
 import numpy as np # 新增 for type hinting
 import tempfile # 新增 for temporary files
-import io # 新增 for PIL saving to bytes
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -19,9 +19,26 @@ load_dotenv(app_path(".env"))
 load_dotenv(os.path.abspath(os.path.join(BASE_DIR, "..", "..", ".env")))
 
 # 新增辅助函数
-def _save_numpy_image_to_tempfile(image_np: np.ndarray, prefix: str = "img_") -> str | None:
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def _save_numpy_image_to_tempfile(
+    image_np: np.ndarray,
+    prefix: str = "img_",
+    *,
+    max_edge: int = 960,
+    jpeg_quality: int = 76,
+) -> str | None:
     """
-    Saves a NumPy array as a temporary PNG image file.
+    Saves a NumPy array as a temporary compressed JPEG image file.
 
     Args:
         image_np (np.ndarray): The NumPy array representing the image.
@@ -33,14 +50,31 @@ def _save_numpy_image_to_tempfile(image_np: np.ndarray, prefix: str = "img_") ->
     if image_np is None:
         return None
     try:
-        pil_img = Image.fromarray(image_np.astype(np.uint8))
-        
+        pil_img = Image.fromarray(image_np.astype(np.uint8)).convert("RGB")
+
+        # Resize huge images to reduce email payload and rendering latency.
+        width, height = pil_img.size
+        longest = max(width, height)
+        if max_edge > 0 and longest > max_edge:
+            scale = float(max_edge) / float(longest)
+            resized = (max(1, int(width * scale)), max(1, int(height * scale)))
+            resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS", Image.BILINEAR)
+            pil_img = pil_img.resize(resized, resampling)
+
+        jpeg_quality = max(40, min(92, int(jpeg_quality)))
+
         # Create a temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".png", prefix=prefix)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg", prefix=prefix)
         temp_file_path = temp_file.name
         temp_file.close() # Close it so PIL can write to it
-        
-        pil_img.save(temp_file_path, format='PNG')
+
+        pil_img.save(
+            temp_file_path,
+            format="JPEG",
+            quality=jpeg_quality,
+            optimize=True,
+            progressive=True,
+        )
         return temp_file_path
     except Exception as e:
         print(f"Error saving NumPy array to temporary image file ({prefix}): {e}")
@@ -77,6 +111,7 @@ def send_email(recipient_email, subject, html_body, image_attachments=None):
         return False, "Email configuration missing. Please set EMAIL_SENDER_ADDRESS, EMAIL_SENDER_PASSWORD, SMTP_SERVER_HOST, and SMTP_SERVER_PORT environment variables."
 
     try:
+        smtp_timeout = _env_int("SMTP_TIMEOUT_SEC", 20)
         # Create the root message and fill in the from, to, and subject headers
         msg_root = MIMEMultipart('related')
         msg_root['From'] = sender_email
@@ -101,6 +136,7 @@ def send_email(recipient_email, subject, html_body, image_attachments=None):
                     with open(path, 'rb') as fp:
                         msg_image = MIMEImage(fp.read())
                         msg_image.add_header('Content-ID', f'<{cid}>')
+                        msg_image.add_header('Content-Disposition', 'inline', filename=f"{cid}.jpg")
                         msg_root.attach(msg_image)
                 except FileNotFoundError:
                     print(f"Warning: Image file not found at {path}, skipping attachment.")
@@ -110,16 +146,16 @@ def send_email(recipient_email, subject, html_body, image_attachments=None):
 
         # Send the email
         if smtp_port == 587:
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=smtp_timeout) as server:
                 server.starttls()  # Secure the connection
                 server.login(sender_email, sender_password)
                 server.sendmail(sender_email, recipient_email, msg_root.as_string())
         elif smtp_port == 465:
-            with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+            with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=smtp_timeout) as server:
                 server.login(sender_email, sender_password)
                 server.sendmail(sender_email, recipient_email, msg_root.as_string())
         else:
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
+            with smtplib.SMTP(smtp_server, smtp_port, timeout=smtp_timeout) as server:
                 server.login(sender_email, sender_password)
                 server.sendmail(sender_email, recipient_email, msg_root.as_string())
         
@@ -144,21 +180,37 @@ def send_analysis_email(to_email, thoughts, user_photo_np, poet_image_np, poem, 
 
     # Prepare image attachments by saving numpy arrays to temp files
     image_attachments_for_email = {}
-
-    user_photo_path = _save_numpy_image_to_tempfile(user_photo_np, "user_photo_")
+    t0 = time.perf_counter()
+    user_photo_path = _save_numpy_image_to_tempfile(
+        user_photo_np,
+        "user_photo_",
+        max_edge=_env_int("EMAIL_USER_IMAGE_MAX_EDGE", 960),
+        jpeg_quality=_env_int("EMAIL_USER_IMAGE_QUALITY", 72),
+    )
     if user_photo_path:
         image_attachments_for_email['user_photo_cid'] = user_photo_path
         temp_image_paths.append(user_photo_path)
 
-    poet_image_path = _save_numpy_image_to_tempfile(poet_image_np, "poet_image_")
+    poet_image_path = _save_numpy_image_to_tempfile(
+        poet_image_np,
+        "poet_image_",
+        max_edge=_env_int("EMAIL_POET_IMAGE_MAX_EDGE", 820),
+        jpeg_quality=_env_int("EMAIL_POET_IMAGE_QUALITY", 78),
+    )
     if poet_image_path:
         image_attachments_for_email['poet_image_cid'] = poet_image_path
         temp_image_paths.append(poet_image_path)
 
-    guochao_image_path = _save_numpy_image_to_tempfile(guochao_image_np, "guochao_image_")
+    guochao_image_path = _save_numpy_image_to_tempfile(
+        guochao_image_np,
+        "guochao_image_",
+        max_edge=_env_int("EMAIL_GUOCHAO_IMAGE_MAX_EDGE", 820),
+        jpeg_quality=_env_int("EMAIL_GUOCHAO_IMAGE_QUALITY", 78),
+    )
     if guochao_image_path:
         image_attachments_for_email['guochao_image_cid'] = guochao_image_path
         temp_image_paths.append(guochao_image_path)
+    print(f"[email] image_prepare_ms={int((time.perf_counter() - t0) * 1000)}")
 
     # Pre-process poem and comfort for HTML
     poem_for_html = poem.replace("\n", "<br>") if poem else "暂无诗词回应。"
