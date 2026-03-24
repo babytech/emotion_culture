@@ -5,10 +5,12 @@ function normalizeEmail(email) {
   return (email || "").trim();
 }
 
-function isEmailValid(email) {
-  if (!email.includes("@")) return false;
-  const domain = email.split("@")[1] || "";
-  return domain.includes(".");
+function getEmailError(email) {
+  if (!email) return "";
+  if (email.length > 320) return "邮箱长度不能超过 320 个字符";
+  const basicPattern = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+  if (!basicPattern.test(email)) return "邮箱地址格式有误，请检查后重试";
+  return "";
 }
 
 function pickRequest(context) {
@@ -46,6 +48,10 @@ Page({
     poetImageFailed: false,
     guochaoImageFailed: false,
     email: "",
+    emailError: "",
+    emailFocused: false,
+    keyboardHeight: 0,
+    bottomPaddingPx: 0,
     isSendingEmail: false,
     emailStatus: "",
   },
@@ -76,6 +82,52 @@ Page({
       poetImageFailed: false,
       guochaoImageFailed: false,
     });
+
+    if (wx.onKeyboardHeightChange) {
+      this._keyboardHandler = (res) => {
+        const height = Math.max(0, (res && res.height) || 0);
+        this.setData(
+          {
+            keyboardHeight: height,
+            bottomPaddingPx: height > 0 ? height + 24 : 0,
+          },
+          () => {
+            if (height > 0) this.scrollToEmailSection();
+          }
+        );
+      };
+      wx.onKeyboardHeightChange(this._keyboardHandler);
+    }
+  },
+
+  onUnload() {
+    if (this._keyboardHandler && wx.offKeyboardHeightChange) {
+      wx.offKeyboardHeightChange(this._keyboardHandler);
+    }
+  },
+
+  scrollToEmailSection() {
+    wx.pageScrollTo({
+      selector: "#email-section",
+      duration: 120,
+      offsetTop: 60,
+      fail() {
+        // ignore
+      },
+    });
+  },
+
+  handleEmailFocus() {
+    this.setData({ emailFocused: true });
+    this.scrollToEmailSection();
+  },
+
+  handleEmailBlur() {
+    const normalized = normalizeEmail(this.data.email);
+    this.setData({
+      emailFocused: false,
+      emailError: getEmailError(normalized),
+    });
   },
 
   onPoetImageError() {
@@ -87,8 +139,11 @@ Page({
   },
 
   handleEmailInput(event) {
+    const raw = (event && event.detail && event.detail.value) || "";
+    const normalized = normalizeEmail(raw);
     this.setData({
-      email: event.detail.value,
+      email: raw,
+      emailError: getEmailError(normalized),
       emailStatus: "",
     });
   },
@@ -132,14 +187,18 @@ Page({
 
   async submitEmail() {
     const toEmail = normalizeEmail(this.data.email);
-    if (!toEmail) {
-      wx.showToast({ title: "请输入邮箱地址", icon: "none" });
+    const emailError = !toEmail ? "请输入邮箱地址" : getEmailError(toEmail);
+    if (emailError) {
+      this.setData({ emailError });
+      this.scrollToEmailSection();
+      wx.showToast({ title: emailError, icon: "none" });
       return;
     }
-    if (!isEmailValid(toEmail)) {
-      wx.showToast({ title: "邮箱格式不正确", icon: "none" });
-      return;
-    }
+
+    this.setData({
+      email: toEmail,
+      emailError: "",
+    });
 
     const context = this._analysisContext || {};
     const req = pickRequest(context);

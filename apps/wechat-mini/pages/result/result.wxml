@@ -1,4 +1,4 @@
-<view class="container page-root">
+<view class="container page-root" style="padding-bottom: {{bottomPaddingPx}}px;">
   <view wx:if="{{!hasData}}" class="empty card">
     <view class="empty-title">暂无分析结果</view>
     <view class="text-muted">请返回上一页先提交分析。</view>
@@ -21,7 +21,7 @@
       <image
         wx:if="{{poetImageUrl && !poetImageFailed}}"
         class="result-image"
-        mode="aspectFill"
+        mode="widthFix"
         src="{{poetImageUrl}}"
         binderror="onPoetImageError"
       />
@@ -40,7 +40,7 @@
       <image
         wx:if="{{guochaoImageUrl && !guochaoImageFailed}}"
         class="result-image"
-        mode="aspectFill"
+        mode="widthFix"
         src="{{guochaoImageUrl}}"
         binderror="onGuochaoImageError"
       />
@@ -50,17 +50,25 @@
       <view class="comfort">{{comfort}}</view>
     </view>
 
-    <view class="section card">
+    <view id="email-section" class="section card email-section {{emailFocused ? 'email-section-focus' : ''}}">
       <view class="section-title">发送到邮箱（可选）</view>
+      <view class="email-tip text-muted">请输入常用邮箱，结果将发送到该地址。</view>
       <input
-        class="email-input"
+        class="email-input {{emailError ? 'email-input-error' : ''}}"
         type="text"
-        placeholder="your_email@example.com"
+        maxlength="320"
+        confirm-type="done"
+        adjust-position="{{true}}"
+        cursor-spacing="150"
+        placeholder="例如：name@example.com"
         value="{{email}}"
         bindinput="handleEmailInput"
+        bindfocus="handleEmailFocus"
+        bindblur="handleEmailBlur"
       />
+      <view wx:if="{{emailError}}" class="email-error">{{emailError}}</view>
       <button
-        class="btn btn-primary"
+        class="btn btn-primary email-submit-btn"
         loading="{{isSendingEmail}}"
         disabled="{{isSendingEmail}}"
         bindtap="submitEmail"
@@ -72,6 +80,6 @@
       </view>
     </view>
 
-    <button class="btn btn-secondary" bindtap="backHome">返回继续分析</button>
+    <button class="btn btn-secondary result-bottom-btn" bindtap="backHome">返回继续分析</button>
   </block>
 </view>
