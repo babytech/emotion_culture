@@ -32,7 +32,9 @@ function compressImage(path, quality) {
       success(res) {
         resolve((res && res.tempFilePath) || path);
       },
-      fail(reject),
+      fail(err) {
+        reject(err);
+      },
     });
   });
 }

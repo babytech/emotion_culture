@@ -4,7 +4,8 @@ module.exports = {
   apiBaseUrl: "https://emotion-culture-api-237560-9-1415063583.sh.run.tcloudbase.com",
 
   // WeChat Cloud Development env id (used by wx.cloud.uploadFile and cloud init).
-  cloudEnv: "emotion-culture-cloud-dev-952b26",
+  // cloudEnv: "emotion-culture-cloud-dev-952b26",
+  cloudEnv: "prod-9gok8bmyd517976f",
 
   // Cloud Hosting env id for wx.cloud.callContainer.
   // If your container service is deployed under a different env than `cloudEnv`, set it here.

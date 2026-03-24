@@ -16,6 +16,7 @@ CORE_IMAGES_DIR = Path(__file__).resolve().parents[1] / "core" / "images"
 WECHAT_API_BASE = "https://api.weixin.qq.com"
 
 _TOKEN_CACHE: dict[str, Optional[object]] = {"token": None, "expires_at": None}
+_HTTP_TRUST_ENV_HINT: Optional[bool] = None
 
 
 @dataclass
@@ -65,11 +66,17 @@ def _resolve_verify_option() -> bool | str:
 
 
 def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.Response:
+    global _HTTP_TRUST_ENV_HINT
     configured_trust_env = _env_truthy("WECHAT_REQUESTS_TRUST_ENV", "1")
     verify_option = _resolve_verify_option()
 
+    trust_env_order: list[bool] = []
+    for trust_env in (_HTTP_TRUST_ENV_HINT, configured_trust_env, not configured_trust_env):
+        if isinstance(trust_env, bool) and trust_env not in trust_env_order:
+            trust_env_order.append(trust_env)
+
     attempts: list[tuple[bool, bool | str]] = []
-    for trust_env in (configured_trust_env, not configured_trust_env):
+    for trust_env in trust_env_order:
         candidate = (trust_env, verify_option)
         if candidate not in attempts:
             attempts.append(candidate)
@@ -86,13 +93,15 @@ def _http_request(method: str, url: str, *, timeout: int, **kwargs) -> requests.
         with requests.Session() as session:
             session.trust_env = attempt_trust_env
             try:
-                return session.request(
+                response = session.request(
                     method=method,
                     url=url,
                     timeout=attempt_timeout,
                     verify=attempt_verify,
                     **kwargs,
                 )
+                _HTTP_TRUST_ENV_HINT = attempt_trust_env
+                return response
             except requests.exceptions.RequestException as exc:
                 last_error = exc
                 continue

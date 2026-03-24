@@ -1,5 +1,6 @@
 import random
 import uuid
+import os
 from typing import Optional
 
 import numpy as np
@@ -28,9 +29,29 @@ _culture_manager = CultureManager()
 _emotions = ("happy", "sad", "angry", "surprise", "neutral", "fear")
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
 def _load_image_numpy(image_path: str) -> np.ndarray:
     with Image.open(image_path) as image:
-        return np.array(image.convert("RGB"))
+        rgb = image.convert("RGB")
+        max_edge = _env_int("ANALYZE_IMAGE_MAX_EDGE", 1024)
+        width, height = rgb.size
+        longest = max(width, height)
+        if longest > max_edge:
+            scale = max_edge / float(longest)
+            new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
+            resampling = getattr(getattr(Image, "Resampling", Image), "BILINEAR", Image.BILINEAR)
+            rgb = rgb.resize(new_size, resampling)
+        return np.array(rgb)
 
 
 def _select_emotion(
