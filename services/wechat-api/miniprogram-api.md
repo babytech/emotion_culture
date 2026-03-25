@@ -102,6 +102,19 @@ Response example:
     "guochao_comfort": "每个人都会有情绪低落的时候...",
     "daily_suggestion": "给自己 10 分钟安静时间，做 3 次深呼吸，再写下一个可马上完成的小目标。"
   },
+  "system_fields": {
+    "request_id": "ana_2f3c0cfa5c53",
+    "analyzed_at": "2026-03-25T12:34:56Z",
+    "input_modes": ["text", "selfie", "voice"],
+    "primary_emotion_code": "sad",
+    "secondary_emotion_codes": ["neutral"],
+    "confidence_level": "medium",
+    "trigger_tags": ["学业压力", "人际关系"],
+    "poem_id": "poem_8f65f3de1a3b",
+    "guochao_id": "gc_5a4f45f4d2e1",
+    "mail_sent": false,
+    "tts_ready": false
+  },
 
   "emotion": {
     "code": "sad",
@@ -137,6 +150,7 @@ Response example:
 Notes:
 
 - `result_card` is the fixed user-facing structure for phase-1 pages/history/email.
+- `system_fields` contains internal metadata for history/trend/observability (BE-003).
 - `emotion/poem/guochao` are legacy-compatible fields for existing clients.
 
 ## 3) Send analysis email

@@ -11,6 +11,12 @@ class InputMode(str, Enum):
     PC_CAMERA = "pc_camera"
 
 
+class ConfidenceLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+
 class ClientMeta(BaseModel):
     platform: Optional[str] = None
     version: Optional[str] = None
@@ -142,10 +148,25 @@ class ResultCard(BaseModel):
     daily_suggestion: str
 
 
+class SystemFields(BaseModel):
+    request_id: str
+    analyzed_at: str
+    input_modes: list[InputMode] = Field(default_factory=list)
+    primary_emotion_code: str
+    secondary_emotion_codes: list[str] = Field(default_factory=list)
+    confidence_level: ConfidenceLevel
+    trigger_tags: list[str] = Field(default_factory=list)
+    poem_id: str
+    guochao_id: str
+    mail_sent: bool = False
+    tts_ready: bool = False
+
+
 class AnalyzeResponse(BaseModel):
     request_id: str
     input_modes: list[InputMode] = Field(default_factory=list)
     result_card: ResultCard
+    system_fields: SystemFields
 
     # Legacy fields kept for existing clients.
     emotion: EmotionResult

@@ -1,6 +1,8 @@
+import hashlib
 import os
 import random
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 import numpy as np
@@ -17,12 +19,14 @@ from app.core.speech import analyze_speech_emotion
 from app.schemas.analyze import (
     AnalyzeRequest,
     AnalyzeResponse,
+    ConfidenceLevel,
     EmotionBrief,
     EmotionResult,
     EmotionSources,
     GuochaoResult,
     PoemResult,
     ResultCard,
+    SystemFields,
 )
 from app.services.storage_service import cleanup_temp_files, resolve_media_paths
 
@@ -183,7 +187,6 @@ def _infer_trigger_tags(text: Optional[str], primary_emotion: str) -> list[str]:
     if not tags:
         tags.extend(_DEFAULT_TRIGGER_TAGS.get(primary_emotion, _DEFAULT_TRIGGER_TAGS["neutral"]))
 
-    # 去重并限制数量
     deduped: list[str] = []
     for tag in tags:
         if tag not in deduped:
@@ -193,6 +196,31 @@ def _infer_trigger_tags(text: Optional[str], primary_emotion: str) -> list[str]:
 
 def _pick_daily_suggestion(primary_emotion: str) -> str:
     return _DAILY_SUGGESTIONS.get(primary_emotion, _DAILY_SUGGESTIONS["neutral"])
+
+
+def _calc_confidence_level(primary_emotion: str, weights: dict[str, float]) -> ConfidenceLevel:
+    primary_score = float(weights.get(primary_emotion, 0.0))
+    competitors = sorted(
+        (score for emotion_code, score in weights.items() if emotion_code != primary_emotion),
+        reverse=True,
+    )
+    second_score = float(competitors[0]) if competitors else 0.0
+    gap = primary_score - second_score
+
+    if primary_score >= 0.75 or gap >= 0.45:
+        return ConfidenceLevel.HIGH
+    if primary_score >= 0.45 and gap >= 0.2:
+        return ConfidenceLevel.MEDIUM
+    return ConfidenceLevel.LOW
+
+
+def _short_hash(value: str, prefix: str) -> str:
+    digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:12]
+    return f"{prefix}_{digest}"
+
+
+def _iso_now_utc() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
@@ -226,10 +254,12 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
         character_name = _pick_guochao_name(chosen_emotion)
         comfort = comfort_text.get(chosen_emotion, comfort_text["neutral"])
         emotion_label = _culture_manager.translate_emotion(chosen_emotion)
+        secondary_emotions = _build_secondary_emotions(chosen_emotion, weights)
+        trigger_tags = _infer_trigger_tags(payload.text, chosen_emotion)
 
         result_card = ResultCard(
             primary_emotion=EmotionBrief(code=chosen_emotion, label=emotion_label),
-            secondary_emotions=_build_secondary_emotions(chosen_emotion, weights),
+            secondary_emotions=secondary_emotions,
             emotion_overview=_build_emotion_overview(
                 primary_emotion=chosen_emotion,
                 primary_label=emotion_label,
@@ -237,17 +267,34 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
                 face_emotion=face_emotion,
                 speech_emotion=speech_emotion,
             ),
-            trigger_tags=_infer_trigger_tags(payload.text, chosen_emotion),
+            trigger_tags=trigger_tags,
             poem_response=poem_text,
             poem_interpretation=interpretation,
             guochao_comfort=comfort,
             daily_suggestion=_pick_daily_suggestion(chosen_emotion),
         )
 
+        request_id = f"ana_{uuid.uuid4().hex[:12]}"
+        poem_id = _short_hash(f"{poet}|{poem_text}", "poem")
+        guochao_id = _short_hash(character_name, "gc")
+
         return AnalyzeResponse(
-            request_id=f"ana_{uuid.uuid4().hex[:12]}",
+            request_id=request_id,
             input_modes=input_modes,
             result_card=result_card,
+            system_fields=SystemFields(
+                request_id=request_id,
+                analyzed_at=_iso_now_utc(),
+                input_modes=input_modes,
+                primary_emotion_code=chosen_emotion,
+                secondary_emotion_codes=[item.code for item in secondary_emotions],
+                confidence_level=_calc_confidence_level(chosen_emotion, weights),
+                trigger_tags=trigger_tags,
+                poem_id=poem_id,
+                guochao_id=guochao_id,
+                mail_sent=False,
+                tts_ready=False,
+            ),
             emotion=EmotionResult(
                 code=chosen_emotion,
                 label=emotion_label,
