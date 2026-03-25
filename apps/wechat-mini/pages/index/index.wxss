@@ -33,6 +33,11 @@
   margin-bottom: 16rpx;
 }
 
+.section-tip {
+  margin: -6rpx 0 14rpx;
+  font-size: 24rpx;
+}
+
 .thought-input {
   min-height: 220rpx;
   width: 100%;
@@ -54,10 +59,23 @@
   margin-top: 16rpx;
 }
 
+.preview-label {
+  margin-bottom: 10rpx;
+  font-size: 24rpx;
+  color: #7f4f27;
+  font-weight: 600;
+}
+
 .preview-image {
   width: 100%;
-  height: 340rpx;
+  height: auto;
   border-radius: 16rpx;
+  display: block;
+}
+
+.confirm-row {
+  margin-top: 12rpx;
+  flex-wrap: wrap;
 }
 
 .audio-status {

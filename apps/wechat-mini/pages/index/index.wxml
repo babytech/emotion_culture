@@ -2,7 +2,7 @@
   <view class="hero card">
     <view class="hero-title">青少年情绪文化助手</view>
     <view class="hero-sub text-muted">
-      输入你的想法，上传一张照片，或者录一段语音。
+      输入你的想法，前置自拍拍照，或者录一段语音。
     </view>
   </view>
 
@@ -18,19 +18,35 @@
   </view>
 
   <view class="section card">
-    <view class="section-title">2. 选择图片（可选）</view>
+    <view class="section-title">2. 前置自拍拍照（可选）</view>
+    <view class="section-tip text-muted">仅支持拍照，不支持从相册导入。</view>
+    <view wx:if="{{isDevtools}}" class="section-tip text-muted">
+      开发者工具中可能显示“选图片/文件”，请用真机调试验证前置摄像头。
+    </view>
     <view class="media-row">
-      <button class="btn btn-secondary" bindtap="chooseImage">选择图片</button>
+      <button class="btn btn-secondary" bindtap="chooseSelfie">前置自拍</button>
       <button
         class="btn"
-        disabled="{{!imageTempPath}}"
+        disabled="{{!imageTempPath && !pendingSelfiePath}}"
         bindtap="clearImage"
       >
         清除
       </button>
     </view>
-    <view wx:if="{{imageTempPath}}" class="preview-wrap">
-      <image class="preview-image" mode="aspectFill" src="{{imageTempPath}}" />
+
+    <view wx:if="{{pendingSelfiePath}}" class="preview-wrap">
+      <view class="preview-label">待确认自拍</view>
+      <image class="preview-image" mode="widthFix" src="{{pendingSelfiePath}}" />
+      <view class="media-row confirm-row">
+        <button class="btn btn-primary" bindtap="confirmSelfie">确认使用</button>
+        <button class="btn btn-secondary" bindtap="retakeSelfie">重新拍摄</button>
+        <button class="btn" bindtap="cancelPendingSelfie">取消</button>
+      </view>
+    </view>
+
+    <view wx:elif="{{imageTempPath}}" class="preview-wrap">
+      <view class="preview-label">已确认自拍</view>
+      <image class="preview-image" mode="widthFix" src="{{imageTempPath}}" />
     </view>
   </view>
 
