@@ -193,8 +193,23 @@ Response:
 
 ```json
 {
+  "request_id": "mail_f4a12bc39d10",
   "success": true,
-  "message": "邮件发送成功！"
+  "message": "邮件发送成功！",
+  "error_code": null,
+  "retryable": false
+}
+```
+
+Failure example (still HTTP 200, frontend retries only this endpoint):
+
+```json
+{
+  "request_id": "mail_8f02f6d117ab",
+  "success": false,
+  "message": "邮件发送失败：SMTP服务器意外断开连接。",
+  "error_code": "EMAIL_NETWORK_ERROR",
+  "retryable": true
 }
 ```
 
@@ -211,6 +226,14 @@ Voice quality reject details (`400`, from BE-011):
 - `[VOICE_TRANSCRIPT_EMPTY]`: transcript empty (silent/noisy input)
 - `[VOICE_TEXT_TOO_SHORT]`: recognized text too short
 - `[VOICE_TEXT_UNSTABLE]`: unstable transcript, suggest re-record in quieter environment
+
+Email error codes (`/api/send-email` response fields):
+
+- `EMAIL_CONFIG_INVALID`: missing/invalid SMTP config, usually not retryable
+- `EMAIL_AUTH_FAILED`: sender auth failed, not retryable until config fixed
+- `EMAIL_NETWORK_ERROR`: transient network/server issue, retryable
+- `EMAIL_UNKNOWN_ERROR`: unexpected runtime issue, retryable
+- `EMAIL_SERVICE_ERROR`: endpoint-level exception fallback, retryable
 
 Face quality reject details (`400`, from BE-012):
 

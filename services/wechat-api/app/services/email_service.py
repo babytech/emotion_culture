@@ -1,3 +1,4 @@
+import uuid
 from typing import Optional
 
 import numpy as np
@@ -6,6 +7,21 @@ from PIL import Image
 from app.core.email_utils import send_analysis_email
 from app.schemas.email import SendEmailRequest, SendEmailResponse
 from app.services.storage_service import cleanup_temp_files, resolve_input_file
+
+
+def _classify_email_failure(message: str) -> tuple[str, bool]:
+    normalized = (message or "").lower()
+
+    if "configuration missing" in normalized or "配置" in normalized:
+        return "EMAIL_CONFIG_INVALID", False
+    if "认证" in normalized or "authentication" in normalized:
+        return "EMAIL_AUTH_FAILED", False
+    if "无法连接" in normalized or "断开连接" in normalized or "timeout" in normalized:
+        return "EMAIL_NETWORK_ERROR", True
+    if "unknown error" in normalized or "未知错误" in normalized:
+        return "EMAIL_UNKNOWN_ERROR", True
+
+    return "EMAIL_SEND_FAILED", True
 
 
 def _load_optional_image(path_value: Optional[str]) -> Optional[np.ndarray]:
@@ -17,6 +33,8 @@ def _load_optional_image(path_value: Optional[str]) -> Optional[np.ndarray]:
 
 
 def send_analysis_result_email(payload: SendEmailRequest) -> SendEmailResponse:
+    request_id = f"mail_{uuid.uuid4().hex[:12]}"
+
     user_image = resolve_input_file(
         local_path=payload.user_image_path,
         file_url=payload.user_image_url,
@@ -56,6 +74,22 @@ def send_analysis_result_email(payload: SendEmailRequest) -> SendEmailResponse:
             guochao_image_np=guochao_image_np,
             comfort=payload.comfort_text or "",
         )
-        return SendEmailResponse(success=success, message=message)
+        if success:
+            return SendEmailResponse(
+                request_id=request_id,
+                success=True,
+                message=message,
+                error_code=None,
+                retryable=False,
+            )
+
+        error_code, retryable = _classify_email_failure(message)
+        return SendEmailResponse(
+            request_id=request_id,
+            success=False,
+            message=message,
+            error_code=error_code,
+            retryable=retryable,
+        )
     finally:
         cleanup_temp_files(cleanup_paths)

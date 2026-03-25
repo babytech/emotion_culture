@@ -28,5 +28,8 @@ class SendEmailRequest(BaseModel):
 
 
 class SendEmailResponse(BaseModel):
+    request_id: Optional[str] = None
     success: bool
     message: str
+    error_code: Optional[str] = None
+    retryable: bool = False

@@ -15,4 +15,10 @@ def send_email(payload: SendEmailRequest) -> SendEmailResponse:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"send email failed: {exc}") from exc
+        return SendEmailResponse(
+            request_id=None,
+            success=False,
+            message=f"邮件发送失败：服务异常 - {exc}",
+            error_code="EMAIL_SERVICE_ERROR",
+            retryable=True,
+        )
