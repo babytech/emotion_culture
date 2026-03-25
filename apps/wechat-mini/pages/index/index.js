@@ -39,6 +39,17 @@ function compressImage(path, quality) {
   });
 }
 
+function extractTempImagePath(res) {
+  return (
+    (res &&
+      res.tempFiles &&
+      res.tempFiles[0] &&
+      (res.tempFiles[0].tempFilePath || res.tempFiles[0].path)) ||
+    (res && res.tempFilePaths && res.tempFilePaths[0]) ||
+    ""
+  );
+}
+
 async function prepareImageForUpload(path) {
   const sizeBefore = await getFileSize(path);
   if (sizeBefore > 0 && sizeBefore <= IMAGE_COMPRESS_SKIP_BYTES) {
@@ -66,14 +77,24 @@ Page({
   data: {
     text: "",
     imageTempPath: "",
+    pendingSelfiePath: "",
     audioTempPath: "",
     isRecording: false,
     recordSeconds: 0,
     isSubmitting: false,
     errorMsg: "",
+    isDevtools: false,
   },
 
   onLoad() {
+    let isDevtools = false;
+    try {
+      const sysInfo = wx.getSystemInfoSync();
+      isDevtools = !!sysInfo && sysInfo.platform === "devtools";
+    } catch (err) {
+      isDevtools = false;
+    }
+    this.setData({ isDevtools });
     this.bindRecorderEvents();
   },
 
@@ -141,37 +162,85 @@ Page({
     });
   },
 
-  async chooseImage() {
+  async chooseSelfie() {
+    let tempPath = "";
     try {
-      const res = await wx.chooseImage({
+      const mediaRes = await wx.chooseMedia({
         count: 1,
-        sizeType: ["compressed"],
-        sourceType: ["camera", "album"],
+        mediaType: ["image"],
+        sizeType: ["original"],
+        sourceType: ["camera"],
+        camera: "front",
       });
-
-      const tempPath =
-        (res.tempFilePaths && res.tempFilePaths[0]) ||
-        (res.tempFiles && res.tempFiles[0] && res.tempFiles[0].path) ||
-        "";
-      if (!tempPath) {
-        throw new Error("未获取到图片");
-      }
-
-      this.setData({
-        imageTempPath: tempPath,
-        errorMsg: "",
-      });
+      tempPath = extractTempImagePath(mediaRes);
     } catch (err) {
-      if ((err.errMsg || "").includes("cancel")) return;
+      const message = (err && err.errMsg) || "";
+      if (!message.includes("cancel")) {
+        try {
+          const imageRes = await wx.chooseImage({
+            count: 1,
+            sizeType: ["original"],
+            sourceType: ["camera"],
+          });
+          tempPath = extractTempImagePath(imageRes);
+        } catch (fallbackErr) {
+          if ((fallbackErr.errMsg || "").includes("cancel")) return;
+          wx.showToast({
+            title: fallbackErr.message || "拍照失败",
+            icon: "none",
+          });
+          return;
+        }
+      } else {
+        return;
+      }
+    }
+
+    if (!tempPath) {
       wx.showToast({
-        title: err.message || "选择图片失败",
+        title: "未获取到自拍照片",
         icon: "none",
       });
+      return;
     }
+
+    this.setData({
+      imageTempPath: "",
+      pendingSelfiePath: tempPath,
+      errorMsg: "",
+    });
+  },
+
+  confirmSelfie() {
+    if (!this.data.pendingSelfiePath) return;
+    this.setData({
+      imageTempPath: this.data.pendingSelfiePath,
+      pendingSelfiePath: "",
+      errorMsg: "",
+    });
+  },
+
+  async retakeSelfie() {
+    this.setData({
+      imageTempPath: "",
+      pendingSelfiePath: "",
+      errorMsg: "",
+    });
+    await this.chooseSelfie();
+  },
+
+  cancelPendingSelfie() {
+    this.setData({
+      pendingSelfiePath: "",
+      errorMsg: "",
+    });
   },
 
   clearImage() {
-    this.setData({ imageTempPath: "" });
+    this.setData({
+      imageTempPath: "",
+      pendingSelfiePath: "",
+    });
   },
 
   startRecord() {
@@ -202,10 +271,16 @@ Page({
   async submitAnalyze() {
     const text = (this.data.text || "").trim();
     const imageTempPath = this.data.imageTempPath;
+    const pendingSelfiePath = this.data.pendingSelfiePath;
     const audioTempPath = this.data.audioTempPath;
 
+    if (pendingSelfiePath && !imageTempPath) {
+      this.setData({ errorMsg: "请先确认自拍照片，再提交分析。" });
+      return;
+    }
+
     if (!text && !imageTempPath && !audioTempPath) {
-      this.setData({ errorMsg: "请至少提供文本、图片或语音中的一种输入。" });
+      this.setData({ errorMsg: "请至少提供文本、自拍或语音中的一种输入。" });
       return;
     }
 

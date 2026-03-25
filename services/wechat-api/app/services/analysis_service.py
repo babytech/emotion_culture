@@ -176,6 +176,60 @@ def _validate_voice_quality(audio_path: str, speech_transcript: Optional[str]) -
         )
 
 
+def _box_iou(box_a: tuple[int, int, int, int], box_b: tuple[int, int, int, int]) -> float:
+    ax, ay, aw, ah = box_a
+    bx, by, bw, bh = box_b
+    ax2, ay2 = ax + aw, ay + ah
+    bx2, by2 = bx + bw, by + bh
+
+    inter_x1 = max(ax, bx)
+    inter_y1 = max(ay, by)
+    inter_x2 = min(ax2, bx2)
+    inter_y2 = min(ay2, by2)
+
+    inter_w = max(0, inter_x2 - inter_x1)
+    inter_h = max(0, inter_y2 - inter_y1)
+    inter_area = inter_w * inter_h
+    if inter_area <= 0:
+        return 0.0
+
+    area_a = aw * ah
+    area_b = bw * bh
+    union = area_a + area_b - inter_area
+    if union <= 0:
+        return 0.0
+    return inter_area / union
+
+
+def _dedupe_overlapped_faces(
+    faces: list[tuple[int, int, int, int]],
+    iou_threshold: float,
+) -> list[tuple[int, int, int, int]]:
+    kept: list[tuple[int, int, int, int]] = []
+    for box in sorted(faces, key=lambda item: item[2] * item[3], reverse=True):
+        if all(_box_iou(box, existing) < iou_threshold for existing in kept):
+            kept.append(box)
+    return kept
+
+
+def _detect_eye_count(
+    eye_cascade: cv2.CascadeClassifier,
+    gray: np.ndarray,
+    face_box: tuple[int, int, int, int],
+) -> int:
+    x, y, w, h = face_box
+    roi = gray[y : y + h, x : x + w]
+    if roi.size == 0:
+        return 0
+    eyes = eye_cascade.detectMultiScale(
+        roi,
+        scaleFactor=1.1,
+        minNeighbors=4,
+        minSize=(max(10, w // 12), max(10, h // 12)),
+    )
+    return int(len(eyes))
+
+
 def _validate_face_quality(image: np.ndarray) -> None:
     if image is None or image.size == 0:
         raise FaceQualityRejectError(
@@ -192,32 +246,86 @@ def _validate_face_quality(image: np.ndarray) -> None:
     )
     eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
 
-    faces = face_cascade.detectMultiScale(
+    raw_faces = face_cascade.detectMultiScale(
         gray,
         scaleFactor=1.1,
-        minNeighbors=5,
+        minNeighbors=6,
         minSize=(40, 40),
     )
+
+    image_area = float(gray.shape[0] * gray.shape[1])
+    min_candidate_ratio = _env_float("FACE_MIN_CANDIDATE_AREA_RATIO", 0.01)
+    candidate_faces: list[tuple[int, int, int, int]] = []
+    for (x, y, w, h) in raw_faces:
+        area_ratio = (w * h) / image_area if image_area > 0 else 0.0
+        if area_ratio >= min_candidate_ratio:
+            candidate_faces.append((int(x), int(y), int(w), int(h)))
+
+    dedupe_iou = _env_float("FACE_DEDUPE_IOU_THRESHOLD", 0.3)
+    faces = _dedupe_overlapped_faces(candidate_faces, dedupe_iou)
 
     if len(faces) == 0:
         raise FaceQualityRejectError(
             code="FACE_NOT_FOUND",
-            message="未检测到清晰人脸，请正对镜头重新拍摄。",
-        )
-    if len(faces) > 1:
-        raise FaceQualityRejectError(
-            code="FACE_MULTI_FOUND",
-            message="检测到多个人脸，请仅保留你本人单人入镜。",
+            message="没有人像出现，请保证自拍时露脸拍照。",
         )
 
-    (x, y, w, h) = faces[0]
-    image_area = float(gray.shape[0] * gray.shape[1])
-    face_area_ratio = (w * h) / image_area if image_area > 0 else 0.0
-    min_face_area_ratio = _env_float("FACE_MIN_AREA_RATIO", 0.06)
+    min_presence_eye_count = _env_int("FACE_MIN_PRESENCE_EYE_COUNT", 1)
+    high_area_presence_ratio = _env_float("FACE_HIGH_AREA_PRESENCE_RATIO", 0.08)
+
+    valid_faces: list[tuple[int, int, int, int]] = []
+    face_eye_count: dict[tuple[int, int, int, int], int] = {}
+    face_area_ratio_map: dict[tuple[int, int, int, int], float] = {}
+    for box in faces:
+        x, y, w, h = box
+        area_ratio = (w * h) / image_area if image_area > 0 else 0.0
+        eye_count = _detect_eye_count(eye_cascade, gray, box)
+        face_area_ratio_map[box] = area_ratio
+        face_eye_count[box] = eye_count
+        # 眼睛特征满足，或人脸区域本身足够大，才当做人像候选，过滤背景误检。
+        if eye_count >= min_presence_eye_count or area_ratio >= high_area_presence_ratio:
+            valid_faces.append(box)
+
+    if len(valid_faces) == 0:
+        raise FaceQualityRejectError(
+            code="FACE_NOT_FOUND",
+            message="没有人像出现，请保证自拍时露脸拍照。",
+        )
+
+    valid_faces = sorted(valid_faces, key=lambda item: item[2] * item[3], reverse=True)
+    (x, y, w, h) = valid_faces[0]
+    face_area_ratio = face_area_ratio_map.get((x, y, w, h), 0.0)
+    min_face_area_ratio = _env_float("FACE_MIN_AREA_RATIO", 0.022)
     if face_area_ratio < min_face_area_ratio:
+        if face_eye_count.get((x, y, w, h), 0) <= 0:
+            raise FaceQualityRejectError(
+                code="FACE_NOT_FOUND",
+                message="没有人像出现，请保证自拍时露脸拍照。",
+            )
         raise FaceQualityRejectError(
             code="FACE_TOO_SMALL",
             message="人脸区域过小，请靠近镜头后重新拍摄。",
+        )
+
+    primary_area = float(w * h)
+    multi_min_ratio = _env_float("FACE_MULTI_MIN_RATIO", 0.8)
+    min_secondary_area_ratio = min_face_area_ratio * _env_float(
+        "FACE_MULTI_SECONDARY_ABS_RATIO_FACTOR", 0.75
+    )
+    significant_secondary = [
+        box
+        for box in valid_faces[1:]
+        if (
+            primary_area > 0
+            and ((box[2] * box[3]) / primary_area) >= multi_min_ratio
+            and face_area_ratio_map.get(box, 0.0) >= min_secondary_area_ratio
+            and face_eye_count.get(box, 0) >= min_presence_eye_count
+        )
+    ]
+    if significant_secondary:
+        raise FaceQualityRejectError(
+            code="FACE_MULTI_FOUND",
+            message="检测到多个人像，请仅保留你本人单人入镜。",
         )
 
     roi = gray[y : y + h, x : x + w]
@@ -227,7 +335,7 @@ def _validate_face_quality(image: np.ndarray) -> None:
             message="图片无效，请重新拍摄。",
         )
 
-    min_brightness = _env_float("FACE_MIN_BRIGHTNESS", 55.0)
+    min_brightness = _env_float("FACE_MIN_BRIGHTNESS", 50.0)
     brightness = float(np.mean(roi))
     if brightness < min_brightness:
         raise FaceQualityRejectError(
@@ -235,24 +343,12 @@ def _validate_face_quality(image: np.ndarray) -> None:
             message="光线过暗，请在更明亮环境重新拍摄。",
         )
 
-    min_laplacian_var = _env_float("FACE_MIN_LAPLACIAN_VAR", 45.0)
+    min_laplacian_var = _env_float("FACE_MIN_LAPLACIAN_VAR", 30.0)
     laplacian_var = float(cv2.Laplacian(roi, cv2.CV_64F).var())
     if laplacian_var < min_laplacian_var:
         raise FaceQualityRejectError(
             code="FACE_TOO_BLUR",
             message="图片模糊，请保持稳定后重新拍摄。",
-        )
-
-    eyes = eye_cascade.detectMultiScale(
-        roi,
-        scaleFactor=1.1,
-        minNeighbors=6,
-        minSize=(max(12, w // 10), max(12, h // 10)),
-    )
-    if len(eyes) == 0:
-        raise FaceQualityRejectError(
-            code="FACE_OCCLUDED",
-            message="人脸遮挡较多，请移开遮挡物后重新拍摄。",
         )
 
 

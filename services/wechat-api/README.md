@@ -110,9 +110,15 @@ Optional:
 - `SPEECH_STT_TOKEN` (optional bearer token for STT endpoint)
 - `SPEECH_STT_TIMEOUT_SEC` (default `18`)
 - `SPEECH_STT_MOCK_TEXT` (only for local debug with `SPEECH_STT_PROVIDER=mock`)
-- `FACE_MIN_AREA_RATIO` (default `0.06`, minimum face area ratio in image)
-- `FACE_MIN_BRIGHTNESS` (default `55`, minimum face brightness)
-- `FACE_MIN_LAPLACIAN_VAR` (default `45`, minimum face sharpness)
+- `FACE_MIN_CANDIDATE_AREA_RATIO` (default `0.01`, tiny box filter for initial face candidates)
+- `FACE_DEDUPE_IOU_THRESHOLD` (default `0.3`, merge duplicated overlapping face boxes)
+- `FACE_MIN_PRESENCE_EYE_COUNT` (default `1`, minimum eyes for considering a face as valid)
+- `FACE_HIGH_AREA_PRESENCE_RATIO` (default `0.08`, large-face fallback even if eye detect is unstable)
+- `FACE_MIN_AREA_RATIO` (default `0.022`, minimum primary face area ratio in image)
+- `FACE_MULTI_MIN_RATIO` (default `0.8`, secondary/primary face size ratio for multi-face reject)
+- `FACE_MULTI_SECONDARY_ABS_RATIO_FACTOR` (default `0.75`, secondary absolute size factor)
+- `FACE_MIN_BRIGHTNESS` (default `50`, minimum face brightness)
+- `FACE_MIN_LAPLACIAN_VAR` (default `30`, minimum face sharpness)
 
 ### 4) Post-deploy checks
 

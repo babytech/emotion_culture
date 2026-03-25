@@ -242,7 +242,6 @@ Face quality reject details (`400`, from BE-012):
 - `[FACE_TOO_SMALL]`: face region too small / too far from camera
 - `[FACE_TOO_DARK]`: low-light image
 - `[FACE_TOO_BLUR]`: blurred image
-- `[FACE_OCCLUDED]`: face heavily occluded
 
 ## 5) Frontend integration flow (recommended)
 
