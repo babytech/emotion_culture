@@ -1,6 +1,7 @@
 import hashlib
 import os
 import random
+import re
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
@@ -15,7 +16,7 @@ from app.core.emotion import (
     detect_face_emotion,
     guochao_characters,
 )
-from app.core.speech import analyze_speech_emotion
+from app.core.speech import analyze_speech_emotion, transcribe_speech_to_text
 from app.schemas.analyze import (
     AnalyzeRequest,
     AnalyzeResponse,
@@ -70,6 +71,17 @@ _EMOTION_OVERVIEW_SUFFIX: dict[str, str] = {
 }
 
 
+class VoiceQualityRejectError(ValueError):
+    def __init__(self, code: str, message: str, retry_hint: Optional[str] = None) -> None:
+        self.code = code
+        self.message = message
+        self.retry_hint = retry_hint or "请在安静环境重新录音，若仍失败可改用文字输入。"
+        super().__init__(f"{code}: {message}")
+
+    def to_client_message(self) -> str:
+        return f"[{self.code}] {self.message} {self.retry_hint}"
+
+
 def _env_int(name: str, default: int) -> int:
     raw = os.getenv(name, "").strip()
     if not raw:
@@ -79,6 +91,66 @@ def _env_int(name: str, default: int) -> int:
         return value if value > 0 else default
     except ValueError:
         return default
+
+
+def _normalize_transcript_text(raw_text: str) -> str:
+    text = (raw_text or "").strip()
+    if not text:
+        return ""
+    return re.sub(r"[\s\W_]+", "", text, flags=re.UNICODE)
+
+
+def _is_unstable_transcript(raw_text: str) -> bool:
+    normalized = _normalize_transcript_text(raw_text)
+    if not normalized:
+        return True
+
+    filler_chars = set("嗯啊呃额哦哈呀啦")
+    if set(normalized).issubset(filler_chars):
+        return True
+
+    if len(normalized) >= 4 and len(set(normalized)) == 1:
+        return True
+
+    return False
+
+
+def _validate_voice_quality(audio_path: str, speech_transcript: Optional[str]) -> None:
+    min_file_size = _env_int("VOICE_MIN_FILE_SIZE_BYTES", 6000)
+    min_transcript_chars = _env_int("VOICE_MIN_TRANSCRIPT_CHARS", 2)
+
+    try:
+        file_size = os.path.getsize(audio_path)
+    except OSError as exc:
+        raise VoiceQualityRejectError(
+            code="VOICE_FILE_UNREADABLE",
+            message="语音文件无法读取，请重新录制。",
+        ) from exc
+
+    if file_size < min_file_size:
+        raise VoiceQualityRejectError(
+            code="VOICE_TOO_SHORT",
+            message="语音时长过短或音量过小，请重新录制。",
+        )
+
+    if not (speech_transcript or "").strip():
+        raise VoiceQualityRejectError(
+            code="VOICE_TRANSCRIPT_EMPTY",
+            message="语音识别结果为空，可能存在静音或环境杂音过大。",
+        )
+
+    normalized = _normalize_transcript_text(speech_transcript or "")
+    if len(normalized) < min_transcript_chars:
+        raise VoiceQualityRejectError(
+            code="VOICE_TEXT_TOO_SHORT",
+            message="语音可识别文本过短，请补充完整表达后重录。",
+        )
+
+    if _is_unstable_transcript(speech_transcript or ""):
+        raise VoiceQualityRejectError(
+            code="VOICE_TEXT_UNSTABLE",
+            message="语音识别不稳定，建议在更安静环境重新录制。",
+        )
 
 
 def _load_image_numpy(image_path: str) -> np.ndarray:
@@ -228,17 +300,31 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
     input_modes = payload.normalized_input_modes()
 
     try:
-        text_emotion = analyze_text_sentiment(payload.text) if payload.text else None
+        analysis_text = (payload.text or "").strip() or None
+
+        speech_transcript = None
+        speech_transcript_provider = None
+        speech_emotion = None
+        if resolved.audio_path:
+            transcription = transcribe_speech_to_text(resolved.audio_path)
+            speech_transcript = transcription.text
+            speech_transcript_provider = transcription.provider
+            _validate_voice_quality(
+                audio_path=resolved.audio_path,
+                speech_transcript=speech_transcript,
+            )
+            speech_emotion = analyze_speech_emotion(resolved.audio_path)
+
+        if not analysis_text and speech_transcript:
+            analysis_text = speech_transcript
+
+        text_emotion = analyze_text_sentiment(analysis_text) if analysis_text else None
         face_emotion = None
         if resolved.image_path:
             face_emotion = detect_face_emotion(_load_image_numpy(resolved.image_path))
 
-        speech_emotion = None
-        if resolved.audio_path:
-            speech_emotion = analyze_speech_emotion(resolved.audio_path)
-
         chosen_emotion, weights = _select_emotion(
-            text_input=payload.text,
+            text_input=analysis_text,
             text_emotion=text_emotion,
             face_emotion=face_emotion,
             speech_emotion=speech_emotion,
@@ -255,7 +341,7 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
         comfort = comfort_text.get(chosen_emotion, comfort_text["neutral"])
         emotion_label = _culture_manager.translate_emotion(chosen_emotion)
         secondary_emotions = _build_secondary_emotions(chosen_emotion, weights)
-        trigger_tags = _infer_trigger_tags(payload.text, chosen_emotion)
+        trigger_tags = _infer_trigger_tags(analysis_text, chosen_emotion)
 
         result_card = ResultCard(
             primary_emotion=EmotionBrief(code=chosen_emotion, label=emotion_label),
@@ -294,6 +380,9 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
                 guochao_id=guochao_id,
                 mail_sent=False,
                 tts_ready=False,
+                analysis_text=analysis_text,
+                speech_transcript=speech_transcript,
+                speech_transcript_provider=speech_transcript_provider,
             ),
             emotion=EmotionResult(
                 code=chosen_emotion,

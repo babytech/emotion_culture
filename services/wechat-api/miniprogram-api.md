@@ -58,6 +58,12 @@ Response:
 
 If both normalized and legacy fields are provided, normalized fields take priority.
 
+BE-010 main-chain rule:
+
+- If `text` exists, backend uses `text` as analysis text.
+- If `text` is empty and `audio` exists, backend first transcribes audio to text, then runs unified text analysis.
+- `speech` emotion remains an auxiliary signal in fusion.
+
 Example:
 
 ```json
@@ -113,7 +119,10 @@ Response example:
     "poem_id": "poem_8f65f3de1a3b",
     "guochao_id": "gc_5a4f45f4d2e1",
     "mail_sent": false,
-    "tts_ready": false
+    "tts_ready": false,
+    "analysis_text": "今天有点难过",
+    "speech_transcript": "今天有点难过",
+    "speech_transcript_provider": "http"
   },
 
   "emotion": {
@@ -195,6 +204,13 @@ Response:
 - `400`: bad request / missing env / invalid file id / resolver failure
 - `422`: schema validation error
 - `500`: internal server error
+
+Voice quality reject details (`400`, from BE-011):
+
+- `[VOICE_TOO_SHORT]`: voice file too short / too quiet
+- `[VOICE_TRANSCRIPT_EMPTY]`: transcript empty (silent/noisy input)
+- `[VOICE_TEXT_TOO_SHORT]`: recognized text too short
+- `[VOICE_TEXT_UNSTABLE]`: unstable transcript, suggest re-record in quieter environment
 
 ## 5) Frontend integration flow (recommended)
 

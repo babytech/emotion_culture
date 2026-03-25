@@ -160,6 +160,9 @@ class SystemFields(BaseModel):
     guochao_id: str
     mail_sent: bool = False
     tts_ready: bool = False
+    analysis_text: Optional[str] = None
+    speech_transcript: Optional[str] = None
+    speech_transcript_provider: Optional[str] = None
 
 
 class AnalyzeResponse(BaseModel):

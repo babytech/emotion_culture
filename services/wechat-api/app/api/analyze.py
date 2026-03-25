@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.analyze import AnalyzeRequest, AnalyzeResponse
-from app.services.analysis_service import run_analysis
+from app.services.analysis_service import VoiceQualityRejectError, run_analysis
 
 
 router = APIRouter()
@@ -11,6 +11,8 @@ router = APIRouter()
 def analyze(payload: AnalyzeRequest) -> AnalyzeResponse:
     try:
         return run_analysis(payload)
+    except VoiceQualityRejectError as exc:
+        raise HTTPException(status_code=400, detail=exc.to_client_message()) from exc
     except NotImplementedError as exc:
         raise HTTPException(status_code=501, detail=str(exc)) from exc
     except ValueError as exc:

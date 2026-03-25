@@ -19,6 +19,7 @@ This folder contains phase-2 backend scaffolding for the WeChat mini program.
 ## Current scope
 
 - Supports local debug paths (`image_path`, `audio_path`) for media inputs.
+- Voice input follows BE-010 main flow: speech is transcribed to text first, then enters unified text analysis.
 - Supports cloud file IDs:
   - `cloud://...` via WeChat CloudBase `batchdownloadfile`
   - `http(s)://...` direct download
@@ -104,6 +105,11 @@ Optional:
 - `WECHAT_REQUESTS_TRUST_ENV` (default `1`, backend will also retry with `0` on SSL failure)
 - `WECHAT_CA_BUNDLE` (custom CA pem path, only when runtime requires custom trust chain)
 - `WECHAT_DISABLE_SSL_VERIFY` (default `0`; emergency only)
+- `SPEECH_STT_PROVIDER` (`auto` | `http` | `mock`, default `auto`)
+- `SPEECH_STT_ENDPOINT` (used by `http` provider)
+- `SPEECH_STT_TOKEN` (optional bearer token for STT endpoint)
+- `SPEECH_STT_TIMEOUT_SEC` (default `18`)
+- `SPEECH_STT_MOCK_TEXT` (only for local debug with `SPEECH_STT_PROVIDER=mock`)
 
 ### 4) Post-deploy checks
 
