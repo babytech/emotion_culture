@@ -6,6 +6,8 @@
 
 本计划严格遵循 [产品共识文档](/Users/babytech/github/emotion_culture/docs/product-consensus.md) 中已经封板的第一阶段范围。
 
+配套任务级拆分见：[phase1-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase1-task-breakdown.md)。
+
 ## 第一阶段目标
 
 在第一阶段结束时，项目应具备以下能力：
