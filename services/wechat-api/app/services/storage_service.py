@@ -363,15 +363,15 @@ def resolve_input_file(
 
 def resolve_media_paths(payload: AnalyzeRequest) -> ResolvedMediaPaths:
     image = resolve_input_file(
-        local_path=payload.image_path,
-        file_url=payload.image_url,
-        file_id=payload.image_file_id,
+        local_path=payload.resolved_image_local_path(),
+        file_url=payload.resolved_image_url(),
+        file_id=payload.resolved_image_file_id(),
         field_name="image_path/image_url/image_file_id",
     )
     audio = resolve_input_file(
-        local_path=payload.audio_path,
-        file_url=payload.audio_url,
-        file_id=payload.audio_file_id,
+        local_path=payload.resolved_audio_local_path(),
+        file_url=payload.resolved_audio_url(),
+        file_id=payload.resolved_audio_file_id(),
         field_name="audio_path/audio_url/audio_file_id",
     )
 

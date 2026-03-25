@@ -236,8 +236,31 @@ Page({
       }
 
       wx.showLoading({ title: "分析中..." });
+
+      const inputModes = [];
+      if (text) inputModes.push("text");
+      if (imageTempUrl || imageFileId) inputModes.push("selfie");
+      if (audioTempUrl || audioFileId) inputModes.push("voice");
+
       const result = await analyze({
+        input_modes: inputModes,
         text: text || undefined,
+        image:
+          imageTempUrl || imageFileId
+            ? {
+                url: imageTempUrl || undefined,
+                file_id: imageFileId || undefined,
+              }
+            : undefined,
+        audio:
+          audioTempUrl || audioFileId
+            ? {
+                url: audioTempUrl || undefined,
+                file_id: audioFileId || undefined,
+              }
+            : undefined,
+
+        // Legacy fields kept until all clients migrate.
         image_url: imageTempUrl || undefined,
         image_file_id: imageFileId || undefined,
         audio_url: audioTempUrl || undefined,
@@ -252,6 +275,15 @@ Page({
       app.globalData.latestAnalyzeContext = {
         request: {
           text,
+          input_modes: inputModes,
+          image:
+            imageTempUrl || imageFileId
+              ? { url: imageTempUrl, file_id: imageFileId }
+              : undefined,
+          audio:
+            audioTempUrl || audioFileId
+              ? { url: audioTempUrl, file_id: audioFileId }
+              : undefined,
           imageFileId,
           imageTempUrl,
           audioFileId,

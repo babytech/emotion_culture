@@ -93,6 +93,7 @@ def _pick_guochao_name(emotion: str) -> str:
 
 def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
     resolved = resolve_media_paths(payload)
+    input_modes = payload.normalized_input_modes()
     try:
         text_emotion = analyze_text_sentiment(payload.text) if payload.text else None
         face_emotion = None
@@ -123,6 +124,7 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
 
         return AnalyzeResponse(
             request_id=f"ana_{uuid.uuid4().hex[:12]}",
+            input_modes=input_modes,
             emotion=EmotionResult(
                 code=chosen_emotion,
                 label=emotion_label,

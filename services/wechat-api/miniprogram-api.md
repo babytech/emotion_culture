@@ -37,22 +37,40 @@ Response:
 
 `POST /api/analyze`
 
-Request body fields:
+### Request body fields (normalized)
 
+- `input_modes` optional array: `text | voice | selfie | pc_camera`
 - `text` optional string
-- `image_file_id` optional string (`cloud://...` or `https://...`)
-- `audio_file_id` optional string (`cloud://...` or `https://...`)
-- `image_path` optional local debug path (server-side debug only)
-- `audio_path` optional local debug path (server-side debug only)
+- `image` optional object
+  - `url` optional string (`https://...`)
+  - `file_id` optional string (`cloud://...`)
+  - `local_path` optional local debug path (server-side debug only)
+- `audio` optional object
+  - `url` optional string (`https://...`)
+  - `file_id` optional string (`cloud://...`)
+  - `local_path` optional local debug path (server-side debug only)
 - `client` optional object: `platform`, `version`
+
+### Legacy fields (still supported)
+
+- `image_url` / `image_file_id` / `image_path`
+- `audio_url` / `audio_file_id` / `audio_path`
+
+If both normalized and legacy fields are provided, normalized fields take priority.
 
 Example:
 
 ```json
 {
+  "input_modes": ["text", "selfie", "voice"],
   "text": "今天有点难过",
-  "image_file_id": "cloud://env-id/path/user_photo.jpg",
-  "audio_file_id": "cloud://env-id/path/user_audio.mp3",
+  "image": {
+    "url": "https://tmp-xxx.jpg",
+    "file_id": "cloud://env-id/path/user_photo.jpg"
+  },
+  "audio": {
+    "file_id": "cloud://env-id/path/user_audio.mp3"
+  },
   "client": {
     "platform": "mp-weixin",
     "version": "1.0.0"
@@ -65,6 +83,7 @@ Response example:
 ```json
 {
   "request_id": "ana_2f3c0cfa5c53",
+  "input_modes": ["text", "selfie", "voice"],
   "emotion": {
     "code": "sad",
     "label": "悲伤",
@@ -141,8 +160,8 @@ Response:
 
 ## 5) Frontend integration flow (recommended)
 
-1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID`.
-2. Call `/api/analyze` with `text + image_file_id + audio_file_id` via `wx.cloud.callContainer`.
+1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID` and `tempFileURL`.
+2. Call `/api/analyze` with `text + image/audio` via `wx.cloud.callContainer`.
 3. Render returned emotion/poem/comfort data.
 4. If user sends email, call `/api/send-email` via `wx.cloud.callContainer`.
 
@@ -160,9 +179,12 @@ wx.cloud.callContainer({
     "content-type": "application/json",
   },
   data: {
+    input_modes: ["text", "selfie"],
     text: textValue,
-    image_file_id: imageFileId,
-    audio_file_id: audioFileId,
+    image: {
+      url: imageTempUrl,
+      file_id: imageFileId,
+    },
     client: { platform: "mp-weixin", version: "1.0.0" },
   },
   success(res) {
