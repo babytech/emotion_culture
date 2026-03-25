@@ -33,6 +33,24 @@ function pickUserImageTempPath(req) {
   return req.imageTempPath || req.image_temp_path || "";
 }
 
+function clearRequestUserImageRefs(req) {
+  if (!req) return;
+  req.imageFileId = "";
+  req.image_file_id = "";
+  req.userImageFileId = "";
+  req.user_image_file_id = "";
+
+  req.imageTempUrl = "";
+  req.image_url = "";
+  req.userImageUrl = "";
+  req.user_image_url = "";
+
+  req.imageTempPath = "";
+  req.image_temp_path = "";
+  req.userImageTempPath = "";
+  req.user_image_temp_path = "";
+}
+
 Page({
   data: {
     hasData: false,
@@ -47,6 +65,10 @@ Page({
     guochaoImageUrl: "",
     poetImageFailed: false,
     guochaoImageFailed: false,
+    userImagePreviewUrl: "",
+    userImageVisible: false,
+    userImageFailed: false,
+    userImageRemoved: false,
     email: "",
     emailError: "",
     emailFocused: false,
@@ -67,6 +89,8 @@ Page({
     }
 
     this._analysisContext = context;
+    const request = pickRequest(context);
+    const userImagePreviewUrl = pickUserImageUrl(request) || pickUserImageTempPath(request);
 
     this.setData({
       hasData: true,
@@ -81,6 +105,10 @@ Page({
       guochaoImageUrl: normalizeAssetUrl(response.guochao_image_url || ""),
       poetImageFailed: false,
       guochaoImageFailed: false,
+      userImagePreviewUrl,
+      userImageVisible: !!userImagePreviewUrl,
+      userImageFailed: false,
+      userImageRemoved: false,
     });
 
     if (wx.onKeyboardHeightChange) {
@@ -138,6 +166,32 @@ Page({
     this.setData({ guochaoImageFailed: true });
   },
 
+  onUserImageError() {
+    this.setData({ userImageFailed: true });
+  },
+
+  toggleUserImageVisible() {
+    this.setData({ userImageVisible: !this.data.userImageVisible });
+  },
+
+  removeUserImageForEmail() {
+    const context = this._analysisContext || {};
+    const req = pickRequest(context);
+    clearRequestUserImageRefs(req);
+
+    this.setData({
+      userImagePreviewUrl: "",
+      userImageVisible: false,
+      userImageFailed: false,
+      userImageRemoved: true,
+      emailStatus: "",
+    });
+    wx.showToast({
+      title: "已移除自拍图",
+      icon: "none",
+    });
+  },
+
   handleEmailInput(event) {
     const raw = (event && event.detail && event.detail.value) || "";
     const normalized = normalizeEmail(raw);
@@ -149,6 +203,10 @@ Page({
   },
 
   async ensureUserImageRefs() {
+    if (this.data.userImageRemoved) {
+      return { fileId: "", tempUrl: "" };
+    }
+
     const context = this._analysisContext || {};
     const req = pickRequest(context);
 
