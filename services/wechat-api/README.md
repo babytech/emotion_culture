@@ -110,6 +110,9 @@ Optional:
 - `SPEECH_STT_TOKEN` (optional bearer token for STT endpoint)
 - `SPEECH_STT_TIMEOUT_SEC` (default `18`)
 - `SPEECH_STT_MOCK_TEXT` (only for local debug with `SPEECH_STT_PROVIDER=mock`)
+- `FACE_MIN_AREA_RATIO` (default `0.06`, minimum face area ratio in image)
+- `FACE_MIN_BRIGHTNESS` (default `55`, minimum face brightness)
+- `FACE_MIN_LAPLACIAN_VAR` (default `45`, minimum face sharpness)
 
 ### 4) Post-deploy checks
 

@@ -6,6 +6,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
+import cv2
 import numpy as np
 from PIL import Image
 
@@ -82,12 +83,34 @@ class VoiceQualityRejectError(ValueError):
         return f"[{self.code}] {self.message} {self.retry_hint}"
 
 
+class FaceQualityRejectError(ValueError):
+    def __init__(self, code: str, message: str, retry_hint: Optional[str] = None) -> None:
+        self.code = code
+        self.message = message
+        self.retry_hint = retry_hint or "请正对镜头、保证光线充足后重新拍摄。"
+        super().__init__(f"{code}: {message}")
+
+    def to_client_message(self) -> str:
+        return f"[{self.code}] {self.message} {self.retry_hint}"
+
+
 def _env_int(name: str, default: int) -> int:
     raw = os.getenv(name, "").strip()
     if not raw:
         return default
     try:
         value = int(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
         return value if value > 0 else default
     except ValueError:
         return default
@@ -150,6 +173,86 @@ def _validate_voice_quality(audio_path: str, speech_transcript: Optional[str]) -
         raise VoiceQualityRejectError(
             code="VOICE_TEXT_UNSTABLE",
             message="语音识别不稳定，建议在更安静环境重新录制。",
+        )
+
+
+def _validate_face_quality(image: np.ndarray) -> None:
+    if image is None or image.size == 0:
+        raise FaceQualityRejectError(
+            code="FACE_IMAGE_INVALID",
+            message="图片无效，请重新拍摄。",
+        )
+
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    gray = cv2.GaussianBlur(gray, (3, 3), 0)
+    gray = cv2.equalizeHist(gray)
+
+    face_cascade = cv2.CascadeClassifier(
+        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+    )
+    eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
+
+    faces = face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(40, 40),
+    )
+
+    if len(faces) == 0:
+        raise FaceQualityRejectError(
+            code="FACE_NOT_FOUND",
+            message="未检测到清晰人脸，请正对镜头重新拍摄。",
+        )
+    if len(faces) > 1:
+        raise FaceQualityRejectError(
+            code="FACE_MULTI_FOUND",
+            message="检测到多个人脸，请仅保留你本人单人入镜。",
+        )
+
+    (x, y, w, h) = faces[0]
+    image_area = float(gray.shape[0] * gray.shape[1])
+    face_area_ratio = (w * h) / image_area if image_area > 0 else 0.0
+    min_face_area_ratio = _env_float("FACE_MIN_AREA_RATIO", 0.06)
+    if face_area_ratio < min_face_area_ratio:
+        raise FaceQualityRejectError(
+            code="FACE_TOO_SMALL",
+            message="人脸区域过小，请靠近镜头后重新拍摄。",
+        )
+
+    roi = gray[y : y + h, x : x + w]
+    if roi.size == 0:
+        raise FaceQualityRejectError(
+            code="FACE_IMAGE_INVALID",
+            message="图片无效，请重新拍摄。",
+        )
+
+    min_brightness = _env_float("FACE_MIN_BRIGHTNESS", 55.0)
+    brightness = float(np.mean(roi))
+    if brightness < min_brightness:
+        raise FaceQualityRejectError(
+            code="FACE_TOO_DARK",
+            message="光线过暗，请在更明亮环境重新拍摄。",
+        )
+
+    min_laplacian_var = _env_float("FACE_MIN_LAPLACIAN_VAR", 45.0)
+    laplacian_var = float(cv2.Laplacian(roi, cv2.CV_64F).var())
+    if laplacian_var < min_laplacian_var:
+        raise FaceQualityRejectError(
+            code="FACE_TOO_BLUR",
+            message="图片模糊，请保持稳定后重新拍摄。",
+        )
+
+    eyes = eye_cascade.detectMultiScale(
+        roi,
+        scaleFactor=1.1,
+        minNeighbors=6,
+        minSize=(max(12, w // 10), max(12, h // 10)),
+    )
+    if len(eyes) == 0:
+        raise FaceQualityRejectError(
+            code="FACE_OCCLUDED",
+            message="人脸遮挡较多，请移开遮挡物后重新拍摄。",
         )
 
 
@@ -321,7 +424,9 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
         text_emotion = analyze_text_sentiment(analysis_text) if analysis_text else None
         face_emotion = None
         if resolved.image_path:
-            face_emotion = detect_face_emotion(_load_image_numpy(resolved.image_path))
+            image_np = _load_image_numpy(resolved.image_path)
+            _validate_face_quality(image_np)
+            face_emotion = detect_face_emotion(image_np)
 
         chosen_emotion, weights = _select_emotion(
             text_input=analysis_text,

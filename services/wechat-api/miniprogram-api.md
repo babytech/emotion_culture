@@ -212,6 +212,15 @@ Voice quality reject details (`400`, from BE-011):
 - `[VOICE_TEXT_TOO_SHORT]`: recognized text too short
 - `[VOICE_TEXT_UNSTABLE]`: unstable transcript, suggest re-record in quieter environment
 
+Face quality reject details (`400`, from BE-012):
+
+- `[FACE_NOT_FOUND]`: no clear face detected
+- `[FACE_MULTI_FOUND]`: multiple faces detected
+- `[FACE_TOO_SMALL]`: face region too small / too far from camera
+- `[FACE_TOO_DARK]`: low-light image
+- `[FACE_TOO_BLUR]`: blurred image
+- `[FACE_OCCLUDED]`: face heavily occluded
+
 ## 5) Frontend integration flow (recommended)
 
 1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID` and `tempFileURL`.
