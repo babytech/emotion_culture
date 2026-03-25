@@ -126,9 +126,28 @@ class GuochaoResult(BaseModel):
     comfort: str
 
 
+class EmotionBrief(BaseModel):
+    code: str
+    label: str
+
+
+class ResultCard(BaseModel):
+    primary_emotion: EmotionBrief
+    secondary_emotions: list[EmotionBrief] = Field(default_factory=list)
+    emotion_overview: str
+    trigger_tags: list[str] = Field(default_factory=list)
+    poem_response: str
+    poem_interpretation: str
+    guochao_comfort: str
+    daily_suggestion: str
+
+
 class AnalyzeResponse(BaseModel):
     request_id: str
     input_modes: list[InputMode] = Field(default_factory=list)
+    result_card: ResultCard
+
+    # Legacy fields kept for existing clients.
     emotion: EmotionResult
     poem: PoemResult
     poet_image_url: Optional[str] = None

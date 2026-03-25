@@ -84,6 +84,25 @@ Response example:
 {
   "request_id": "ana_2f3c0cfa5c53",
   "input_modes": ["text", "selfie", "voice"],
+  "result_card": {
+    "primary_emotion": {
+      "code": "sad",
+      "label": "悲伤"
+    },
+    "secondary_emotions": [
+      {
+        "code": "neutral",
+        "label": "平静"
+      }
+    ],
+    "emotion_overview": "综合文本、图像、语音信号，当前以“悲伤”为主。",
+    "trigger_tags": ["学业压力", "人际关系"],
+    "poem_response": "千山鸟飞绝，万径人踪灭。",
+    "poem_interpretation": "...",
+    "guochao_comfort": "每个人都会有情绪低落的时候...",
+    "daily_suggestion": "给自己 10 分钟安静时间，做 3 次深呼吸，再写下一个可马上完成的小目标。"
+  },
+
   "emotion": {
     "code": "sad",
     "label": "悲伤",
@@ -114,6 +133,11 @@ Response example:
   "guochao_image_url": "/assets/guochao/国潮男知书.png"
 }
 ```
+
+Notes:
+
+- `result_card` is the fixed user-facing structure for phase-1 pages/history/email.
+- `emotion/poem/guochao` are legacy-compatible fields for existing clients.
 
 ## 3) Send analysis email
 
@@ -162,7 +186,7 @@ Response:
 
 1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID` and `tempFileURL`.
 2. Call `/api/analyze` with `text + image/audio` via `wx.cloud.callContainer`.
-3. Render returned emotion/poem/comfort data.
+3. Render `result_card` as primary UI payload.
 4. If user sends email, call `/api/send-email` via `wx.cloud.callContainer`.
 
 ## 6) Minimal mini program request snippet
