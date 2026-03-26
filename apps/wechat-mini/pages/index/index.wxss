@@ -118,6 +118,10 @@
   border-color: rgba(180, 33, 33, 0.28);
 }
 
+.quick-actions {
+  margin-top: 2rpx;
+}
+
 .submit-btn {
   margin-top: 4rpx;
 }

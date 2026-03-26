@@ -1,0 +1,43 @@
+<view class="container page-root">
+  <view class="card section">
+    <view class="section-title">历史记录设置</view>
+    <view class="row">
+      <view class="row-main">
+        <view class="row-title">保存我的历史记录</view>
+        <view class="row-desc text-muted">
+          默认开启，关闭后新分析结果将不再写入历史。
+        </view>
+      </view>
+      <switch
+        checked="{{saveHistory}}"
+        disabled="{{isLoading || isSaving}}"
+        bindchange="handleSaveHistoryChange"
+        color="#A1261B"
+      />
+    </view>
+    <view class="hint text-muted">
+      历史摘要默认保留 {{retentionDays}} 天。{{updatedAtText}}
+    </view>
+    <button class="btn clear-btn" bindtap="handleClearHistory">清空全部历史</button>
+    <button class="btn btn-secondary history-btn" bindtap="goHistory">查看历史记录</button>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
+
+  <view class="card section">
+    <view class="section-title">隐私与数据说明</view>
+    <view class="desc">1. 仅保存分析结果摘要，不保存原始自拍、图片和录音。</view>
+    <view class="desc">2. 原始媒体仅用于本次分析或短期失败恢复，最长保留 24 小时。</view>
+    <view class="desc">3. 你可以随时删除单条历史或清空全部历史。</view>
+    <view class="desc">4. 本项目仅作情绪文化陪伴，不作医疗诊断。</view>
+  </view>
+
+  <view class="card section">
+    <view class="section-title">产品说明与反馈</view>
+    <view class="desc">当前支持：文字输入、语音输入、前置自拍拍照分析。</view>
+    <view class="desc">邮件功能为可选导出能力，不影响主分析使用。</view>
+    <button class="btn btn-secondary feedback-btn" bindtap="copyFeedbackEmail">
+      复制反馈邮箱
+    </button>
+  </view>
+</view>

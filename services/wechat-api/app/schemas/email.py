@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 class SendEmailRequest(BaseModel):
     to_email: str = Field(min_length=5, max_length=320)
+    analysis_request_id: Optional[str] = None
     thoughts: Optional[str] = Field(default=None, max_length=4000)
     poem_text: Optional[str] = Field(default=None, max_length=20000)
     comfort_text: Optional[str] = Field(default=None, max_length=8000)

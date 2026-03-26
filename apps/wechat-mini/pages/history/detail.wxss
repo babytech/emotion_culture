@@ -1,0 +1,45 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.loading {
+  padding: 24rpx;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
+}
+
+.block {
+  padding: 24rpx;
+}
+
+.title {
+  font-size: 32rpx;
+  font-weight: 700;
+  margin-bottom: 12rpx;
+}
+
+.line {
+  margin-top: 10rpx;
+  font-size: 28rpx;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.label {
+  color: #6b543f;
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  margin-top: 2rpx;
+}

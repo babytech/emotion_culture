@@ -1,0 +1,114 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.header {
+  padding: 24rpx;
+}
+
+.header-title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.header-sub {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.header-actions {
+  margin-top: 16rpx;
+  display: flex;
+  gap: 12rpx;
+}
+
+.mini-btn {
+  min-height: 68rpx;
+  line-height: 68rpx;
+  padding: 0 22rpx !important;
+  font-size: 26rpx !important;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
+}
+
+.loading,
+.empty {
+  padding: 24rpx;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+
+.summary {
+  font-size: 24rpx;
+  margin-top: -6rpx;
+}
+
+.item {
+  padding: 22rpx;
+}
+
+.item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10rpx;
+  align-items: center;
+}
+
+.item-time {
+  font-size: 24rpx;
+  color: #6e5a44;
+}
+
+.item-mail {
+  font-size: 22rpx;
+  border-radius: 999rpx;
+  padding: 6rpx 12rpx;
+}
+
+.sent {
+  background: #e8f7ee;
+  color: #0f6c4d;
+}
+
+.not-sent {
+  background: #f4efe6;
+  color: #7e6d58;
+}
+
+.item-line {
+  margin-top: 10rpx;
+  font-size: 28rpx;
+  line-height: 1.5;
+}
+
+.label {
+  color: #6b543f;
+}
+
+.overview {
+  margin-top: 12rpx;
+  line-height: 1.6;
+  font-size: 25rpx;
+}
+
+.item-actions {
+  margin-top: 14rpx;
+  display: flex;
+  gap: 10rpx;
+}
+
+.clear-btn {
+  margin-top: 8rpx;
+}

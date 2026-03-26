@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from app.api.analyze import router as analyze_router
 from app.api.email import router as email_router
 from app.api.health import router as health_router
+from app.api.history import router as history_router
+from app.api.settings import router as settings_router
 
 # Load local env file for development.
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
@@ -31,6 +33,8 @@ app.add_middleware(
 app.include_router(health_router, prefix="/api", tags=["health"])
 app.include_router(analyze_router, prefix="/api", tags=["analyze"])
 app.include_router(email_router, prefix="/api", tags=["email"])
+app.include_router(history_router, prefix="/api", tags=["history"])
+app.include_router(settings_router, prefix="/api", tags=["settings"])
 
 if CORE_IMAGES_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(CORE_IMAGES_DIR)), name="assets")

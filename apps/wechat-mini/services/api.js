@@ -1,4 +1,5 @@
 const config = require("../config/index");
+const USER_ID_STORAGE_KEY = "ec_user_id";
 
 function normalizeAssetUrl(rawUrl) {
   if (!rawUrl) return "";
@@ -14,6 +15,31 @@ function normalizeAssetUrl(rawUrl) {
   return `${prefix}${path}`;
 }
 
+function buildLocalUserId() {
+  const stamp = Date.now().toString(36);
+  const rand = Math.random().toString(16).slice(2, 10);
+  return `ec_${stamp}_${rand}`;
+}
+
+function getOrCreateClientUserId() {
+  try {
+    const existing = wx.getStorageSync(USER_ID_STORAGE_KEY);
+    if (typeof existing === "string" && existing.trim()) {
+      return existing.trim();
+    }
+  } catch (err) {
+    // ignore
+  }
+
+  const generated = buildLocalUserId();
+  try {
+    wx.setStorageSync(USER_ID_STORAGE_KEY, generated);
+  } catch (err) {
+    // ignore
+  }
+  return generated;
+}
+
 function isInvalidHostError(errMsg) {
   return typeof errMsg === "string" && errMsg.includes("INVALID_HOST");
 }
@@ -25,6 +51,7 @@ function callContainerOnce(path, method, data, env) {
       return;
     }
 
+    const userId = getOrCreateClientUserId();
     wx.cloud.callContainer({
       config: { env },
       path,
@@ -32,6 +59,7 @@ function callContainerOnce(path, method, data, env) {
       data,
       header: {
         "X-WX-SERVICE": config.containerService,
+        "X-EC-USER-ID": userId,
         "content-type": "application/json",
       },
       success(res) {
@@ -92,7 +120,16 @@ async function callViaContainer(path, method, data, options = {}) {
 }
 
 function analyze(payload) {
-  return callViaContainer("/api/analyze", "POST", payload);
+  const userId = getOrCreateClientUserId();
+  const data = payload && typeof payload === "object" ? { ...payload } : {};
+  const existingClient = data.client && typeof data.client === "object" ? data.client : {};
+  data.client = {
+    ...existingClient,
+    platform: existingClient.platform || "mp-weixin",
+    version: existingClient.version || "0.1.0",
+    user_id: existingClient.user_id || userId,
+  };
+  return callViaContainer("/api/analyze", "POST", data);
 }
 
 function sendEmail(payload) {
@@ -102,8 +139,46 @@ function sendEmail(payload) {
   });
 }
 
+function listHistory(options = {}) {
+  const limit = Math.max(1, Math.min(Number(options.limit) || 20, 100));
+  const offset = Math.max(0, Number(options.offset) || 0);
+  return callViaContainer(`/api/history?limit=${limit}&offset=${offset}`, "GET");
+}
+
+function getHistoryDetail(historyId) {
+  if (!historyId) {
+    return Promise.reject(new Error("historyId is required"));
+  }
+  return callViaContainer(`/api/history/${encodeURIComponent(historyId)}`, "GET");
+}
+
+function deleteHistoryItem(historyId) {
+  if (!historyId) {
+    return Promise.reject(new Error("historyId is required"));
+  }
+  return callViaContainer(`/api/history/${encodeURIComponent(historyId)}`, "DELETE");
+}
+
+function clearHistory() {
+  return callViaContainer("/api/history", "DELETE");
+}
+
+function getSettings() {
+  return callViaContainer("/api/settings", "GET");
+}
+
+function updateSettings(payload) {
+  return callViaContainer("/api/settings", "PUT", payload || {});
+}
+
 module.exports = {
   analyze,
+  clearHistory,
+  deleteHistoryItem,
+  getHistoryDetail,
+  getSettings,
+  listHistory,
   normalizeAssetUrl,
   sendEmail,
+  updateSettings,
 };

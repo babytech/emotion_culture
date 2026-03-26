@@ -93,6 +93,14 @@
     <view class="status-text">{{submitStatusText}}</view>
   </view>
 
+  <view class="section card quick-actions">
+    <view class="section-title">更多功能</view>
+    <view class="media-row">
+      <button class="btn btn-secondary" bindtap="goHistory">查看历史</button>
+      <button class="btn" bindtap="goSettings">设置</button>
+    </view>
+  </view>
+
   <button
     class="btn btn-primary submit-btn"
     loading="{{isSubmitting}}"

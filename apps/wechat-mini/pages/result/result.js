@@ -372,6 +372,7 @@ Page({
 
       const payload = {
         to_email: toEmail,
+        analysis_request_id: this.data.requestId || undefined,
         thoughts: req.text || "",
         poem_text: [this.data.poet, this.data.poemText, this.data.interpretation]
           .filter(Boolean)
@@ -413,5 +414,9 @@ Page({
         wx.reLaunch({ url: "/pages/index/index" });
       },
     });
+  },
+
+  goHistory() {
+    wx.navigateTo({ url: "/pages/history/index" });
   },
 });

@@ -1,5 +1,11 @@
 {
-  "pages": ["pages/index/index", "pages/result/result"],
+  "pages": [
+    "pages/index/index",
+    "pages/result/result",
+    "pages/history/index",
+    "pages/history/detail",
+    "pages/settings/index"
+  ],
   "window": {
     "navigationBarTitleText": "情绪文化助手",
     "navigationBarBackgroundColor": "#A1261B",

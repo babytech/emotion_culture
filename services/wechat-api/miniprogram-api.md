@@ -169,6 +169,7 @@ Notes:
 Request body fields:
 
 - `to_email` required string
+- `analysis_request_id` optional string (used to mark mail-sent state in history)
 - `thoughts` optional string
 - `poem_text` optional string
 - `comfort_text` optional string
@@ -182,6 +183,7 @@ Example:
 ```json
 {
   "to_email": "user@example.com",
+  "analysis_request_id": "ana_2f3c0cfa5c53",
   "thoughts": "今天有点难过",
   "poem_text": "千山鸟飞绝，万径人踪灭。",
   "comfort_text": "每个人都会有情绪低落的时候...",
@@ -213,7 +215,67 @@ Failure example (still HTTP 200, frontend retries only this endpoint):
 }
 ```
 
-## 4) Error codes
+## 4) History APIs
+
+`GET /api/history?limit=20&offset=0`
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "history_id": "his_abc123",
+      "request_id": "ana_2f3c0cfa5c53",
+      "analyzed_at": "2026-03-26T08:30:00Z",
+      "input_modes": ["text", "selfie"],
+      "primary_emotion": { "code": "sad", "label": "悲伤" },
+      "secondary_emotions": [{ "code": "neutral", "label": "平静" }],
+      "emotion_overview_summary": "综合文本、图像信号，当前以“悲伤”为主。",
+      "trigger_tags": ["学业压力"],
+      "poem_response_summary": "千山鸟飞绝，万径人踪灭。",
+      "guochao_name": "国潮男知书",
+      "daily_suggestion_summary": "给自己 10 分钟安静时间...",
+      "mail_sent": true
+    }
+  ],
+  "total": 1
+}
+```
+
+`GET /api/history/{history_id}`
+
+Response includes `summary + result_card + internal_fields` for detail replay.
+
+`DELETE /api/history/{history_id}`
+
+Delete one history summary record for current user.
+
+`DELETE /api/history`
+
+Clear all history summary records for current user.
+
+## 5) Settings APIs
+
+`GET /api/settings`
+
+```json
+{
+  "save_history": true,
+  "history_retention_days": 180,
+  "updated_at": "2026-03-26T08:40:00Z"
+}
+```
+
+`PUT /api/settings`
+
+```json
+{
+  "save_history": false
+}
+```
+
+## 6) Error codes
 
 - `200`: success
 - `400`: bad request / missing env / invalid file id / resolver failure
@@ -243,14 +305,14 @@ Face quality reject details (`400`, from BE-012):
 - `[FACE_TOO_DARK]`: low-light image
 - `[FACE_TOO_BLUR]`: blurred image
 
-## 5) Frontend integration flow (recommended)
+## 7) Frontend integration flow (recommended)
 
 1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID` and `tempFileURL`.
 2. Call `/api/analyze` with `text + image/audio` via `wx.cloud.callContainer`.
 3. Render `result_card` as primary UI payload.
 4. If user sends email, call `/api/send-email` via `wx.cloud.callContainer`.
 
-## 6) Minimal mini program request snippet
+## 8) Minimal mini program request snippet
 
 ```js
 wx.cloud.callContainer({

@@ -20,6 +20,7 @@ class ConfidenceLevel(str, Enum):
 class ClientMeta(BaseModel):
     platform: Optional[str] = None
     version: Optional[str] = None
+    user_id: Optional[str] = None
 
 
 class MediaInput(BaseModel):

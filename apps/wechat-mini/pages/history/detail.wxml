@@ -1,0 +1,64 @@
+<view class="container page-root">
+  <view wx:if="{{isLoading}}" class="loading card">正在加载历史详情...</view>
+
+  <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
+
+  <block wx:if="{{!isLoading && summary && resultCard}}">
+    <view class="card block">
+      <view class="title">历史摘要</view>
+      <view class="line"><text class="label">时间：</text>{{displayTime}}</view>
+      <view class="line">
+        <text class="label">主情绪：</text>
+        {{summary.primary_emotion.label || summary.primary_emotion.code}}
+      </view>
+      <view class="line">
+        <text class="label">补充情绪：</text>
+        <text wx:if="{{summary.secondary_emotions.length}}" wx:for="{{summary.secondary_emotions}}" wx:key="index">
+          {{item.label || item.code}}{{index + 1 < summary.secondary_emotions.length ? "、" : ""}}
+        </text>
+        <text wx:else>暂无</text>
+      </view>
+      <view class="line">
+        <text class="label">输入类型：</text>
+        <text wx:for="{{summary.input_modes}}" wx:key="index">
+          {{item}}{{index + 1 < summary.input_modes.length ? " / " : ""}}
+        </text>
+      </view>
+      <view class="line">
+        <text class="label">邮件：</text>{{summary.mail_sent ? "已发送" : "未发送"}}
+      </view>
+    </view>
+
+    <view class="card block">
+      <view class="title">情绪反馈卡</view>
+      <view class="line">
+        <text class="label">概述：</text>{{resultCard.emotion_overview}}
+      </view>
+      <view class="line">
+        <text class="label">触发标签：</text>
+        <text wx:if="{{resultCard.trigger_tags.length}}" wx:for="{{resultCard.trigger_tags}}" wx:key="*this">
+          {{item}}{{index + 1 < resultCard.trigger_tags.length ? "、" : ""}}
+        </text>
+        <text wx:else>暂无</text>
+      </view>
+      <view class="line">
+        <text class="label">诗词回应：</text>{{resultCard.poem_response}}
+      </view>
+      <view class="line">
+        <text class="label">诗词解读：</text>{{resultCard.poem_interpretation}}
+      </view>
+      <view class="line">
+        <text class="label">国潮慰藉：</text>{{resultCard.guochao_comfort}}
+      </view>
+      <view class="line">
+        <text class="label">今日建议：</text>{{resultCard.daily_suggestion}}
+      </view>
+    </view>
+  </block>
+
+  <view class="actions">
+    <button class="btn btn-secondary" bindtap="backToHistory">返回历史列表</button>
+    <button class="btn" bindtap="handleDelete">删除本条</button>
+    <button class="btn btn-primary" bindtap="backToAnalyze">继续分析</button>
+  </view>
+</view>

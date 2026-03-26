@@ -314,6 +314,14 @@ Page({
     });
   },
 
+  goHistory() {
+    wx.navigateTo({ url: "/pages/history/index" });
+  },
+
+  goSettings() {
+    wx.navigateTo({ url: "/pages/settings/index" });
+  },
+
   async submitAnalyze() {
     const text = (this.data.text || "").trim();
     const imageTempPath = this.data.imageTempPath;

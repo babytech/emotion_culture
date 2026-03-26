@@ -1,0 +1,69 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.section {
+  padding: 24rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  margin-bottom: 16rpx;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18rpx;
+}
+
+.row-main {
+  flex: 1;
+}
+
+.row-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.row-desc {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.hint {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.clear-btn {
+  margin-top: 14rpx;
+}
+
+.history-btn {
+  margin-top: 12rpx;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
+}
+
+.desc {
+  margin-top: 10rpx;
+  font-size: 27rpx;
+  line-height: 1.7;
+  color: #3f2f22;
+}
+
+.feedback-btn {
+  margin-top: 16rpx;
+}

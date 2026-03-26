@@ -141,6 +141,7 @@
       </view>
     </view>
 
-    <button class="btn btn-secondary result-bottom-btn" bindtap="backHome">返回继续分析</button>
+    <button class="btn btn-secondary result-bottom-btn" bindtap="goHistory">查看历史记录</button>
+    <button class="btn result-bottom-btn" bindtap="backHome">返回继续分析</button>
   </block>
 </view>

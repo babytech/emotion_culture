@@ -1,0 +1,71 @@
+<view class="container page-root">
+  <view class="header card">
+    <view class="header-title">历史记录</view>
+    <view class="header-sub text-muted">仅保存分析结果摘要，不保存原始自拍和录音文件。</view>
+    <view class="header-actions">
+      <button class="btn btn-secondary mini-btn" bindtap="loadHistory" loading="{{isLoading}}" disabled="{{isLoading}}">
+        刷新
+      </button>
+      <button class="btn mini-btn" bindtap="goSettings">设置</button>
+    </view>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="error card">
+    {{errorMsg}}
+  </view>
+
+  <view wx:if="{{isLoading}}" class="loading card">
+    正在加载历史记录...
+  </view>
+
+  <view wx:elif="{{!items.length}}" class="empty card">
+    <view class="empty-title">暂无历史记录</view>
+    <view class="text-muted">完成一次分析后会在这里显示摘要。</view>
+  </view>
+
+  <block wx:else>
+    <view class="summary text-muted">共 {{total}} 条记录</view>
+    <view
+      wx:for="{{items}}"
+      wx:key="historyId"
+      class="item card"
+      bindtap="openDetail"
+      data-id="{{item.historyId}}"
+    >
+      <view class="item-head">
+        <view class="item-time">{{item.displayTime}}</view>
+        <view class="item-mail {{item.mailSent ? 'sent' : 'not-sent'}}">
+          {{item.mailSent ? '已发送邮件' : '未发送邮件'}}
+        </view>
+      </view>
+
+      <view class="item-line">
+        <text class="label">主情绪：</text>
+        <text>{{item.primaryEmotionLabel}}</text>
+      </view>
+      <view class="item-line">
+        <text class="label">补充情绪：</text>
+        <text>{{item.secondaryEmotionText}}</text>
+      </view>
+      <view class="item-line">
+        <text class="label">输入类型：</text>
+        <text>{{item.inputModesText}}</text>
+      </view>
+      <view class="overview text-muted">{{item.emotionOverviewSummary}}</view>
+
+      <view class="item-actions">
+        <button class="btn btn-secondary mini-btn">查看详情</button>
+        <button class="btn mini-btn" catchtap="handleDeleteItem" data-id="{{item.historyId}}">删除</button>
+      </view>
+    </view>
+  </block>
+
+  <button
+    class="btn clear-btn"
+    bindtap="handleClearAll"
+    loading="{{isClearing}}"
+    disabled="{{isClearing || !items.length}}"
+  >
+    清空全部历史
+  </button>
+</view>
