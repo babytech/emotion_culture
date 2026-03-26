@@ -5,6 +5,13 @@ const recorder = wx.getRecorderManager();
 const IMAGE_COMPRESS_SKIP_BYTES = 900 * 1024;
 const IMAGE_COMPRESS_MEDIUM_BYTES = 2 * 1024 * 1024;
 const IMAGE_COMPRESS_HEAVY_BYTES = 4 * 1024 * 1024;
+const SUBMIT_STAGE = {
+  IDLE: "idle",
+  UPLOADING: "uploading",
+  ANALYZING: "analyzing",
+  RENDERING: "rendering",
+  FAILED: "failed",
+};
 
 function getFileSize(path) {
   return new Promise((resolve) => {
@@ -73,6 +80,21 @@ async function prepareImageForUpload(path) {
   }
 }
 
+function buildRecoverableAnalyzeError(err) {
+  const message = ((err && err.message) || "分析失败，请稍后重试。").trim();
+  if (!message) {
+    return "分析失败，请重试。你之前填写的内容已保留。";
+  }
+
+  if (message.includes("[VOICE_")) {
+    return `${message} 可重新录音，或改用文字输入后再次提交。`;
+  }
+  if (message.includes("[FACE_")) {
+    return `${message} 可重新自拍后再次提交。`;
+  }
+  return `${message} 可直接重试，原输入已保留。`;
+}
+
 Page({
   data: {
     text: "",
@@ -82,6 +104,9 @@ Page({
     isRecording: false,
     recordSeconds: 0,
     isSubmitting: false,
+    submitStage: SUBMIT_STAGE.IDLE,
+    submitStatusText: "",
+    submitButtonText: "提交分析",
     errorMsg: "",
     isDevtools: false,
   },
@@ -158,6 +183,9 @@ Page({
   handleTextInput(event) {
     this.setData({
       text: event.detail.value,
+      submitStage: SUBMIT_STAGE.IDLE,
+      submitStatusText: "",
+      submitButtonText: "提交分析",
       errorMsg: "",
     });
   },
@@ -207,6 +235,9 @@ Page({
     this.setData({
       imageTempPath: "",
       pendingSelfiePath: tempPath,
+      submitStage: SUBMIT_STAGE.IDLE,
+      submitStatusText: "",
+      submitButtonText: "提交分析",
       errorMsg: "",
     });
   },
@@ -216,6 +247,9 @@ Page({
     this.setData({
       imageTempPath: this.data.pendingSelfiePath,
       pendingSelfiePath: "",
+      submitStage: SUBMIT_STAGE.IDLE,
+      submitStatusText: "",
+      submitButtonText: "提交分析",
       errorMsg: "",
     });
   },
@@ -224,6 +258,9 @@ Page({
     this.setData({
       imageTempPath: "",
       pendingSelfiePath: "",
+      submitStage: SUBMIT_STAGE.IDLE,
+      submitStatusText: "",
+      submitButtonText: "提交分析",
       errorMsg: "",
     });
     await this.chooseSelfie();
@@ -232,6 +269,9 @@ Page({
   cancelPendingSelfie() {
     this.setData({
       pendingSelfiePath: "",
+      submitStage: SUBMIT_STAGE.IDLE,
+      submitStatusText: "",
+      submitButtonText: "提交分析",
       errorMsg: "",
     });
   },
@@ -240,6 +280,9 @@ Page({
     this.setData({
       imageTempPath: "",
       pendingSelfiePath: "",
+      submitStage: SUBMIT_STAGE.IDLE,
+      submitStatusText: "",
+      submitButtonText: "提交分析",
     });
   },
 
@@ -265,6 +308,9 @@ Page({
     this.setData({
       audioTempPath: "",
       recordSeconds: 0,
+      submitStage: SUBMIT_STAGE.IDLE,
+      submitStatusText: "",
+      submitButtonText: "提交分析",
     });
   },
 
@@ -286,9 +332,13 @@ Page({
 
     this.setData({
       isSubmitting: true,
+      submitStage: SUBMIT_STAGE.UPLOADING,
+      submitStatusText: "上传中：正在准备输入内容...",
+      submitButtonText: "上传中...",
       errorMsg: "",
     });
 
+    let submitSucceeded = false;
     try {
       let imageFileId = "";
       let imageTempUrl = "";
@@ -296,6 +346,10 @@ Page({
       let audioTempUrl = "";
 
       if (imageTempPath) {
+        this.setData({
+          submitStage: SUBMIT_STAGE.UPLOADING,
+          submitStatusText: "上传中：正在上传自拍照片...",
+        });
         wx.showLoading({ title: "上传图片中..." });
         const preparedImage = await prepareImageForUpload(imageTempPath);
         const uploadedImage = await uploadTempFile(preparedImage.path, "images");
@@ -304,12 +358,21 @@ Page({
       }
 
       if (audioTempPath) {
+        this.setData({
+          submitStage: SUBMIT_STAGE.UPLOADING,
+          submitStatusText: "上传中：正在上传语音...",
+        });
         wx.showLoading({ title: "上传语音中..." });
         const uploadedAudio = await uploadTempFile(audioTempPath, "audio");
         audioFileId = (uploadedAudio && uploadedAudio.fileID) || "";
         audioTempUrl = (uploadedAudio && uploadedAudio.tempFileURL) || "";
       }
 
+      this.setData({
+        submitStage: SUBMIT_STAGE.ANALYZING,
+        submitStatusText: "分析中：正在生成情绪结果...",
+        submitButtonText: "分析中...",
+      });
       wx.showLoading({ title: "分析中..." });
 
       const inputModes = [];
@@ -346,6 +409,13 @@ Page({
         },
       });
 
+      this.setData({
+        submitStage: SUBMIT_STAGE.RENDERING,
+        submitStatusText: "结果生成中：正在打开结果页...",
+        submitButtonText: "结果生成中...",
+      });
+      wx.showLoading({ title: "结果生成中..." });
+
       const app = getApp();
       app.globalData.latestAnalyzeContext = {
         request: {
@@ -375,20 +445,30 @@ Page({
         response: result,
       };
 
+      submitSucceeded = true;
       wx.navigateTo({
         url: "/pages/result/result",
       });
     } catch (err) {
+      const errorMsg = buildRecoverableAnalyzeError(err);
       this.setData({
-        errorMsg: err.message || "分析失败，请稍后重试。",
+        submitStage: SUBMIT_STAGE.FAILED,
+        submitStatusText: "分析失败：可直接重试，原输入已保留。",
+        submitButtonText: "提交分析",
+        errorMsg,
       });
       wx.showToast({
-        title: "分析失败",
+        title: "分析失败，可重试",
         icon: "none",
       });
     } finally {
       wx.hideLoading();
-      this.setData({ isSubmitting: false });
+      this.setData({
+        isSubmitting: false,
+        submitStage: submitSucceeded ? SUBMIT_STAGE.IDLE : this.data.submitStage,
+        submitStatusText: submitSucceeded ? "" : this.data.submitStatusText,
+        submitButtonText: "提交分析",
+      });
     }
   },
 });

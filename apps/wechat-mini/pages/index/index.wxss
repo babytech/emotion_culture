@@ -90,6 +90,34 @@
   background: #fff0ef;
 }
 
+.status {
+  padding: 20rpx;
+}
+
+.status-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+
+.status-text {
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: #664f3a;
+}
+
+.status-uploading,
+.status-analyzing,
+.status-rendering {
+  background: #fff8eb;
+  border-color: rgba(161, 38, 27, 0.24);
+}
+
+.status-failed {
+  background: #fff1f1;
+  border-color: rgba(180, 33, 33, 0.28);
+}
+
 .submit-btn {
   margin-top: 4rpx;
 }

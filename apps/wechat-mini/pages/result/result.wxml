@@ -7,9 +7,44 @@
 
   <block wx:if="{{hasData}}">
     <view class="emotion card">
-      <view class="emotion-title">识别情绪</view>
-      <view class="emotion-badge emotion-{{emotionCode}}">
-        {{emotionLabel}}（{{emotionCode}}）
+      <view class="emotion-title">情绪反馈卡</view>
+      <view class="emotion-row">
+        <view class="emotion-key">主情绪</view>
+        <view class="emotion-badge emotion-{{emotionCode}}">
+          {{emotionLabel}}
+          <text wx:if="{{emotionCode}}">（{{emotionCode}}）</text>
+        </view>
+      </view>
+
+      <view class="emotion-subtitle">补充情绪</view>
+      <view class="chip-wrap">
+        <block wx:if="{{secondaryEmotions.length}}">
+          <view wx:for="{{secondaryEmotions}}" wx:key="index" class="chip emotion-chip">
+            {{item.label}}
+            <text wx:if="{{item.code}}">（{{item.code}}）</text>
+          </view>
+        </block>
+        <view wx:else class="chip-empty">暂无补充情绪</view>
+      </view>
+
+      <view class="emotion-subtitle">情绪概述</view>
+      <view class="overview">{{emotionOverview}}</view>
+
+      <view class="emotion-subtitle">触发因素标签</view>
+      <view class="chip-wrap">
+        <block wx:if="{{triggerTags.length}}">
+          <view wx:for="{{triggerTags}}" wx:key="*this" class="chip tag-chip">
+            {{item}}
+          </view>
+        </block>
+        <view wx:else class="chip-empty">暂无触发标签</view>
+      </view>
+
+      <view class="emotion-subtitle">今日建议</view>
+      <view class="suggestion">{{dailySuggestion}}</view>
+
+      <view wx:if="{{requestId}}" class="request-id text-muted">
+        请求编号：{{requestId}}
       </view>
     </view>
 

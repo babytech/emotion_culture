@@ -82,12 +82,23 @@
     {{errorMsg}}
   </view>
 
+  <view wx:if="{{isSubmitting || submitStage === 'failed'}}" class="status card status-{{submitStage}}">
+    <view class="status-title">
+      <text wx:if="{{submitStage === 'uploading'}}">上传中</text>
+      <text wx:elif="{{submitStage === 'analyzing'}}">分析中</text>
+      <text wx:elif="{{submitStage === 'rendering'}}">结果生成中</text>
+      <text wx:elif="{{submitStage === 'failed'}}">失败可恢复</text>
+      <text wx:else>处理中</text>
+    </view>
+    <view class="status-text">{{submitStatusText}}</view>
+  </view>
+
   <button
     class="btn btn-primary submit-btn"
     loading="{{isSubmitting}}"
     disabled="{{isSubmitting}}"
     bindtap="submitAnalyze"
   >
-    {{isSubmitting ? '分析中...' : '提交分析'}}
+    {{submitButtonText}}
   </button>
 </view>

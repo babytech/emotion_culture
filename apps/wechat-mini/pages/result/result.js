@@ -1,6 +1,12 @@
 const { normalizeAssetUrl, sendEmail } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
 
+const DEFAULT_DAILY_SUGGESTION = "今天先做一件你能马上完成的小行动，逐步稳住状态。";
+
+function safeText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function normalizeEmail(email) {
   return (email || "").trim();
 }
@@ -19,6 +25,89 @@ function pickRequest(context) {
 
 function pickResponse(context) {
   return (context && context.response) || {};
+}
+
+function hasResultPayload(response) {
+  if (!response) return false;
+  if (response.result_card) return true;
+  if (response.emotion || response.poem || response.guochao) return true;
+  return false;
+}
+
+function pickResultCard(response) {
+  return (response && response.result_card) || {};
+}
+
+function normalizeEmotionItem(item, fallbackCode) {
+  const code = safeText((item && item.code) || fallbackCode);
+  const label = safeText(item && item.label) || code || "未识别";
+  return { code, label };
+}
+
+function normalizeSecondaryEmotions(items) {
+  if (!Array.isArray(items)) return [];
+
+  const deduped = [];
+  items.forEach((item) => {
+    const rawCode = safeText(item && item.code);
+    const rawLabel = safeText(item && item.label);
+    if (!rawCode && !rawLabel) return;
+
+    const normalized = normalizeEmotionItem(item);
+    const key = `${normalized.code}|${normalized.label}`;
+    if (!deduped.some((existing) => `${existing.code}|${existing.label}` === key)) {
+      deduped.push(normalized);
+    }
+  });
+  return deduped.slice(0, 3);
+}
+
+function normalizeTriggerTags(tags) {
+  if (!Array.isArray(tags)) return [];
+
+  const deduped = [];
+  tags.forEach((tag) => {
+    const normalized = safeText(tag);
+    if (!normalized) return;
+    if (!deduped.includes(normalized)) {
+      deduped.push(normalized);
+    }
+  });
+  return deduped.slice(0, 5);
+}
+
+function buildLegacyOverview(primaryLabel) {
+  if (!primaryLabel) {
+    return "暂未生成情绪概述，请结合主情绪理解当前状态。";
+  }
+  return `当前以“${primaryLabel}”为主，建议结合下方内容进一步理解。`;
+}
+
+function buildResultViewModel(response) {
+  const resultCard = pickResultCard(response);
+  const legacyEmotion = (response && response.emotion) || {};
+  const legacyPoem = (response && response.poem) || {};
+  const legacyGuochao = (response && response.guochao) || {};
+
+  const primary = normalizeEmotionItem(resultCard.primary_emotion || legacyEmotion, legacyEmotion.code);
+  const secondary = normalizeSecondaryEmotions(resultCard.secondary_emotions);
+  const triggerTags = normalizeTriggerTags(resultCard.trigger_tags);
+
+  return {
+    requestId: safeText(response && response.request_id),
+    emotionCode: primary.code,
+    emotionLabel: primary.label,
+    secondaryEmotions: secondary,
+    emotionOverview: safeText(resultCard.emotion_overview) || buildLegacyOverview(primary.label),
+    triggerTags,
+    dailySuggestion: safeText(resultCard.daily_suggestion) || DEFAULT_DAILY_SUGGESTION,
+    poet: safeText(legacyPoem.poet) || "诗词回应",
+    poemText: safeText(resultCard.poem_response) || safeText(legacyPoem.text) || "暂未生成诗词回应。",
+    interpretation:
+      safeText(resultCard.poem_interpretation) || safeText(legacyPoem.interpretation) || "暂未生成诗词解读。",
+    guochaoName: safeText(legacyGuochao.name) || "国潮伙伴",
+    comfort: safeText(resultCard.guochao_comfort) || safeText(legacyGuochao.comfort) || "暂未生成国潮慰藉内容。",
+  };
 }
 
 function pickUserImageFileId(req) {
@@ -54,8 +143,13 @@ function clearRequestUserImageRefs(req) {
 Page({
   data: {
     hasData: false,
+    requestId: "",
     emotionCode: "",
     emotionLabel: "",
+    secondaryEmotions: [],
+    emotionOverview: "",
+    triggerTags: [],
+    dailySuggestion: "",
     poet: "",
     poemText: "",
     interpretation: "",
@@ -83,7 +177,7 @@ Page({
     const context = app.globalData.latestAnalyzeContext;
     const response = pickResponse(context);
 
-    if (!response || !response.emotion) {
+    if (!hasResultPayload(response)) {
       this.setData({ hasData: false });
       return;
     }
@@ -91,16 +185,22 @@ Page({
     this._analysisContext = context;
     const request = pickRequest(context);
     const userImagePreviewUrl = pickUserImageUrl(request) || pickUserImageTempPath(request);
+    const viewModel = buildResultViewModel(response);
 
     this.setData({
       hasData: true,
-      emotionCode: response.emotion.code || "",
-      emotionLabel: response.emotion.label || "",
-      poet: (response.poem && response.poem.poet) || "",
-      poemText: (response.poem && response.poem.text) || "",
-      interpretation: (response.poem && response.poem.interpretation) || "",
-      guochaoName: (response.guochao && response.guochao.name) || "",
-      comfort: (response.guochao && response.guochao.comfort) || "",
+      requestId: viewModel.requestId,
+      emotionCode: viewModel.emotionCode,
+      emotionLabel: viewModel.emotionLabel,
+      secondaryEmotions: viewModel.secondaryEmotions,
+      emotionOverview: viewModel.emotionOverview,
+      triggerTags: viewModel.triggerTags,
+      dailySuggestion: viewModel.dailySuggestion,
+      poet: viewModel.poet,
+      poemText: viewModel.poemText,
+      interpretation: viewModel.interpretation,
+      guochaoName: viewModel.guochaoName,
+      comfort: viewModel.comfort,
       poetImageUrl: normalizeAssetUrl(response.poet_image_url || ""),
       guochaoImageUrl: normalizeAssetUrl(response.guochao_image_url || ""),
       poetImageFailed: false,
@@ -276,7 +376,7 @@ Page({
         poem_text: [this.data.poet, this.data.poemText, this.data.interpretation]
           .filter(Boolean)
           .join("\n"),
-        comfort_text: [this.data.guochaoName, this.data.comfort]
+        comfort_text: [this.data.guochaoName, this.data.comfort, `今日建议：${this.data.dailySuggestion}`]
           .filter(Boolean)
           .join("：\n"),
         user_image_url: userImageRefs.tempUrl || undefined,
