@@ -134,6 +134,18 @@
   color: #3f2f22;
 }
 
+.speech-transcript {
+  margin-top: 6rpx;
+  line-height: 1.7;
+  font-size: 27rpx;
+  color: #3f2f22;
+  white-space: pre-wrap;
+}
+
+.speech-transcript.muted {
+  color: #7e7365;
+}
+
 .request-id {
   margin-top: 12rpx;
   font-size: 22rpx;

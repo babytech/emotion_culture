@@ -38,6 +38,37 @@ function pickResultCard(response) {
   return (response && response.result_card) || {};
 }
 
+function pickSystemFields(response) {
+  return (response && response.system_fields) || {};
+}
+
+function buildSpeechTranscriptHint(systemFields) {
+  const status = safeText(systemFields && systemFields.speech_transcript_status);
+  const provider = safeText(systemFields && systemFields.speech_transcript_provider);
+  const error = safeText(systemFields && systemFields.speech_transcript_error);
+  if (!status) return "";
+
+  if (status === "provider_unconfigured") {
+    return "语音转写未开启，当前仅使用录音音色特征参与分析。";
+  }
+  if (status === "request_failed" || status === "runtime_error") {
+    return "语音转写失败，当前已降级为仅使用录音音色特征参与分析。";
+  }
+  if (status.indexOf("rejected:") === 0) {
+    return `语音质量未通过：${error || status}`;
+  }
+  if (status === "empty") {
+    return "语音转写结果为空，建议在更安静环境重试。";
+  }
+  if (status === "ok" && provider) {
+    return `语音转写已完成（${provider}）。`;
+  }
+  if (provider) {
+    return `语音转写状态：${status}（${provider}）。`;
+  }
+  return `语音转写状态：${status}`;
+}
+
 function normalizeEmotionItem(item, fallbackCode) {
   const code = safeText((item && item.code) || fallbackCode);
   const label = safeText(item && item.label) || code || "未识别";
@@ -85,9 +116,11 @@ function buildLegacyOverview(primaryLabel) {
 
 function buildResultViewModel(response) {
   const resultCard = pickResultCard(response);
+  const systemFields = pickSystemFields(response);
   const legacyEmotion = (response && response.emotion) || {};
   const legacyPoem = (response && response.poem) || {};
   const legacyGuochao = (response && response.guochao) || {};
+  const speechTranscript = safeText(systemFields.speech_transcript);
 
   const primary = normalizeEmotionItem(resultCard.primary_emotion || legacyEmotion, legacyEmotion.code);
   const secondary = normalizeSecondaryEmotions(resultCard.secondary_emotions);
@@ -107,6 +140,8 @@ function buildResultViewModel(response) {
       safeText(resultCard.poem_interpretation) || safeText(legacyPoem.interpretation) || "暂未生成诗词解读。",
     guochaoName: safeText(legacyGuochao.name) || "国潮伙伴",
     comfort: safeText(resultCard.guochao_comfort) || safeText(legacyGuochao.comfort) || "暂未生成国潮慰藉内容。",
+    speechTranscript,
+    speechTranscriptHint: speechTranscript ? "" : buildSpeechTranscriptHint(systemFields),
   };
 }
 
@@ -191,6 +226,8 @@ Page({
     interpretation: "",
     guochaoName: "",
     comfort: "",
+    speechTranscript: "",
+    speechTranscriptHint: "",
     poetImageUrl: "",
     guochaoImageUrl: "",
     poetImageFailed: false,
@@ -237,6 +274,8 @@ Page({
       interpretation: viewModel.interpretation,
       guochaoName: viewModel.guochaoName,
       comfort: viewModel.comfort,
+      speechTranscript: viewModel.speechTranscript,
+      speechTranscriptHint: viewModel.speechTranscriptHint,
       poetImageUrl: normalizeAssetUrl(response.poet_image_url || ""),
       guochaoImageUrl: normalizeAssetUrl(response.guochao_image_url || ""),
       poetImageFailed: false,
@@ -438,6 +477,13 @@ Page({
     const context = this._analysisContext || {};
     const req = pickRequest(context);
     const resp = pickResponse(context);
+    const systemFields = pickSystemFields(resp);
+    const reqText = safeText(req.text);
+    const transcriptText = safeText(systemFields.speech_transcript);
+    const thoughtsBlocks = [];
+    if (reqText) thoughtsBlocks.push(`用户输入：${reqText}`);
+    if (transcriptText) thoughtsBlocks.push(`语音转写：${transcriptText}`);
+    const thoughtsText = thoughtsBlocks.join("\n\n");
 
     this.setData({
       isSendingEmail: true,
@@ -451,7 +497,7 @@ Page({
       const payload = {
         to_email: toEmail,
         analysis_request_id: this.data.requestId || undefined,
-        thoughts: req.text || "",
+        thoughts: thoughtsText || "",
         poem_text: [this.data.poet, this.data.poemText, this.data.interpretation]
           .filter(Boolean)
           .join("\n"),

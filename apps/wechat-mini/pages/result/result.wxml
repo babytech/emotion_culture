@@ -30,6 +30,14 @@
       <view class="emotion-subtitle">情绪概述</view>
       <view class="overview">{{emotionOverview}}</view>
 
+      <view wx:if="{{speechTranscript}}" class="emotion-subtitle">语音识别文字</view>
+      <view wx:if="{{speechTranscript}}" class="speech-transcript">{{speechTranscript}}</view>
+
+      <view wx:if="{{!speechTranscript && speechTranscriptHint}}" class="emotion-subtitle">语音识别状态</view>
+      <view wx:if="{{!speechTranscript && speechTranscriptHint}}" class="speech-transcript muted">
+        {{speechTranscriptHint}}
+      </view>
+
       <view class="emotion-subtitle">触发因素标签</view>
       <view class="chip-wrap">
         <block wx:if="{{triggerTags.length}}">
