@@ -28,6 +28,7 @@ def send_email(payload: SendEmailRequest, request: Request) -> SendEmailResponse
                 payload.user_image_file_id,
                 payload.poet_image_file_id,
                 payload.guochao_image_file_id,
+                payload.user_audio_file_id,
             ]
             if isinstance(file_id, str) and file_id.startswith("cloud://")
         ]

@@ -122,6 +122,42 @@ function pickUserImageTempPath(req) {
   return req.imageTempPath || req.image_temp_path || "";
 }
 
+function pickUserAudioFileId(req) {
+  return (
+    req.audioFileId ||
+    req.audio_file_id ||
+    req.userAudioFileId ||
+    req.user_audio_file_id ||
+    req.uploadedAudioFileId ||
+    req.uploaded_audio_file_id ||
+    ""
+  );
+}
+
+function pickUserAudioUrl(req) {
+  return (
+    req.audioTempUrl ||
+    req.audio_url ||
+    req.userAudioUrl ||
+    req.user_audio_url ||
+    req.uploadedAudioTempUrl ||
+    req.uploaded_audio_url ||
+    ""
+  );
+}
+
+function pickUserAudioTempPath(req) {
+  return (
+    req.audioTempPath ||
+    req.audio_temp_path ||
+    req.userAudioTempPath ||
+    req.user_audio_temp_path ||
+    req.uploadedAudioTempPath ||
+    req.uploaded_audio_temp_path ||
+    ""
+  );
+}
+
 function clearRequestUserImageRefs(req) {
   if (!req) return;
   req.imageFileId = "";
@@ -343,6 +379,47 @@ Page({
     }
   },
 
+  async ensureUserAudioRefs() {
+    const context = this._analysisContext || {};
+    const req = pickRequest(context);
+
+    const existingFileId = pickUserAudioFileId(req);
+    const existingUrl = pickUserAudioUrl(req);
+    if (existingFileId || existingUrl) {
+      return {
+        fileId: existingFileId,
+        tempUrl: existingUrl,
+      };
+    }
+
+    const tempPath = pickUserAudioTempPath(req);
+    if (!tempPath) return { fileId: "", tempUrl: "" };
+
+    wx.showLoading({ title: "补传录音中..." });
+    try {
+      const uploaded = await uploadTempFile(tempPath, "audio");
+      const fileId = (uploaded && uploaded.fileID) || "";
+      const tempUrl = (uploaded && uploaded.tempFileURL) || "";
+      if (!context.request) {
+        context.request = {};
+      }
+      context.request.audioFileId = fileId;
+      context.request.audio_file_id = fileId;
+      context.request.audioTempUrl = tempUrl;
+      context.request.audio_url = tempUrl;
+      context.request.uploadedAudioFileId = fileId;
+      context.request.uploaded_audio_file_id = fileId;
+      context.request.uploadedAudioTempUrl = tempUrl;
+      context.request.uploaded_audio_url = tempUrl;
+      return {
+        fileId,
+        tempUrl,
+      };
+    } finally {
+      wx.hideLoading();
+    }
+  },
+
   async submitEmail() {
     const toEmail = normalizeEmail(this.data.email);
     const emailError = !toEmail ? "请输入邮箱地址" : getEmailError(toEmail);
@@ -369,6 +446,7 @@ Page({
 
     try {
       const userImageRefs = await this.ensureUserImageRefs();
+      const userAudioRefs = await this.ensureUserAudioRefs();
 
       const payload = {
         to_email: toEmail,
@@ -382,6 +460,8 @@ Page({
           .join("：\n"),
         user_image_url: userImageRefs.tempUrl || undefined,
         user_image_file_id: userImageRefs.fileId || undefined,
+        user_audio_url: userAudioRefs.tempUrl || undefined,
+        user_audio_file_id: userAudioRefs.fileId || undefined,
         poet_image_file_id: resp.poet_image_url || this.data.poetImageUrl || undefined,
         guochao_image_file_id: resp.guochao_image_url || this.data.guochaoImageUrl || undefined,
       };

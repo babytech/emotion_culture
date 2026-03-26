@@ -16,6 +16,9 @@ class SendEmailRequest(BaseModel):
     poet_image_file_id: Optional[str] = None
     guochao_image_path: Optional[str] = None
     guochao_image_file_id: Optional[str] = None
+    user_audio_path: Optional[str] = None
+    user_audio_url: Optional[str] = None
+    user_audio_file_id: Optional[str] = None
 
     @field_validator("to_email")
     @classmethod

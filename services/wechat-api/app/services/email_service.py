@@ -53,10 +53,21 @@ def send_analysis_result_email(payload: SendEmailRequest) -> SendEmailResponse:
         file_id=payload.guochao_image_file_id,
         field_name="guochao_image_path/guochao_image_file_id",
     )
+    user_audio = resolve_input_file(
+        local_path=payload.user_audio_path,
+        file_url=payload.user_audio_url,
+        file_id=payload.user_audio_file_id,
+        field_name="user_audio_path/user_audio_url/user_audio_file_id",
+    )
 
     cleanup_paths = [
         path
-        for path in [user_image.cleanup_path, poet_image.cleanup_path, guochao_image.cleanup_path]
+        for path in [
+            user_image.cleanup_path,
+            poet_image.cleanup_path,
+            guochao_image.cleanup_path,
+            user_audio.cleanup_path,
+        ]
         if path
     ]
 
@@ -73,6 +84,7 @@ def send_analysis_result_email(payload: SendEmailRequest) -> SendEmailResponse:
             poem=payload.poem_text or "",
             guochao_image_np=guochao_image_np,
             comfort=payload.comfort_text or "",
+            user_audio_path=user_audio.path,
         )
         if success:
             return SendEmailResponse(

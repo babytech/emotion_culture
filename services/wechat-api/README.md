@@ -8,6 +8,7 @@ This folder contains phase-2 backend scaffolding for the WeChat mini program.
 - `/api/health` health check
 - `/api/analyze` analysis endpoint
 - `/api/send-email` email endpoint
+- `/api/stt/tencent` built-in Tencent STT gateway endpoint
 - Request/response schemas
 - Service layer split (`analysis`, `email`, `storage`)
 - Cloud file resolver (`cloud://` / `http(s)` -> temp local file)
@@ -108,8 +109,33 @@ Optional:
 - `SPEECH_STT_PROVIDER` (`auto` | `http` | `mock`, default `auto`)
 - `SPEECH_STT_ENDPOINT` (used by `http` provider)
 - `SPEECH_STT_TOKEN` (optional bearer token for STT endpoint)
+- `SPEECH_STT_AUTH_HEADER` (default `Authorization`)
+- `SPEECH_STT_AUTH_SCHEME` (default `Bearer`)
 - `SPEECH_STT_TIMEOUT_SEC` (default `18`)
 - `SPEECH_STT_MOCK_TEXT` (only for local debug with `SPEECH_STT_PROVIDER=mock`)
+- `SPEECH_STT_HTTP_METHOD` (default `POST`)
+- `SPEECH_STT_HTTP_MODE` (`multipart` | `raw` | `json_base64`, default `multipart`)
+- `SPEECH_STT_FILE_FIELD` (default `audio`, for `multipart`)
+- `SPEECH_STT_FILE_MIME` (optional override mime type)
+- `SPEECH_STT_RAW_CONTENT_TYPE` (optional content-type for `raw`)
+- `SPEECH_STT_JSON_AUDIO_FIELD` (default `audio_base64`, for `json_base64`)
+- `SPEECH_STT_JSON_FILENAME_FIELD` (default `filename`, for `json_base64`)
+- `SPEECH_STT_FORM_JSON` (optional JSON object string, sent as form fields)
+- `SPEECH_STT_JSON_TEMPLATE` (optional JSON object string, merged into JSON request body)
+- `SPEECH_STT_HEADERS_JSON` (optional JSON object string, custom request headers)
+- `SPEECH_STT_QUERY_JSON` (optional JSON object string, query parameters)
+- `SPEECH_STT_RESPONSE_PATHS` (optional comma-separated paths to transcript text)
+- `TENCENT_SECRET_ID` / `TENCENT_SECRET_KEY` (Tencent sub-account secret pair for STT gateway)
+- `TENCENT_ASR_ENDPOINT` (default `asr.tencentcloudapi.com`)
+- `TENCENT_ASR_REGION` (default `ap-guangzhou`)
+- `TENCENT_ASR_ENGINE_MODEL_TYPE` (default `16k_zh`)
+- `TENCENT_ASR_SUB_SERVICE_TYPE` (default `2`)
+- `TENCENT_ASR_PROJECT_ID` (default `0`)
+- `TENCENT_ASR_WORD_INFO` (default `0`)
+- `TENCENT_ASR_TIMEOUT_SEC` (default `20`)
+- `TENCENT_ASR_MAX_AUDIO_BYTES` (default `3145728`)
+- `TENCENT_STT_GATEWAY_TOKEN` (optional shared secret for `/api/stt/tencent`)
+- `VOICE_REQUIRE_TRANSCRIPT` (`0` | `1`, default `0`; when `0`, voice can still be analyzed by acoustic features if transcript is empty)
 - `FACE_MIN_CANDIDATE_AREA_RATIO` (default `0.01`, tiny box filter for initial face candidates)
 - `FACE_DEDUPE_IOU_THRESHOLD` (default `0.3`, merge duplicated overlapping face boxes)
 - `FACE_MIN_PRESENCE_EYE_COUNT` (default `1`, minimum eyes for considering a face as valid)
@@ -119,6 +145,53 @@ Optional:
 - `FACE_MULTI_SECONDARY_ABS_RATIO_FACTOR` (default `0.75`, secondary absolute size factor)
 - `FACE_MIN_BRIGHTNESS` (default `50`, minimum face brightness)
 - `FACE_MIN_LAPLACIAN_VAR` (default `30`, minimum face sharpness)
+
+### STT endpoint examples
+
+Tencent ASR gateway in this same backend service (recommended):
+
+```env
+SPEECH_STT_PROVIDER=http
+SPEECH_STT_ENDPOINT=https://<your-cloud-host-domain>/api/stt/tencent
+SPEECH_STT_HTTP_MODE=multipart
+SPEECH_STT_FILE_FIELD=audio
+SPEECH_STT_RESPONSE_PATHS=text
+SPEECH_STT_HEADERS_JSON={"X-STT-GATEWAY-TOKEN":"<same_as_TENCENT_STT_GATEWAY_TOKEN>"}
+
+TENCENT_SECRET_ID=<sub_account_secret_id>
+TENCENT_SECRET_KEY=<sub_account_secret_key>
+TENCENT_ASR_REGION=ap-guangzhou
+TENCENT_ASR_ENGINE_MODEL_TYPE=16k_zh
+TENCENT_STT_GATEWAY_TOKEN=<random_long_secret>
+```
+
+Built-in gateway endpoint:
+
+- `POST /api/stt/tencent` (multipart form-data, file field supports `audio` / `file` / `voice`)
+- Returns `{ "text": "...", "provider": "tencent_asr", ... }`
+
+Whisper-compatible HTTP gateway (multipart):
+
+```env
+SPEECH_STT_PROVIDER=http
+SPEECH_STT_ENDPOINT=https://your-stt-gateway.example.com/v1/audio/transcriptions
+SPEECH_STT_HTTP_MODE=multipart
+SPEECH_STT_FILE_FIELD=file
+SPEECH_STT_FORM_JSON={"model":"whisper-1","language":"zh"}
+SPEECH_STT_RESPONSE_PATHS=text,data.text,result.text
+```
+
+Custom JSON-base64 gateway (for internal Tencent/阿里/讯飞 proxy):
+
+```env
+SPEECH_STT_PROVIDER=http
+SPEECH_STT_ENDPOINT=https://your-internal-stt.example.com/asr
+SPEECH_STT_HTTP_MODE=json_base64
+SPEECH_STT_JSON_AUDIO_FIELD=audio_base64
+SPEECH_STT_JSON_TEMPLATE={"format":"mp3","sample_rate":16000}
+SPEECH_STT_HEADERS_JSON={"X-Api-Key":"your-key"}
+SPEECH_STT_RESPONSE_PATHS=result.text,data.transcript
+```
 
 ### 4) Post-deploy checks
 

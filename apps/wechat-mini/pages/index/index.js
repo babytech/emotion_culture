@@ -195,6 +195,10 @@ Page({
       this.setData({
         isRecording: true,
         recordSeconds: 0,
+        submitStage: SUBMIT_STAGE.IDLE,
+        submitStatusText: "",
+        submitButtonText: "提交分析",
+        errorMsg: "",
       });
       this.startRecordTimer();
     });
@@ -204,6 +208,10 @@ Page({
       this.setData({
         isRecording: false,
         audioTempPath: res.tempFilePath || "",
+        submitStage: SUBMIT_STAGE.IDLE,
+        submitStatusText: "",
+        submitButtonText: "提交分析",
+        errorMsg: "",
       });
     });
 
@@ -336,11 +344,19 @@ Page({
       submitStage: SUBMIT_STAGE.IDLE,
       submitStatusText: "",
       submitButtonText: "提交分析",
+      errorMsg: "",
     });
   },
 
   startRecord() {
     if (this.data.isRecording) return;
+
+    this.setData({
+      submitStage: SUBMIT_STAGE.IDLE,
+      submitStatusText: "",
+      submitButtonText: "提交分析",
+      errorMsg: "",
+    });
 
     recorder.start({
       duration: 60000,
@@ -364,6 +380,7 @@ Page({
       submitStage: SUBMIT_STAGE.IDLE,
       submitStatusText: "",
       submitButtonText: "提交分析",
+      errorMsg: "",
     });
   },
 
@@ -468,42 +485,68 @@ Page({
       });
       wx.showLoading({ title: "分析中..." });
 
-      const inputModes = [];
-      if (text) inputModes.push("text");
-      if (imageTempUrl || imageFileId) inputModes.push("selfie");
-      if (audioTempUrl || audioFileId) inputModes.push("voice");
+      const buildAnalyzePayload = (includeAudio) => {
+        const effectiveInputModes = [];
+        if (text) effectiveInputModes.push("text");
+        if (imageTempUrl || imageFileId) effectiveInputModes.push("selfie");
+        if (includeAudio && (audioTempUrl || audioFileId)) effectiveInputModes.push("voice");
 
-      const imagePayload =
-        imageFileId || imageTempUrl
-          ? {
-              file_id: imageFileId || undefined,
-              url: imageTempUrl || undefined,
-            }
-          : undefined;
-      const audioPayload =
-        audioFileId || audioTempUrl
-          ? {
-              file_id: audioFileId || undefined,
-              url: audioTempUrl || undefined,
-            }
-          : undefined;
+        const imagePayload =
+          imageFileId || imageTempUrl
+            ? {
+                file_id: imageFileId || undefined,
+                url: imageTempUrl || undefined,
+              }
+            : undefined;
+        const audioPayload =
+          includeAudio && (audioFileId || audioTempUrl)
+            ? {
+                file_id: audioFileId || undefined,
+                url: audioTempUrl || undefined,
+              }
+            : undefined;
 
-      const result = await analyze({
-        input_modes: inputModes,
-        text: text || undefined,
-        image: imagePayload,
-        audio: audioPayload,
+        return {
+          input_modes: effectiveInputModes,
+          text: text || undefined,
+          image: imagePayload,
+          audio: audioPayload,
 
-        // Legacy fields kept until all clients migrate.
-        image_url: imageTempUrl || undefined,
-        image_file_id: imageFileId || undefined,
-        audio_url: audioTempUrl || undefined,
-        audio_file_id: audioFileId || undefined,
-        client: {
-          platform: "mp-weixin",
-          version: "0.1.0",
-        },
-      });
+          // Legacy fields kept until all clients migrate.
+          image_url: imageTempUrl || undefined,
+          image_file_id: imageFileId || undefined,
+          audio_url: includeAudio ? audioTempUrl || undefined : undefined,
+          audio_file_id: includeAudio ? audioFileId || undefined : undefined,
+          client: {
+            platform: "mp-weixin",
+            version: "0.1.0",
+          },
+        };
+      };
+
+      let analyzeUsedAudio = !!(audioTempUrl || audioFileId);
+      let effectivePayload = buildAnalyzePayload(analyzeUsedAudio);
+      let result = null;
+      try {
+        result = await analyze(effectivePayload);
+      } catch (err) {
+        const message = ((err && err.message) || "").trim();
+        const voiceReject = message.includes("[VOICE_");
+        const canFallbackToTextOnly = analyzeUsedAudio && !!text && voiceReject;
+        if (!canFallbackToTextOnly) {
+          throw err;
+        }
+
+        analyzeUsedAudio = false;
+        effectivePayload = buildAnalyzePayload(false);
+        this.setData({
+          submitStage: SUBMIT_STAGE.ANALYZING,
+          submitStatusText: "语音识别不稳定，已自动改用文字继续分析...",
+          submitButtonText: "分析中...",
+          errorMsg: "",
+        });
+        result = await analyze(effectivePayload);
+      }
 
       this.setData({
         submitStage: SUBMIT_STAGE.RENDERING,
@@ -516,27 +559,33 @@ Page({
       app.globalData.latestAnalyzeContext = {
         request: {
           text,
-          input_modes: inputModes,
+          input_modes: effectivePayload.input_modes || [],
           image:
             imageTempUrl || imageFileId
               ? { url: imageTempUrl, file_id: imageFileId }
               : undefined,
           audio:
-            audioTempUrl || audioFileId
+            analyzeUsedAudio && (audioTempUrl || audioFileId)
               ? { url: audioTempUrl, file_id: audioFileId }
               : undefined,
           imageFileId,
           imageTempUrl,
-          audioFileId,
-          audioTempUrl,
+          audioFileId: analyzeUsedAudio ? audioFileId : "",
+          audioTempUrl: analyzeUsedAudio ? audioTempUrl : "",
           imageTempPath,
-          audioTempPath,
+          audioTempPath: analyzeUsedAudio ? audioTempPath : "",
+          uploadedAudioFileId: audioFileId,
+          uploadedAudioTempUrl: audioTempUrl,
+          uploadedAudioTempPath: audioTempPath,
           image_url: imageTempUrl,
           image_file_id: imageFileId,
-          audio_url: audioTempUrl,
-          audio_file_id: audioFileId,
+          audio_url: analyzeUsedAudio ? audioTempUrl : "",
+          audio_file_id: analyzeUsedAudio ? audioFileId : "",
           image_temp_path: imageTempPath,
-          audio_temp_path: audioTempPath,
+          audio_temp_path: analyzeUsedAudio ? audioTempPath : "",
+          uploaded_audio_file_id: audioFileId,
+          uploaded_audio_url: audioTempUrl,
+          uploaded_audio_temp_path: audioTempPath,
         },
         response: result,
       };

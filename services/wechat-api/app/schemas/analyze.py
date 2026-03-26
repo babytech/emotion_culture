@@ -164,6 +164,8 @@ class SystemFields(BaseModel):
     analysis_text: Optional[str] = None
     speech_transcript: Optional[str] = None
     speech_transcript_provider: Optional[str] = None
+    speech_transcript_status: Optional[str] = None
+    speech_transcript_error: Optional[str] = None
 
 
 class AnalyzeResponse(BaseModel):

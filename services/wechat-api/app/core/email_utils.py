@@ -1,9 +1,12 @@
 import smtplib
 import os
 import time
+import mimetypes
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
+from email.mime.base import MIMEBase
+from email import encoders
 from dotenv import load_dotenv
 from PIL import Image # 新增 for NumPy to Image conversion
 import numpy as np # 新增 for type hinting
@@ -86,7 +89,21 @@ def _save_numpy_image_to_tempfile(
                 print(f"Error cleaning up temp file {temp_file_path} after save failure: {e_clean}")
         return None
 
-def send_email(recipient_email, subject, html_body, image_attachments=None):
+def _build_audio_attachment_name(audio_path: str) -> str:
+    ext = os.path.splitext(audio_path or "")[1].strip().lower()
+    allowed = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".webm"}
+    if ext not in allowed:
+        ext = ".mp3"
+    return f"user_voice{ext}"
+
+
+def send_email(
+    recipient_email,
+    subject,
+    html_body,
+    image_attachments=None,
+    file_attachments=None,
+):
     """
     Sends an email with HTML content and optional image attachments.
 
@@ -144,6 +161,35 @@ def send_email(recipient_email, subject, html_body, image_attachments=None):
                     print(f"Warning: Could not attach image {path}. Error: {e}")
 
 
+        # Attach generic files (e.g. user voice recording) as downloadable attachments.
+        if file_attachments:
+            for attachment in file_attachments:
+                if not isinstance(attachment, dict):
+                    continue
+                path = attachment.get("path")
+                filename = attachment.get("filename")
+                if not path:
+                    continue
+                if not filename:
+                    filename = os.path.basename(path)
+                try:
+                    with open(path, "rb") as fp:
+                        content = fp.read()
+                    mime_type, _ = mimetypes.guess_type(filename)
+                    if mime_type and "/" in mime_type:
+                        maintype, subtype = mime_type.split("/", 1)
+                    else:
+                        maintype, subtype = "application", "octet-stream"
+                    part = MIMEBase(maintype, subtype)
+                    part.set_payload(content)
+                    encoders.encode_base64(part)
+                    part.add_header("Content-Disposition", "attachment", filename=filename)
+                    msg_root.attach(part)
+                except FileNotFoundError:
+                    print(f"Warning: Attachment file not found at {path}, skipping.")
+                except Exception as e:
+                    print(f"Warning: Could not attach file {path}. Error: {e}")
+
         # Send the email
         if smtp_port == 587:
             with smtplib.SMTP(smtp_server, smtp_port, timeout=smtp_timeout) as server:
@@ -170,7 +216,16 @@ def send_email(recipient_email, subject, html_body, image_attachments=None):
         return False, f"邮件发送失败：发生未知错误 - {str(e)}"
 
 # 新增：特定于应用邮件发送逻辑的函数
-def send_analysis_email(to_email, thoughts, user_photo_np, poet_image_np, poem, guochao_image_np, comfort):
+def send_analysis_email(
+    to_email,
+    thoughts,
+    user_photo_np,
+    poet_image_np,
+    poem,
+    guochao_image_np,
+    comfort,
+    user_audio_path=None,
+):
     """
     Prepares and sends the analysis email with all content and images.
     """
@@ -211,6 +266,15 @@ def send_analysis_email(to_email, thoughts, user_photo_np, poet_image_np, poem, 
         image_attachments_for_email['guochao_image_cid'] = guochao_image_path
         temp_image_paths.append(guochao_image_path)
     print(f"[email] image_prepare_ms={int((time.perf_counter() - t0) * 1000)}")
+
+    file_attachments_for_email = []
+    if user_audio_path:
+        file_attachments_for_email.append(
+            {
+                "path": user_audio_path,
+                "filename": _build_audio_attachment_name(user_audio_path),
+            }
+        )
 
     # Pre-process poem and comfort for HTML
     poem_for_html = poem.replace("\n", "<br>") if poem else "暂无诗词回应。"
@@ -259,6 +323,8 @@ def send_analysis_email(to_email, thoughts, user_photo_np, poet_image_np, poem, 
                 {'<img src="cid:guochao_image_cid" alt="国潮伙伴">' if 'guochao_image_cid' in image_attachments_for_email else '<p>未能加载国潮伙伴图片。</p>'}
             </div>
             <p>{comfort_for_html}</p>
+            <h3>你的录音：</h3>
+            <p>{'已附在邮件附件中（可下载回听）。' if file_attachments_for_email else '本次未附带录音。'}</p>
             
             <hr>
             <p class="footer">感谢使用本系统！</p>
@@ -272,7 +338,8 @@ def send_analysis_email(to_email, thoughts, user_photo_np, poet_image_np, poem, 
         recipient_email=to_email,
         subject=subject,
         html_body=html_body,
-        image_attachments=image_attachments_for_email
+        image_attachments=image_attachments_for_email,
+        file_attachments=file_attachments_for_email,
     )
 
     # Clean up temporary image files

@@ -314,11 +314,217 @@ class QARegressionRunner:
             recover_resp = self._post_analyze(recover_payload, user)
             self._ensure(recover_resp.status_code == 200, f"自拍失败后文字恢复失败: {recover_resp.text}")
 
+        def case_text_voice_empty_transcript_fallback() -> None:
+            prev_provider = os.environ.get("SPEECH_STT_PROVIDER")
+            prev_mock_text = os.environ.get("SPEECH_STT_MOCK_TEXT")
+            os.environ["SPEECH_STT_PROVIDER"] = "mock"
+            os.environ["SPEECH_STT_MOCK_TEXT"] = ""
+            try:
+                payload = {
+                    "input_modes": ["text", "voice"],
+                    "text": "语音转写失败时继续走文字分析。",
+                    "audio": {"local_path": str(self.valid_voice_path)},
+                    "client": {"platform": "mp-weixin", "version": "0.1.0", "user_id": user},
+                }
+                resp = self._post_analyze(payload, user)
+                self._ensure(resp.status_code == 200, f"文本+语音降级链路失败: {resp.text}")
+                body = resp.json()
+                self._ensure("text" in body.get("input_modes", []), "降级后缺少 text 输入模式。")
+                transcript = body.get("system_fields", {}).get("speech_transcript")
+                self._ensure(not transcript, "降级后 speech_transcript 应为空。")
+            finally:
+                if prev_provider is None:
+                    os.environ.pop("SPEECH_STT_PROVIDER", None)
+                else:
+                    os.environ["SPEECH_STT_PROVIDER"] = prev_provider
+                if prev_mock_text is None:
+                    os.environ.pop("SPEECH_STT_MOCK_TEXT", None)
+                else:
+                    os.environ["SPEECH_STT_MOCK_TEXT"] = prev_mock_text
+
+        def case_voice_without_stt_config_still_available() -> None:
+            prev_provider = os.environ.get("SPEECH_STT_PROVIDER")
+            prev_endpoint = os.environ.get("SPEECH_STT_ENDPOINT")
+            prev_require = os.environ.get("VOICE_REQUIRE_TRANSCRIPT")
+            os.environ["SPEECH_STT_PROVIDER"] = "auto"
+            os.environ["SPEECH_STT_ENDPOINT"] = ""
+            os.environ["VOICE_REQUIRE_TRANSCRIPT"] = "0"
+            try:
+                payload = {
+                    "input_modes": ["voice"],
+                    "audio": {"local_path": str(self.valid_voice_path)},
+                    "client": {"platform": "mp-weixin", "version": "0.1.0", "user_id": user},
+                }
+                resp = self._post_analyze(payload, user)
+                self._ensure(resp.status_code == 200, f"无 STT 配置时 voice 链路失败: {resp.text}")
+                body = resp.json()
+                status = body.get("system_fields", {}).get("speech_transcript_status")
+                self._ensure(status in {"provider_unconfigured", "empty"}, f"转写状态不符合预期: {status}")
+            finally:
+                if prev_provider is None:
+                    os.environ.pop("SPEECH_STT_PROVIDER", None)
+                else:
+                    os.environ["SPEECH_STT_PROVIDER"] = prev_provider
+                if prev_endpoint is None:
+                    os.environ.pop("SPEECH_STT_ENDPOINT", None)
+                else:
+                    os.environ["SPEECH_STT_ENDPOINT"] = prev_endpoint
+                if prev_require is None:
+                    os.environ.pop("VOICE_REQUIRE_TRANSCRIPT", None)
+                else:
+                    os.environ["VOICE_REQUIRE_TRANSCRIPT"] = prev_require
+
+        def case_http_stt_endpoint_configurable() -> None:
+            import app.core.speech as speech_core  # type: ignore
+
+            class _FakeResponse:
+                def __init__(self) -> None:
+                    self.status_code = 200
+                    self.headers = {"Content-Type": "application/json"}
+                    self.text = '{"result":{"text":"今天有点紧张但还能慢慢调整"}}'
+
+                def json(self) -> dict[str, Any]:
+                    return {"result": {"text": "今天有点紧张但还能慢慢调整"}}
+
+            captured: dict[str, Any] = {}
+            original_request = speech_core.requests.request
+            env_keys = [
+                "SPEECH_STT_PROVIDER",
+                "SPEECH_STT_ENDPOINT",
+                "SPEECH_STT_HTTP_MODE",
+                "SPEECH_STT_FILE_FIELD",
+                "SPEECH_STT_FORM_JSON",
+                "SPEECH_STT_HEADERS_JSON",
+                "SPEECH_STT_RESPONSE_PATHS",
+                "VOICE_REQUIRE_TRANSCRIPT",
+            ]
+            env_backup = {key: os.environ.get(key) for key in env_keys}
+
+            def fake_request(**kwargs):  # type: ignore[no-untyped-def]
+                captured["kwargs"] = kwargs
+                return _FakeResponse()
+
+            speech_core.requests.request = fake_request
+            os.environ["SPEECH_STT_PROVIDER"] = "http"
+            os.environ["SPEECH_STT_ENDPOINT"] = "https://mock-stt.example.com/transcribe"
+            os.environ["SPEECH_STT_HTTP_MODE"] = "multipart"
+            os.environ["SPEECH_STT_FILE_FIELD"] = "file"
+            os.environ["SPEECH_STT_FORM_JSON"] = '{"model":"whisper-1","language":"zh"}'
+            os.environ["SPEECH_STT_HEADERS_JSON"] = '{"X-Api-Key":"demo-key"}'
+            os.environ["SPEECH_STT_RESPONSE_PATHS"] = "result.text"
+            os.environ["VOICE_REQUIRE_TRANSCRIPT"] = "1"
+
+            try:
+                payload = {
+                    "input_modes": ["voice"],
+                    "audio": {"local_path": str(self.valid_voice_path)},
+                    "client": {"platform": "mp-weixin", "version": "0.1.0", "user_id": user},
+                }
+                resp = self._post_analyze(payload, user)
+                self._ensure(resp.status_code == 200, f"可配置 STT endpoint 请求失败: {resp.text}")
+                body = resp.json()
+                transcript = body.get("system_fields", {}).get("speech_transcript")
+                self._ensure(transcript == "今天有点紧张但还能慢慢调整", f"转写文本不符合预期: {transcript}")
+
+                req_kwargs = captured.get("kwargs", {})
+                files = req_kwargs.get("files", {})
+                data = req_kwargs.get("data", {})
+                headers = req_kwargs.get("headers", {})
+                self._ensure("file" in files, "SPEECH_STT_FILE_FIELD 未生效。")
+                self._ensure(data.get("model") == "whisper-1", "SPEECH_STT_FORM_JSON 未生效。")
+                self._ensure(headers.get("X-Api-Key") == "demo-key", "SPEECH_STT_HEADERS_JSON 未生效。")
+            finally:
+                speech_core.requests.request = original_request
+                for key, value in env_backup.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+
+        def case_tencent_stt_gateway_endpoint() -> None:
+            import app.services.tencent_stt_service as tencent_stt_service  # type: ignore
+
+            captured: dict[str, Any] = {}
+            original_post = tencent_stt_service.requests.post
+
+            class _FakeResponse:
+                status_code = 200
+                text = '{"Response":{"Result":"今天有点紧张但还能慢慢调整","RequestId":"req_mock_1","AudioDuration":2380}}'
+
+                def raise_for_status(self) -> None:
+                    return None
+
+                @staticmethod
+                def json() -> dict[str, Any]:
+                    return {
+                        "Response": {
+                            "Result": "今天有点紧张但还能慢慢调整",
+                            "RequestId": "req_mock_1",
+                            "AudioDuration": 2380,
+                        }
+                    }
+
+            env_keys = [
+                "TENCENT_SECRET_ID",
+                "TENCENT_SECRET_KEY",
+                "TENCENT_ASR_REGION",
+                "TENCENT_STT_GATEWAY_TOKEN",
+            ]
+            env_backup = {key: os.environ.get(key) for key in env_keys}
+
+            def fake_post(url, headers=None, data=None, timeout=None):  # type: ignore[no-untyped-def]
+                captured["url"] = url
+                captured["headers"] = headers or {}
+                captured["data"] = data
+                captured["timeout"] = timeout
+                return _FakeResponse()
+
+            tencent_stt_service.requests.post = fake_post
+            os.environ["TENCENT_SECRET_ID"] = "sid_demo"
+            os.environ["TENCENT_SECRET_KEY"] = "skey_demo"
+            os.environ["TENCENT_ASR_REGION"] = "ap-guangzhou"
+            os.environ["TENCENT_STT_GATEWAY_TOKEN"] = "gateway_secret_demo"
+
+            try:
+                with self.valid_voice_path.open("rb") as audio_file:
+                    resp = self.client.post(
+                        "/api/stt/tencent",
+                        files={"audio": ("qa.wav", audio_file, "audio/wav")},
+                        headers={"X-STT-GATEWAY-TOKEN": "gateway_secret_demo"},
+                    )
+                self._ensure(resp.status_code == 200, f"腾讯 STT 网关调用失败: {resp.text}")
+                body = resp.json()
+                self._ensure(body.get("text") == "今天有点紧张但还能慢慢调整", f"网关转写结果异常: {body}")
+                self._ensure(body.get("provider") == "tencent_asr", f"网关 provider 异常: {body}")
+
+                req_headers = captured.get("headers", {})
+                self._ensure(req_headers.get("X-TC-Action") == "SentenceRecognition", "X-TC-Action 未正确设置。")
+                self._ensure(req_headers.get("X-TC-Version") == "2019-06-14", "X-TC-Version 未正确设置。")
+                payload_raw = captured.get("data")
+                if isinstance(payload_raw, bytes):
+                    payload_obj = json.loads(payload_raw.decode("utf-8"))
+                else:
+                    payload_obj = json.loads(payload_raw or "{}")
+                self._ensure(payload_obj.get("EngSerViceType") == "16k_zh", "默认引擎型号未生效。")
+                self._ensure(payload_obj.get("VoiceFormat") == "wav", "音频格式推断未生效。")
+                self._ensure(isinstance(payload_obj.get("Data"), str) and payload_obj.get("Data"), "Data Base64 缺失。")
+            finally:
+                tencent_stt_service.requests.post = original_post
+                for key, value in env_backup.items():
+                    if value is None:
+                        os.environ.pop(key, None)
+                    else:
+                        os.environ[key] = value
+
         self._run_case("QA-001", "QA-001-1", "小程序文本链路通过", case_text_chain)
         self._run_case("QA-001", "QA-001-2", "小程序语音链路通过", case_voice_chain)
         self._run_case("QA-001", "QA-001-3", "小程序自拍链路通过", case_selfie_chain)
         self._run_case("QA-001", "QA-001-4", "小程序语音失败后可恢复", case_voice_fail_recover)
         self._run_case("QA-001", "QA-001-5", "小程序自拍失败后可恢复", case_selfie_fail_recover)
+        self._run_case("QA-001", "QA-001-6", "文本+语音在空转写时自动降级", case_text_voice_empty_transcript_fallback)
+        self._run_case("QA-001", "QA-001-7", "无 STT 配置时语音链路仍可用", case_voice_without_stt_config_still_available)
+        self._run_case("QA-001", "QA-001-8", "SPEECH_STT_ENDPOINT 支持可配置请求格式", case_http_stt_endpoint_configurable)
+        self._run_case("QA-001", "QA-001-9", "内置腾讯 STT 网关可用", case_tencent_stt_gateway_endpoint)
 
     def _qa_002(self) -> None:
         face_np = np.array(Image.open(self.valid_face_path).convert("RGB"))
@@ -779,10 +985,43 @@ class QARegressionRunner:
             finally:
                 self.email_service.send_analysis_email = original_send_fn
 
+        def case_email_can_attach_user_audio() -> None:
+            user = "qa-email-audio"
+            original_send_fn = self.email_service.send_analysis_email
+            captured: dict[str, Any] = {}
+
+            def fake_send_analysis_email(**kwargs):  # type: ignore[no-untyped-def]
+                captured.update(kwargs)
+                return True, "mock email sent"
+
+            self.email_service.send_analysis_email = fake_send_analysis_email
+            try:
+                email_payload = {
+                    "to_email": "qa@example.com",
+                    "thoughts": "附件校验",
+                    "poem_text": "poem",
+                    "comfort_text": "comfort",
+                    "user_audio_path": str(self.valid_voice_path),
+                }
+                resp = self.client.post(
+                    "/api/send-email",
+                    json=email_payload,
+                    headers=self._headers(user),
+                )
+                self._ensure(resp.status_code == 200, f"邮件语音附件请求失败: {resp.text}")
+                body = resp.json()
+                self._ensure(body.get("success") is True, f"邮件语音附件请求未返回成功: {body}")
+                attached_path = captured.get("user_audio_path")
+                self._ensure(bool(attached_path), "邮件服务未接收到 user_audio_path。")
+                self._ensure(os.path.exists(attached_path), f"邮件服务接收到的音频路径无效: {attached_path}")
+            finally:
+                self.email_service.send_analysis_email = original_send_fn
+
         self._run_case("QA-004", "QA-004-1", "文本分析耗时 <= 3s", case_text_latency)
         self._run_case("QA-004", "QA-004-2", "自拍/拍照分析耗时 <= 8s", case_selfie_latency)
         self._run_case("QA-004", "QA-004-3", "语音分析耗时 <= 12s", case_voice_latency)
         self._run_case("QA-004", "QA-004-4", "邮件失败不阻塞主结果且可重试", case_email_not_blocking_and_retryable)
+        self._run_case("QA-004", "QA-004-5", "邮件接口可接收用户录音附件", case_email_can_attach_user_audio)
 
     def _write_report(self) -> None:
         self.report_path.parent.mkdir(parents=True, exist_ok=True)

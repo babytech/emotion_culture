@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import os
 import random
 import re
@@ -33,6 +34,7 @@ from app.schemas.analyze import (
 from app.services.storage_service import cleanup_temp_files, resolve_media_paths
 
 
+logger = logging.getLogger(__name__)
 _culture_manager = CultureManager()
 _emotions = ("happy", "sad", "angry", "surprise", "neutral", "fear")
 
@@ -116,6 +118,17 @@ def _env_float(name: str, default: float) -> float:
         return default
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
 def _normalize_transcript_text(raw_text: str) -> str:
     text = (raw_text or "").strip()
     if not text:
@@ -141,6 +154,7 @@ def _is_unstable_transcript(raw_text: str) -> bool:
 def _validate_voice_quality(audio_path: str, speech_transcript: Optional[str]) -> None:
     min_file_size = _env_int("VOICE_MIN_FILE_SIZE_BYTES", 6000)
     min_transcript_chars = _env_int("VOICE_MIN_TRANSCRIPT_CHARS", 2)
+    require_transcript = _env_bool("VOICE_REQUIRE_TRANSCRIPT", False)
 
     try:
         file_size = os.path.getsize(audio_path)
@@ -157,10 +171,12 @@ def _validate_voice_quality(audio_path: str, speech_transcript: Optional[str]) -
         )
 
     if not (speech_transcript or "").strip():
-        raise VoiceQualityRejectError(
-            code="VOICE_TRANSCRIPT_EMPTY",
-            message="语音识别结果为空，可能存在静音或环境杂音过大。",
-        )
+        if require_transcript:
+            raise VoiceQualityRejectError(
+                code="VOICE_TRANSCRIPT_EMPTY",
+                message="语音识别结果为空，可能存在静音或环境杂音过大。",
+            )
+        return
 
     normalized = _normalize_transcript_text(speech_transcript or "")
     if len(normalized) < min_transcript_chars:
@@ -503,16 +519,36 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
 
         speech_transcript = None
         speech_transcript_provider = None
+        speech_transcript_status = None
+        speech_transcript_error = None
         speech_emotion = None
         if resolved.audio_path:
             transcription = transcribe_speech_to_text(resolved.audio_path)
             speech_transcript = transcription.text
             speech_transcript_provider = transcription.provider
-            _validate_voice_quality(
-                audio_path=resolved.audio_path,
-                speech_transcript=speech_transcript,
-            )
-            speech_emotion = analyze_speech_emotion(resolved.audio_path)
+            speech_transcript_status = transcription.status
+            speech_transcript_error = transcription.error
+            try:
+                _validate_voice_quality(
+                    audio_path=resolved.audio_path,
+                    speech_transcript=speech_transcript,
+                )
+                speech_emotion = analyze_speech_emotion(resolved.audio_path)
+            except VoiceQualityRejectError as exc:
+                # 文本已存在时，语音信号降级为可选输入，避免整单失败。
+                if analysis_text:
+                    logger.warning(
+                        "voice quality rejected but request has text, fallback to text-only: code=%s provider=%s",
+                        exc.code,
+                        speech_transcript_provider,
+                    )
+                    speech_transcript = None
+                    speech_transcript_provider = None
+                    speech_transcript_status = f"rejected:{exc.code}"
+                    speech_transcript_error = exc.message
+                    speech_emotion = None
+                else:
+                    raise
 
         if not analysis_text and speech_transcript:
             analysis_text = speech_transcript
@@ -584,6 +620,8 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
                 analysis_text=analysis_text,
                 speech_transcript=speech_transcript,
                 speech_transcript_provider=speech_transcript_provider,
+                speech_transcript_status=speech_transcript_status,
+                speech_transcript_error=speech_transcript_error,
             ),
             emotion=EmotionResult(
                 code=chosen_emotion,

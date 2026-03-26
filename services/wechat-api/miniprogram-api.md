@@ -69,6 +69,8 @@ BE-010 main-chain rule:
 - If `text` exists, backend uses `text` as analysis text.
 - If `text` is empty and `audio` exists, backend first transcribes audio to text, then runs unified text analysis.
 - `speech` emotion remains an auxiliary signal in fusion.
+- If transcript is empty (for example STT endpoint not configured / timeout), backend still keeps voice emotion as auxiliary signal by default (`VOICE_REQUIRE_TRANSCRIPT=0`).
+- STT provider is integrated via `SPEECH_STT_ENDPOINT` HTTP adapter and can connect to Whisper/腾讯云/阿里云/讯飞 through your own gateway.
 
 Example:
 
@@ -128,7 +130,9 @@ Response example:
     "tts_ready": false,
     "analysis_text": "今天有点难过",
     "speech_transcript": "今天有点难过",
-    "speech_transcript_provider": "http"
+    "speech_transcript_provider": "http",
+    "speech_transcript_status": "ok",
+    "speech_transcript_error": null
   },
 
   "emotion": {
@@ -182,7 +186,9 @@ Request body fields:
 - `user_image_file_id` optional string (`cloud://...` or `https://...`)
 - `poet_image_file_id` optional string (`cloud://...` or `https://...`)
 - `guochao_image_file_id` optional string (`cloud://...` or `https://...`)
+- `user_audio_file_id` optional string (`cloud://...` or `https://...`, attached in email)
 - `user_image_path`/`poet_image_path`/`guochao_image_path` optional local debug paths
+- `user_audio_path` optional local debug path
 
 Example:
 
@@ -193,7 +199,8 @@ Example:
   "thoughts": "今天有点难过",
   "poem_text": "千山鸟飞绝，万径人踪灭。",
   "comfort_text": "每个人都会有情绪低落的时候...",
-  "user_image_file_id": "cloud://env-id/path/user_photo.jpg"
+  "user_image_file_id": "cloud://env-id/path/user_photo.jpg",
+  "user_audio_file_id": "cloud://env-id/path/user_audio.mp3"
 }
 ```
 
@@ -221,7 +228,36 @@ Failure example (still HTTP 200, frontend retries only this endpoint):
 }
 ```
 
-## 4) History APIs
+## 4) Built-in Tencent STT gateway (internal endpoint)
+
+`POST /api/stt/tencent`
+
+Purpose:
+
+- This endpoint is used by backend STT adapter (`SPEECH_STT_ENDPOINT`) and is not required for mini program direct calls.
+- It wraps Tencent SentenceRecognition API with server-side credential signing.
+
+Request:
+
+- `multipart/form-data`
+- file field supports `audio` / `file` / `voice`
+
+Response example:
+
+```json
+{
+  "text": "今天有点难过",
+  "provider": "tencent_asr",
+  "request_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "audio_duration_ms": 2380
+}
+```
+
+Security recommendation:
+
+- Configure `TENCENT_STT_GATEWAY_TOKEN` and set the same value through `SPEECH_STT_HEADERS_JSON` as `X-STT-GATEWAY-TOKEN`.
+
+## 5) History APIs
 
 `GET /api/history?limit=20&offset=0`
 
@@ -261,7 +297,7 @@ Delete one history summary record for current user.
 
 Clear all history summary records for current user.
 
-## 5) Settings APIs
+## 6) Settings APIs
 
 `GET /api/settings`
 
@@ -281,7 +317,7 @@ Clear all history summary records for current user.
 }
 ```
 
-## 6) Error codes
+## 7) Error codes
 
 - `200`: success
 - `400`: bad request / missing env / invalid file id / resolver failure
@@ -291,9 +327,17 @@ Clear all history summary records for current user.
 Voice quality reject details (`400`, from BE-011):
 
 - `[VOICE_TOO_SHORT]`: voice file too short / too quiet
-- `[VOICE_TRANSCRIPT_EMPTY]`: transcript empty (silent/noisy input)
+- `[VOICE_TRANSCRIPT_EMPTY]`: transcript empty (only when `VOICE_REQUIRE_TRANSCRIPT=1`)
 - `[VOICE_TEXT_TOO_SHORT]`: recognized text too short
 - `[VOICE_TEXT_UNSTABLE]`: unstable transcript, suggest re-record in quieter environment
+
+`system_fields.speech_transcript_status` can be used for diagnosis:
+
+- `ok`: transcript available
+- `empty`: STT responded but transcript empty
+- `provider_unconfigured`: endpoint not configured
+- `request_failed`: STT HTTP request failed
+- `runtime_error`: unexpected STT runtime error
 
 Email error codes (`/api/send-email` response fields):
 
@@ -311,14 +355,14 @@ Face quality reject details (`400`, from BE-012):
 - `[FACE_TOO_DARK]`: low-light image
 - `[FACE_TOO_BLUR]`: blurred image
 
-## 7) Frontend integration flow (recommended)
+## 8) Frontend integration flow (recommended)
 
 1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID` and `tempFileURL`.
 2. Call `/api/analyze` with `text + image/audio` via `wx.cloud.callContainer`.
 3. Render `result_card` as primary UI payload.
 4. If user sends email, call `/api/send-email` via `wx.cloud.callContainer`.
 
-## 8) Minimal mini program request snippet
+## 9) Minimal mini program request snippet
 
 ```js
 wx.cloud.callContainer({
