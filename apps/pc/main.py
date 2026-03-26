@@ -10,6 +10,7 @@
 """
 
 import os
+import json
 import numpy as np
 import gradio as gr
 import random
@@ -19,10 +20,12 @@ import socket
 import signal
 import sys
 import time
+import uuid
 from datetime import datetime
 from PIL import Image
 import pyttsx3
 import platform
+import cv2
 
 # 导入UI模块
 from ui import create_ui
@@ -31,10 +34,10 @@ from ui import create_ui
 from emotion import comfort_text, guochao_characters, detect_face_emotion, analyze_text_sentiment
 
 # 导入语音情绪识别模块
-from speech import analyze_speech_emotion
+from speech import analyze_speech_emotion, validate_audio_input
 
 # 导入 email_utils 中的邮件发送函数
-from email_utils import send_analysis_email, send_email
+from email_utils import send_analysis_email
 
 # 统一基于当前文件位置解析资源路径，避免运行目录变化导致找不到图片/数据
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -459,135 +462,717 @@ def launch_gradio_server(interface, primary_port=7890, port_range=(7890, 7900)):
     
     return server_thread
 
+_TRIGGER_KEYWORDS = {
+    "学业压力": ("考试", "成绩", "作业", "学习", "上课", "老师", "升学"),
+    "人际关系": ("同学", "朋友", "家人", "父母", "关系", "吵架", "冲突"),
+    "自我期待": ("目标", "计划", "未来", "担心", "焦虑", "压力", "比较"),
+    "身体状态": ("失眠", "疲惫", "头痛", "不舒服", "生病", "累", "困"),
+    "环境变化": ("转学", "搬家", "新环境", "变化", "陌生", "适应"),
+}
+
+_DEFAULT_TRIGGER_TAGS = {
+    "happy": ["积极体验", "关系支持"],
+    "sad": ["情绪低落", "压力积累"],
+    "angry": ["冲突压力", "期待落差"],
+    "surprise": ["突发变化", "信息冲击"],
+    "neutral": ["日常波动", "状态平稳"],
+    "fear": ["未知担忧", "安全感不足"],
+}
+
+_DAILY_SUGGESTIONS = {
+    "happy": "记录今天让你开心的一个瞬间，并把这份积极感受分享给一个信任的人。",
+    "sad": "给自己 10 分钟安静时间，做 3 次深呼吸，再写下一个可马上完成的小目标。",
+    "angry": "先暂停 1 分钟离开冲突现场，缓和呼吸后再表达你的真实需求。",
+    "surprise": "把这次意外感受写成一句话，分清“事实”和“想法”，再决定下一步。",
+    "neutral": "保持当前节奏，今晚固定一个放松时段，巩固这份平稳状态。",
+    "fear": "把担心拆成“可控制/不可控制”两部分，先执行一件可控制的小行动。",
+}
+
+_INPUT_MODE_LABELS = {
+    "text": "文字",
+    "voice": "录音",
+    "pc_camera": "摄像头",
+}
+
+
+def _env_int(name, default):
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def _env_float(name, default):
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def _normalize_rgb_image(image):
+    if image is None:
+        return None
+    arr = np.asarray(image)
+    if arr.size == 0:
+        return None
+
+    if arr.dtype != np.uint8:
+        arr = arr.astype(np.float32)
+        if arr.max() <= 1.0:
+            arr = arr * 255.0
+        arr = np.clip(arr, 0, 255).astype(np.uint8)
+
+    if arr.ndim == 2:
+        return cv2.cvtColor(arr, cv2.COLOR_GRAY2RGB)
+    if arr.ndim != 3:
+        return None
+    if arr.shape[2] == 4:
+        return cv2.cvtColor(arr, cv2.COLOR_RGBA2RGB)
+    if arr.shape[2] == 3:
+        return arr
+    return None
+
+
+class CameraPhotoRejectError(ValueError):
+    def __init__(self, code, message, retry_hint=None):
+        self.code = code
+        self.message = message
+        self.retry_hint = retry_hint or "请正对镜头、保证光线充足后重新拍摄。"
+        super().__init__(f"{code}: {message}")
+
+    def to_client_message(self):
+        return f"[{self.code}] {self.message} {self.retry_hint}"
+
+
 class AppLogic:
     def __init__(self):
-        # 移除 SMTP 服务器配置，这些现在由 email_utils.py 通过 .env 文件处理
-        # self.smtp_server = os.environ.get("SMTP_SERVER", "smtp.example.com")
-        # self.smtp_port = int(os.environ.get("SMTP_PORT", 587))
-        # self.smtp_sender_email = os.environ.get("SMTP_SENDER_EMAIL", "your_email@example.com")
-        # self.smtp_sender_password = os.environ.get("SMTP_SENDER_PASSWORD", "your_password_or_app_key")
-        pass # __init__ 目前不需要做任何事，但保留以备将来扩展
+        self.cache_dir = app_path("cache")
+        self.history_cache_file = app_path("cache", "history_summary.json")
+        self.cache_lock = threading.Lock()
+        self.max_history_items = max(10, _env_int("PC_HISTORY_MAX_ITEMS", 60))
+        self.latest_analysis_request_id = None
+        self._ensure_history_cache_ready()
+
+    @staticmethod
+    def _box_iou(box_a, box_b):
+        ax, ay, aw, ah = box_a
+        bx, by, bw, bh = box_b
+        ax2, ay2 = ax + aw, ay + ah
+        bx2, by2 = bx + bw, by + bh
+
+        inter_x1 = max(ax, bx)
+        inter_y1 = max(ay, by)
+        inter_x2 = min(ax2, bx2)
+        inter_y2 = min(ay2, by2)
+
+        inter_w = max(0, inter_x2 - inter_x1)
+        inter_h = max(0, inter_y2 - inter_y1)
+        inter_area = inter_w * inter_h
+        if inter_area <= 0:
+            return 0.0
+
+        area_a = aw * ah
+        area_b = bw * bh
+        union = area_a + area_b - inter_area
+        if union <= 0:
+            return 0.0
+        return inter_area / union
+
+    @staticmethod
+    def _dedupe_overlapped_faces(faces, iou_threshold):
+        kept = []
+        for box in sorted(faces, key=lambda item: item[2] * item[3], reverse=True):
+            if all(AppLogic._box_iou(box, existing) < iou_threshold for existing in kept):
+                kept.append(box)
+        return kept
+
+    @staticmethod
+    def _detect_eye_count(eye_cascade, gray, face_box):
+        x, y, w, h = face_box
+        roi = gray[y : y + h, x : x + w]
+        if roi.size == 0:
+            return 0
+        eyes = eye_cascade.detectMultiScale(
+            roi,
+            scaleFactor=1.1,
+            minNeighbors=4,
+            minSize=(max(10, w // 12), max(10, h // 12)),
+        )
+        return int(len(eyes))
+
+    def _validate_camera_photo(self, image):
+        image_rgb = _normalize_rgb_image(image)
+        if image_rgb is None:
+            raise CameraPhotoRejectError(
+                code="FACE_IMAGE_INVALID",
+                message="图片无效，请重新拍摄。",
+            )
+
+        gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
+        gray = cv2.GaussianBlur(gray, (3, 3), 0)
+        gray = cv2.equalizeHist(gray)
+
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
+
+        raw_faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=6,
+            minSize=(40, 40),
+        )
+
+        image_area = float(gray.shape[0] * gray.shape[1])
+        min_candidate_ratio = _env_float("FACE_MIN_CANDIDATE_AREA_RATIO", 0.01)
+        candidate_faces = []
+        for (x, y, w, h) in raw_faces:
+            area_ratio = (w * h) / image_area if image_area > 0 else 0.0
+            if area_ratio >= min_candidate_ratio:
+                candidate_faces.append((int(x), int(y), int(w), int(h)))
+
+        dedupe_iou = _env_float("FACE_DEDUPE_IOU_THRESHOLD", 0.3)
+        faces = self._dedupe_overlapped_faces(candidate_faces, dedupe_iou)
+        if len(faces) == 0:
+            raise CameraPhotoRejectError(
+                code="FACE_NOT_FOUND",
+                message="没有检测到人脸，请保证自拍时正脸入镜。",
+            )
+
+        min_presence_eye_count = _env_int("FACE_MIN_PRESENCE_EYE_COUNT", 1)
+        high_area_presence_ratio = _env_float("FACE_HIGH_AREA_PRESENCE_RATIO", 0.08)
+
+        valid_faces = []
+        face_eye_count = {}
+        face_area_ratio_map = {}
+        for box in faces:
+            x, y, w, h = box
+            area_ratio = (w * h) / image_area if image_area > 0 else 0.0
+            eye_count = self._detect_eye_count(eye_cascade, gray, box)
+            face_area_ratio_map[box] = area_ratio
+            face_eye_count[box] = eye_count
+            if eye_count >= min_presence_eye_count or area_ratio >= high_area_presence_ratio:
+                valid_faces.append(box)
+
+        if len(valid_faces) == 0:
+            raise CameraPhotoRejectError(
+                code="FACE_NOT_FOUND",
+                message="没有检测到清晰正脸，请重拍。",
+            )
+
+        valid_faces = sorted(valid_faces, key=lambda item: item[2] * item[3], reverse=True)
+        (x, y, w, h) = valid_faces[0]
+        face_area_ratio = face_area_ratio_map.get((x, y, w, h), 0.0)
+        min_face_area_ratio = _env_float("FACE_MIN_AREA_RATIO", 0.022)
+        if face_area_ratio < min_face_area_ratio:
+            if face_eye_count.get((x, y, w, h), 0) <= 0:
+                raise CameraPhotoRejectError(
+                    code="FACE_NOT_FOUND",
+                    message="没有检测到清晰正脸，请重拍。",
+                )
+            raise CameraPhotoRejectError(
+                code="FACE_TOO_SMALL",
+                message="人脸区域过小，请靠近镜头后重拍。",
+            )
+
+        primary_area = float(w * h)
+        multi_min_ratio = _env_float("FACE_MULTI_MIN_RATIO", 0.8)
+        min_secondary_area_ratio = min_face_area_ratio * _env_float(
+            "FACE_MULTI_SECONDARY_ABS_RATIO_FACTOR", 0.75
+        )
+        significant_secondary = [
+            box
+            for box in valid_faces[1:]
+            if (
+                primary_area > 0
+                and ((box[2] * box[3]) / primary_area) >= multi_min_ratio
+                and face_area_ratio_map.get(box, 0.0) >= min_secondary_area_ratio
+                and face_eye_count.get(box, 0) >= min_presence_eye_count
+            )
+        ]
+        if significant_secondary:
+            raise CameraPhotoRejectError(
+                code="FACE_MULTI_FOUND",
+                message="检测到多人入镜，请仅保留单人自拍。",
+            )
+
+        roi = gray[y : y + h, x : x + w]
+        if roi.size == 0:
+            raise CameraPhotoRejectError(
+                code="FACE_IMAGE_INVALID",
+                message="图片无效，请重新拍摄。",
+            )
+
+        min_brightness = _env_float("FACE_MIN_BRIGHTNESS", 50.0)
+        brightness = float(np.mean(roi))
+        if brightness < min_brightness:
+            raise CameraPhotoRejectError(
+                code="FACE_TOO_DARK",
+                message="光线过暗，请在更明亮环境重新拍摄。",
+            )
+
+        min_laplacian_var = _env_float("FACE_MIN_LAPLACIAN_VAR", 30.0)
+        laplacian_var = float(cv2.Laplacian(roi, cv2.CV_64F).var())
+        if laplacian_var < min_laplacian_var:
+            raise CameraPhotoRejectError(
+                code="FACE_TOO_BLUR",
+                message="图片模糊，请保持稳定后重新拍摄。",
+            )
+
+        return image_rgb
+
+    def _ensure_history_cache_ready(self):
+        os.makedirs(self.cache_dir, exist_ok=True)
+        if not os.path.exists(self.history_cache_file):
+            with open(self.history_cache_file, "w", encoding="utf-8") as f:
+                json.dump([], f, ensure_ascii=False, indent=2)
+
+    def _load_history_items(self):
+        self._ensure_history_cache_ready()
+        with self.cache_lock:
+            try:
+                with open(self.history_cache_file, "r", encoding="utf-8") as f:
+                    payload = json.load(f)
+                if isinstance(payload, list):
+                    return payload
+                logger.warning("历史缓存格式异常，已重置为空列表。")
+            except json.JSONDecodeError:
+                logger.warning("历史缓存 JSON 解析失败，已重置为空列表。")
+            except Exception as exc:
+                logger.error(f"读取历史缓存失败: {exc}")
+                return []
+        self._save_history_items([])
+        return []
+
+    def _save_history_items(self, items):
+        self._ensure_history_cache_ready()
+        with self.cache_lock:
+            with open(self.history_cache_file, "w", encoding="utf-8") as f:
+                json.dump(items, f, ensure_ascii=False, indent=2)
+
+    @staticmethod
+    def _truncate_text(text, max_len):
+        source = (text or "").strip()
+        if len(source) <= max_len:
+            return source
+        return source[: max(0, max_len - 1)] + "…"
+
+    @staticmethod
+    def _to_display_time(iso_text):
+        try:
+            normalized = (iso_text or "").replace("Z", "+00:00")
+            dt = datetime.fromisoformat(normalized)
+            return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+        except Exception:
+            return iso_text or "-"
+
+    @staticmethod
+    def _describe_input_modes(input_modes):
+        labels = [_INPUT_MODE_LABELS.get(mode, mode) for mode in (input_modes or [])]
+        return " / ".join(labels) if labels else "未知"
+
+    def _build_secondary_emotions(self, primary_emotion, emotion_weights):
+        ranked = sorted(
+            (
+                (emotion_code, score)
+                for emotion_code, score in (emotion_weights or {}).items()
+                if emotion_code != primary_emotion and score > 0
+            ),
+            key=lambda item: item[1],
+            reverse=True,
+        )
+        result = []
+        for emotion_code, _ in ranked[:2]:
+            result.append(
+                {
+                    "code": emotion_code,
+                    "label": culture_manager.translate_emotion(emotion_code),
+                }
+            )
+        return result
+
+    def _build_emotion_overview(self, primary_emotion_cn, text_emotion, face_emotion, speech_emotion):
+        source_labels = []
+        if text_emotion:
+            source_labels.append("文本")
+        if face_emotion:
+            source_labels.append("图像")
+        if speech_emotion:
+            source_labels.append("语音")
+        source_text = "、".join(source_labels) if source_labels else "当前输入"
+        return f"综合{source_text}信号，当前以“{primary_emotion_cn}”为主。"
+
+    def _infer_trigger_tags(self, text, primary_emotion):
+        text_value = (text or "").strip().lower()
+        tags = []
+        if text_value:
+            for tag, keywords in _TRIGGER_KEYWORDS.items():
+                if any(keyword in text_value for keyword in keywords):
+                    tags.append(tag)
+
+        if not tags:
+            tags.extend(_DEFAULT_TRIGGER_TAGS.get(primary_emotion, _DEFAULT_TRIGGER_TAGS["neutral"]))
+
+        deduped = []
+        for tag in tags:
+            if tag not in deduped:
+                deduped.append(tag)
+        return deduped[:3]
+
+    def _append_history_item(self, item):
+        items = self._load_history_items()
+        items.insert(0, item)
+        items = items[: self.max_history_items]
+        self._save_history_items(items)
+
+    def _find_history_item(self, request_id):
+        if not request_id:
+            return None
+        items = self._load_history_items()
+        for item in items:
+            if item.get("request_id") == request_id:
+                return item
+        return None
+
+    def _build_history_dropdown_choices(self, items):
+        choices = []
+        for item in items:
+            request_id = item.get("request_id")
+            if not request_id:
+                continue
+            primary_label = (
+                item.get("primary_emotion", {}).get("label")
+                or culture_manager.translate_emotion(item.get("primary_emotion", {}).get("code", "neutral"))
+            )
+            mode_text = self._describe_input_modes(item.get("input_modes", []))
+            mail_text = "已发邮件" if item.get("mail_sent") else "未发邮件"
+            analyzed_at = self._to_display_time(item.get("analyzed_at"))
+            label = f"{analyzed_at} | {primary_label} | {mode_text} | {mail_text}"
+            choices.append((label, request_id))
+        return choices
+
+    def show_history_detail(self, request_id):
+        if not request_id:
+            return "请选择一条历史记录。"
+        item = self._find_history_item(request_id)
+        if not item:
+            return "未找到该历史记录，建议刷新列表。"
+
+        primary = item.get("primary_emotion", {})
+        secondary = item.get("secondary_emotions", [])
+        secondary_text = "、".join(x.get("label", "-") for x in secondary if isinstance(x, dict)) or "无"
+        trigger_tags = item.get("trigger_tags", [])
+        trigger_text = "、".join(trigger_tags) if trigger_tags else "未标注"
+        detail = (
+            f"分析时间：{self._to_display_time(item.get('analyzed_at'))}\n"
+            f"输入类型：{self._describe_input_modes(item.get('input_modes', []))}\n"
+            f"主情绪：{primary.get('label', '-')} ({primary.get('code', '-')})\n"
+            f"补充情绪：{secondary_text}\n"
+            f"情绪概述：{item.get('emotion_overview_summary', '-')}\n"
+            f"触发标签：{trigger_text}\n"
+            f"诗词摘要：{item.get('poem_response_summary', '-')}\n"
+            f"国潮角色：{item.get('guochao_name', '-')}\n"
+            f"建议摘要：{item.get('daily_suggestion_summary', '-')}\n"
+            f"是否已发送邮件：{'是' if item.get('mail_sent') else '否'}\n"
+            f"请求ID：{item.get('request_id', '-')}"
+        )
+        return detail
+
+    def _history_panel_payload(self, selected_request_id=None, status_text=None):
+        items = self._load_history_items()
+        choices = self._build_history_dropdown_choices(items)
+        if not choices:
+            return gr.update(choices=[], value=None), "暂无本地历史记录。", (status_text or "暂无历史。")
+
+        available_request_ids = [value for _, value in choices]
+        if selected_request_id not in available_request_ids:
+            selected_request_id = available_request_ids[0]
+
+        detail_text = self.show_history_detail(selected_request_id)
+        return (
+            gr.update(choices=choices, value=selected_request_id),
+            detail_text,
+            status_text or "已加载历史记录。",
+        )
+
+    def refresh_history_panel(self, selected_request_id=None):
+        return self._history_panel_payload(selected_request_id=selected_request_id, status_text="历史已刷新。")
+
+    def clear_history_panel(self):
+        self._save_history_items([])
+        self.latest_analysis_request_id = None
+        return gr.update(choices=[], value=None), "暂无本地历史记录。", "已清空本地历史缓存。"
+
+    def _mark_mail_sent(self, request_id):
+        if not request_id:
+            return False
+        items = self._load_history_items()
+        changed = False
+        for item in items:
+            if item.get("request_id") == request_id:
+                if not item.get("mail_sent"):
+                    item["mail_sent"] = True
+                    changed = True
+                break
+        if changed:
+            self._save_history_items(items)
+        return changed
+
+    def check_camera_availability(self):
+        capture = None
+        try:
+            capture = cv2.VideoCapture(0)
+            if not capture or not capture.isOpened():
+                return "未检测到可用摄像头，请检查设备权限后重试。"
+            ok, _ = capture.read()
+            if not ok:
+                return "摄像头已连接但拍照失败，请重试。"
+            return "摄像头可用，可以拍照。"
+        except Exception as exc:
+            logger.error(f"检查摄像头可用性失败: {exc}")
+            return "摄像头检测失败，请检查系统权限后重试。"
+        finally:
+            if capture is not None:
+                capture.release()
+
+    def confirm_camera_photo(self, camera_image, existing_confirmed_image=None):
+        if camera_image is None:
+            camera_msg = self.check_camera_availability()
+            return (
+                existing_confirmed_image,
+                existing_confirmed_image,
+                f"尚未检测到拍照结果。{camera_msg}",
+            )
+
+        try:
+            validated_image = self._validate_camera_photo(camera_image)
+            return validated_image, validated_image, "拍照确认成功，可提交分析。"
+        except CameraPhotoRejectError as exc:
+            logger.warning(f"摄像头照片校验未通过: {exc.code} - {exc.message}")
+            return (
+                existing_confirmed_image,
+                existing_confirmed_image,
+                exc.to_client_message(),
+            )
+        except Exception as exc:
+            logger.error(f"摄像头照片校验异常: {exc}", exc_info=True)
+            return (
+                existing_confirmed_image,
+                existing_confirmed_image,
+                "摄像头照片校验失败，请重新拍摄。",
+            )
+
+    def clear_camera_confirmation(self):
+        return None, None, None, "已清除确认照片，请重新拍照并确认。"
 
     def process_analysis(self, text_input, image_input, audio_input=None):
         """
         主分析函数：
-        输入: 文本输入, 摄像头图像, 语音输入
-        输出: 情绪文本结果, 诗词文字与解读, 文人静态图像, 国潮形象, 安抚文案
+        输入: 文本输入, 摄像头确认图像, 语音输入
+        输出: 情绪文本结果, 诗词文字与解读, 文人静态图像, 国潮形象, 安抚文案, 状态与历史
         """
-        logger.info(f"接收到分析请求: 文本='{text_input}', 图像存在={image_input is not None}, 音频存在={audio_input is not None}")
-        
-        # 处理图像尺寸
+        text_value = (text_input or "").strip()
+        logger.info(
+            f"接收到分析请求: 文本长度={len(text_value)}, 图像存在={image_input is not None}, 音频存在={audio_input is not None}"
+        )
+
+        status_notes = []
+        input_modes = []
+
+        # 拍照输入：再次校验保证分析前质量达标（不依赖前端状态）
         processed_image_input = None
-        if image_input is not None:
-            processed_image_input = process_image(image_input)
-            
-        # 面部表情识别
         face_emotion = None
-        if processed_image_input is not None:
-            face_emotion = detect_face_emotion(processed_image_input)
-            logger.info(f"面部情绪识别结果: {face_emotion}")
-            
+        if image_input is not None:
+            try:
+                validated_image = self._validate_camera_photo(image_input)
+                processed_image_input = process_image(validated_image)
+                face_emotion = detect_face_emotion(processed_image_input)
+                input_modes.append("pc_camera")
+                logger.info(f"面部情绪识别结果: {face_emotion}")
+            except CameraPhotoRejectError as exc:
+                status_notes.append(exc.to_client_message())
+                logger.warning(f"分析前图像校验未通过: {exc.code} - {exc.message}")
+            except Exception as exc:
+                status_notes.append("摄像头照片校验失败，已忽略本次图像输入。")
+                logger.error(f"分析前图像校验异常: {exc}", exc_info=True)
+
         # 文本情感分析
         text_emotion = None
-        if text_input:
-            text_emotion = analyze_text_sentiment(text_input)
+        if text_value:
+            input_modes.append("text")
+            text_emotion = analyze_text_sentiment(text_value)
             if text_emotion:
                 translated_text_emotion = culture_manager.translate_emotion(text_emotion)
                 logger.info(f"文本情感分析结果 (原始): {text_emotion}, 翻译为: {translated_text_emotion}")
             else:
-                logger.info(f"文本情感分析结果: 未能识别出明确情绪")
-        
-        # 语音情绪分析
+                logger.info("文本情感分析结果: 未能识别出明确情绪")
+
+        # 语音输入：先做基础校验，失败可重录，且不影响其他输入
         speech_emotion = None
         if audio_input:
-            speech_emotion = analyze_speech_emotion(audio_input)
-            logger.info(f"语音情感分析结果: {speech_emotion}")
-        
-        # 新的情绪选择逻辑
-        # 1. 初始化情绪权重字典
+            valid_audio, audio_error = validate_audio_input(audio_input)
+            if not valid_audio:
+                status_notes.append(f"[VOICE_INVALID] {audio_error} 可重录，或直接改用文字输入。")
+            else:
+                speech_emotion = analyze_speech_emotion(audio_input)
+                if speech_emotion:
+                    input_modes.append("voice")
+                    logger.info(f"语音情感分析结果: {speech_emotion}")
+                else:
+                    status_notes.append("[VOICE_RETRY] 录音识别失败，请重录；已有文本/拍照输入不会丢失。")
+
+        if not text_value and processed_image_input is None and speech_emotion is None:
+            analysis_status = "请至少提供一种有效输入（文字、录音、确认拍照）后再分析。"
+            if status_notes:
+                analysis_status = "；".join(status_notes + [analysis_status])
+            history_update, history_detail, history_status = self._history_panel_payload(
+                selected_request_id=self.latest_analysis_request_id,
+                status_text="未写入历史：输入不足。",
+            )
+            return (
+                "",
+                "",
+                None,
+                "",
+                None,
+                analysis_status,
+                history_update,
+                history_detail,
+                history_status,
+            )
+
+        # 情绪融合
         emotion_weights = {
-            'happy': 0.0,
-            'sad': 0.0,
-            'angry': 0.0,
-            'surprise': 0.0,
-            'neutral': 0.0,
-            'fear': 0.0
+            "happy": 0.0,
+            "sad": 0.0,
+            "angry": 0.0,
+            "surprise": 0.0,
+            "neutral": 0.0,
+            "fear": 0.0,
         }
-        
-        # 2. 根据不同模态的情绪结果分配权重
-        if text_input and text_emotion:  # 文本情绪权重最高
-            emotion_weights[text_emotion] += 0.5  # 文本情绪基础权重
-            
-            # 如果其他模态的情绪与文本情绪一致，增加权重
+
+        if text_value and text_emotion:
+            emotion_weights[text_emotion] += 0.5
             if face_emotion == text_emotion:
-                emotion_weights[text_emotion] += 0.2  # 面部表情验证
+                emotion_weights[text_emotion] += 0.2
             if speech_emotion == text_emotion:
-                emotion_weights[text_emotion] += 0.2  # 语音情绪验证
-                
-        # 如果没有文本输入，则面部表情和语音情绪权重相等
+                emotion_weights[text_emotion] += 0.2
         else:
             if face_emotion:
                 emotion_weights[face_emotion] += 0.4
             if speech_emotion:
                 emotion_weights[speech_emotion] += 0.4
-        
-        # 3. 处理补充情绪信息
+
         if face_emotion and face_emotion != text_emotion:
             emotion_weights[face_emotion] += 0.2
         if speech_emotion and speech_emotion != text_emotion:
             emotion_weights[speech_emotion] += 0.2
-            
-        # 4. 如果没有任何情绪被检测到，或所有权重都是0
+
         if all(weight == 0.0 for weight in emotion_weights.values()):
-            chosen_emotion = 'neutral'
-            logger.info("没有检测到明确的情绪，使用neutral作为默认值")
+            chosen_emotion = "neutral"
+            logger.info("没有检测到明确情绪，使用 neutral 作为默认值")
         else:
-            # 选择权重最高的情绪
             chosen_emotion = max(emotion_weights.items(), key=lambda x: x[1])[0]
             logger.info(f"情绪权重分布: {emotion_weights}")
             logger.info(f"选择权重最高的情绪: {chosen_emotion}")
-        
-        # 诗词情绪响应
+
         poet, poem_text = get_poem_for_emotion(chosen_emotion)
-        
-        # 生成丰富的诗词解读
         rich_poem_interpretation = get_rich_poem_interpretation(poet, poem_text, chosen_emotion)
-        
-        # 获取文人静态图片
-        poet_pil_image = get_poet_image(poet) # PIL Image
+
+        poet_pil_image = get_poet_image(poet)
         poet_image_np = np.array(poet_pil_image) if poet_pil_image else None
-        
-        # 获取国潮卡通形象
-        guochao_pil_image, character_name = get_guochao_image(chosen_emotion) # PIL Image, name
+
+        guochao_pil_image, character_name = get_guochao_image(chosen_emotion)
         guochao_image_np = np.array(guochao_pil_image) if guochao_pil_image else None
-        
-        # 获取情绪安抚文案
+
         comfort = comfort_text.get(chosen_emotion, comfort_text["neutral"])
         guochao_response = f"{character_name}：\n{comfort}"
-        
-        # 返回情绪识别结果文本（中文翻译）
+
         emotion_cn = culture_manager.translate_emotion(chosen_emotion)
         emotion_result = f"检测到的情绪: {emotion_cn}"
 
-        # 统一组织所有需要播报的文本内容，作为一个完整的内容进行单次播报
+        # 语音播报
         full_speech_text = ""
         if rich_poem_interpretation:
             full_speech_text += f"请听诗词与解读：\n{rich_poem_interpretation}\n\n"
         if guochao_response:
             full_speech_text += f"接下来，是来自国潮伙伴的慰藉：\n{guochao_response}"
-        
         if full_speech_text:
             speak_text_in_thread(full_speech_text)
-            
-        return emotion_result, rich_poem_interpretation, poet_image_np, guochao_response, guochao_image_np
+
+        # 本地轻量历史写入（仅摘要，不存原始媒体）
+        request_id = f"pc_{uuid.uuid4().hex[:12]}"
+        analyzed_at = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+        secondary_emotions = self._build_secondary_emotions(chosen_emotion, emotion_weights)
+        emotion_overview = self._build_emotion_overview(
+            primary_emotion_cn=emotion_cn,
+            text_emotion=text_emotion,
+            face_emotion=face_emotion,
+            speech_emotion=speech_emotion,
+        )
+        trigger_tags = self._infer_trigger_tags(text_value, chosen_emotion)
+        daily_suggestion = _DAILY_SUGGESTIONS.get(chosen_emotion, _DAILY_SUGGESTIONS["neutral"])
+
+        history_item = {
+            "history_id": f"his_{uuid.uuid4().hex[:12]}",
+            "request_id": request_id,
+            "analyzed_at": analyzed_at,
+            "input_modes": input_modes,
+            "primary_emotion": {
+                "code": chosen_emotion,
+                "label": emotion_cn,
+            },
+            "secondary_emotions": secondary_emotions,
+            "emotion_overview_summary": self._truncate_text(emotion_overview, 180),
+            "trigger_tags": trigger_tags,
+            "poem_response_summary": self._truncate_text(rich_poem_interpretation, 120),
+            "guochao_name": character_name,
+            "daily_suggestion_summary": self._truncate_text(daily_suggestion, 120),
+            "mail_sent": False,
+        }
+        self._append_history_item(history_item)
+        self.latest_analysis_request_id = request_id
+
+        analysis_status = "分析完成。"
+        if status_notes:
+            analysis_status = f"{analysis_status} {'；'.join(status_notes)}"
+
+        history_update, history_detail, history_status = self._history_panel_payload(
+            selected_request_id=request_id,
+            status_text="分析摘要已写入本地历史。",
+        )
+
+        return (
+            emotion_result,
+            rich_poem_interpretation,
+            poet_image_np,
+            guochao_response,
+            guochao_image_np,
+            analysis_status,
+            history_update,
+            history_detail,
+            history_status,
+        )
 
     def send_email_function(self, to_email, thoughts, user_photo_np, poet_image_np, poem, guochao_image_np, comfort):
         logger.info(f"请求发送邮件到: {to_email}")
-        if not to_email or "@" not in to_email or "." not in to_email:
-            logger.warning("AppLogic: 无效的邮箱地址。")
-            return "邮箱地址无效，请输入正确的邮箱。"
+        selected_request_id = self.latest_analysis_request_id
 
-        # 调用 email_utils 中的函数来处理邮件发送
+        if not to_email or "@" not in to_email or "." not in to_email:
+            logger.warning("无效的邮箱地址。")
+            history_update, history_detail, history_status = self._history_panel_payload(
+                selected_request_id=selected_request_id,
+                status_text="邮件未发送：邮箱地址无效。",
+            )
+            return "邮箱地址无效，请输入正确的邮箱。", history_update, history_detail, history_status
+
         try:
             success, message = send_analysis_email(
                 to_email=to_email,
@@ -596,16 +1181,30 @@ class AppLogic:
                 poet_image_np=poet_image_np,
                 poem=poem,
                 guochao_image_np=guochao_image_np,
-                comfort=comfort
+                comfort=comfort,
             )
             if success:
-                logger.info(f"邮件发送成功，来自 email_utils 的消息: {message}")
-            else:
-                logger.error(f"邮件发送失败，来自 email_utils 的消息: {message}")
-            return message
-        except Exception as e:
-            logger.error(f"调用 send_analysis_email 时发生意外错误: {e}", exc_info=True)
-            return f"发送邮件过程中发生意外错误: {str(e)}"
+                logger.info(f"邮件发送成功: {message}")
+                self._mark_mail_sent(selected_request_id)
+                history_update, history_detail, history_status = self._history_panel_payload(
+                    selected_request_id=selected_request_id,
+                    status_text="邮件发送成功，历史状态已更新。",
+                )
+                return message, history_update, history_detail, history_status
+
+            logger.error(f"邮件发送失败: {message}")
+            history_update, history_detail, history_status = self._history_panel_payload(
+                selected_request_id=selected_request_id,
+                status_text="邮件发送失败，可直接重试，不影响当前结果。",
+            )
+            return message, history_update, history_detail, history_status
+        except Exception as exc:
+            logger.error(f"调用 send_analysis_email 时发生意外错误: {exc}", exc_info=True)
+            history_update, history_detail, history_status = self._history_panel_payload(
+                selected_request_id=selected_request_id,
+                status_text="邮件发送异常，可重试。",
+            )
+            return f"发送邮件过程中发生意外错误: {str(exc)}", history_update, history_detail, history_status
 
 # 实例化应用逻辑
 app_logic = AppLogic()

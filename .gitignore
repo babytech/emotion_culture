@@ -39,3 +39,7 @@ logs/
 
 # Gradio runtime files
 .gradio/
+
+# PC local history cache runtime data
+apps/pc/cache/*.json
+!apps/pc/cache/.gitkeep

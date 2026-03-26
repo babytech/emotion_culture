@@ -282,12 +282,14 @@ def create_ui(main_app_func):
     """
     with gr.Blocks(**BLOCKS_INIT_KWARGS) as iface:
         gr.Markdown("<h1 style='text-align: center; color: #FF4500;'>青少年情绪识别与文化心理疏导系统</h1>")
-        
+
+        confirmed_image_state = gr.State(None)
+
         with gr.Row():
             with gr.Column(scale=2):
-                gr.Markdown("### 步骤 1: 输入信息")
+                gr.Markdown("### 步骤 1: 输入文字或录音")
                 text_input = gr.Textbox(lines=6, label="写下你的想法或感受:", placeholder="例如：今天我感到很开心！")
-                
+
                 gr.Examples(
                     examples=[
                         ["我今天很开心，阳光明媚！"],
@@ -299,162 +301,308 @@ def create_ui(main_app_func):
                         ["对未来感到有些迷茫和担忧。"],
                         ["今天完成了一个大项目，很有成就感！"],
                         ["感觉有点孤单，想找人聊聊天。"],
-                        ["收到了朋友的礼物，心里暖暖的。"]
+                        ["收到了朋友的礼物，心里暖暖的。"],
                     ],
                     inputs=[text_input],
                     label="或者试试这些例子：",
-                    elem_id="custom_examples_area"
+                    elem_id="custom_examples_area",
                 )
-                
-                with gr.Accordion("🎤 语音输入 (可选)", open=False, elem_classes="custom-audio-accordion"):
-                    audio_input = gr.Audio(sources=["microphone"], type="filepath", label="或者，说出你的感受:", elem_classes="custom-audio-input")
 
-                emotion_output = gr.Textbox(label="情绪识别结果:", interactive=False, elem_classes="textbox-container")
-                
-                gr.Markdown("### 步骤 2: 上传或拍摄照片 (可选)")
-                image_input = gr.Image(sources=["upload", "webcam"], type="numpy", label="上传图片或使用摄像头", height=300, elem_classes="image-preview")
-                
+                with gr.Accordion("🎤 语音输入 (可选)", open=False, elem_classes="custom-audio-accordion"):
+                    audio_input = gr.Audio(
+                        sources=["microphone"],
+                        type="filepath",
+                        label="或者，说出你的感受:",
+                        elem_classes="custom-audio-input",
+                    )
+
+                gr.Markdown("### 步骤 2: 摄像头拍照并确认")
+                with gr.Row():
+                    camera_check_button = gr.Button("检查摄像头")
+                    camera_check_status = gr.Textbox(
+                        label="摄像头状态",
+                        interactive=False,
+                        elem_classes="textbox-container",
+                    )
+
+                camera_input = gr.Image(
+                    sources=["webcam"],
+                    type="numpy",
+                    label="拍照（仅支持摄像头）",
+                    height=300,
+                    elem_classes="image-preview",
+                )
+                with gr.Row():
+                    confirm_camera_button = gr.Button("确认本次拍照", variant="primary")
+                    retake_camera_button = gr.Button("重拍并清除确认", variant="secondary")
+
+                camera_confirm_status = gr.Textbox(
+                    label="拍照确认状态",
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+                confirmed_preview = gr.Image(
+                    label="已确认照片（分析将使用此图）",
+                    type="numpy",
+                    interactive=False,
+                    height=260,
+                    elem_classes="image-preview",
+                )
+
             with gr.Column(scale=3):
                 gr.Markdown("### 步骤 3: 查看结果 ✨")
-                
-                with gr.Row():
-                    with gr.Column(scale=11):
-                        poet_image_output = gr.Image(label="唐宋八大家", type="numpy", interactive=False, height=330, elem_classes="image-preview")
-                    with gr.Column(scale=19):
-                        poem_output = gr.Textbox(label="诗词与解读:", lines=10, interactive=False, elem_classes="textbox-container")
+                emotion_output = gr.Textbox(label="情绪识别结果:", interactive=False, elem_classes="textbox-container")
+                analysis_status_output = gr.Textbox(
+                    label="分析状态与恢复提示:",
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
 
                 with gr.Row():
                     with gr.Column(scale=11):
-                        guochao_image_output = gr.Image(label="国潮伙伴", type="numpy", interactive=False, height=330, elem_classes="image-preview")
+                        poet_image_output = gr.Image(
+                            label="唐宋八大家",
+                            type="numpy",
+                            interactive=False,
+                            height=330,
+                            elem_classes="image-preview",
+                        )
                     with gr.Column(scale=19):
-                        comfort_output = gr.Textbox(label="来自国潮伙伴的慰藉:", lines=5, interactive=False, elem_classes="textbox-container")
-                
-                # 新增：步骤 4 - 发送电子邮件
+                        poem_output = gr.Textbox(
+                            label="诗词与解读:",
+                            lines=10,
+                            interactive=False,
+                            elem_classes="textbox-container",
+                        )
+
+                with gr.Row():
+                    with gr.Column(scale=11):
+                        guochao_image_output = gr.Image(
+                            label="国潮伙伴",
+                            type="numpy",
+                            interactive=False,
+                            height=330,
+                            elem_classes="image-preview",
+                        )
+                    with gr.Column(scale=19):
+                        comfort_output = gr.Textbox(
+                            label="来自国潮伙伴的慰藉:",
+                            lines=5,
+                            interactive=False,
+                            elem_classes="textbox-container",
+                        )
+
                 gr.Markdown("### 步骤 4: 发送电子邮件 (可选)")
-                email_input = gr.Textbox(label="请输入您的邮箱地址:", placeholder="your_email@example.com", elem_id="email_input_custom")
+                email_input = gr.Textbox(
+                    label="请输入您的邮箱地址:",
+                    placeholder="your_email@example.com",
+                    elem_id="email_input_custom",
+                )
                 send_email_button = gr.Button("发送到邮箱", elem_id="send_email_button_custom")
-                email_status_output = gr.Textbox(label="邮件发送状态:", interactive=False, elem_classes="textbox-container")
+                email_status_output = gr.Textbox(
+                    label="邮件发送状态:",
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
 
-            
-        # 分割线
+                gr.Markdown("### 本地历史（轻量）")
+                with gr.Row():
+                    refresh_history_button = gr.Button("刷新历史")
+                    clear_history_button = gr.Button("清空历史")
+                history_selector = gr.Dropdown(label="最近记录", choices=[], value=None)
+                history_detail_output = gr.Textbox(
+                    label="历史摘要详情",
+                    lines=10,
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+                history_status_output = gr.Textbox(
+                    label="历史状态",
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+
         gr.Markdown("<div class='chinese-pattern'></div>", elem_classes="fade-in")
 
         with gr.Row(elem_classes="compact-row"):
             submit_button = gr.Button("提交分析", variant="primary", elem_id="submit_button_custom")
-            reset_button = gr.Button("重置所有", variant="secondary", elem_id="reset_button_custom")
+            reset_button = gr.Button("重置输入与结果", variant="secondary", elem_id="reset_button_custom")
 
-        # 页脚
         gr.Markdown("<p class='footer'>© 2024 青少年情绪识别与文化心理疏导系统. </p>")
-        
-        # 定义清除函数
+
         def reset_all():
-            # 清除所有输入和输出
-            # 输入：text_input, image_input, audio_input
-            # 输出：emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output
-            # 新增：email_input, email_status_output
             return (
-                "",  # text_input
-                None, # image_input
-                None, # audio_input
-                "",   # emotion_output
-                "",   # poem_output
-                None, # poet_image_output
-                "",   # comfort_output
-                None, # guochao_image_output
-                "", # email_input
-                ""  # email_status_output
+                "",    # text_input
+                None,  # camera_input
+                None,  # confirmed_image_state
+                None,  # confirmed_preview
+                "",    # camera_check_status
+                "",    # camera_confirm_status
+                None,  # audio_input
+                "",    # emotion_output
+                "",    # analysis_status_output
+                "",    # poem_output
+                None,  # poet_image_output
+                "",    # comfort_output
+                None,  # guochao_image_output
+                "",    # email_input
+                "",    # email_status_output
             )
 
-        # 绑定提交按钮的点击事件
+        if hasattr(main_app_func, "check_camera_availability") and callable(main_app_func.check_camera_availability):
+            camera_check_button.click(
+                fn=main_app_func.check_camera_availability,
+                inputs=[],
+                outputs=[camera_check_status],
+            )
+        else:
+            camera_check_button.click(
+                fn=lambda: "当前版本未实现摄像头检测。",
+                inputs=[],
+                outputs=[camera_check_status],
+            )
+
+        if hasattr(main_app_func, "confirm_camera_photo") and callable(main_app_func.confirm_camera_photo):
+            confirm_camera_button.click(
+                fn=main_app_func.confirm_camera_photo,
+                inputs=[camera_input, confirmed_image_state],
+                outputs=[confirmed_image_state, confirmed_preview, camera_confirm_status],
+            )
+        else:
+            confirm_camera_button.click(
+                fn=lambda img, old: (old, old, "当前版本未实现拍照确认。"),
+                inputs=[camera_input, confirmed_image_state],
+                outputs=[confirmed_image_state, confirmed_preview, camera_confirm_status],
+            )
+
+        if hasattr(main_app_func, "clear_camera_confirmation") and callable(main_app_func.clear_camera_confirmation):
+            retake_camera_button.click(
+                fn=main_app_func.clear_camera_confirmation,
+                inputs=[],
+                outputs=[confirmed_image_state, confirmed_preview, camera_input, camera_confirm_status],
+            )
+        else:
+            retake_camera_button.click(
+                fn=lambda: (None, None, None, "当前版本未实现重拍清除。"),
+                inputs=[],
+                outputs=[confirmed_image_state, confirmed_preview, camera_input, camera_confirm_status],
+            )
+
         submit_button.click(
             fn=main_app_func.process_analysis,
-            inputs=[text_input, image_input, audio_input],
-            outputs=[emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output]
+            inputs=[text_input, confirmed_image_state, audio_input],
+            outputs=[
+                emotion_output,
+                poem_output,
+                poet_image_output,
+                comfort_output,
+                guochao_image_output,
+                analysis_status_output,
+                history_selector,
+                history_detail_output,
+                history_status_output,
+            ],
         )
-        
-        # 新增：绑定发送邮件按钮的点击事件
-        # 注意：send_email_function 需要在 main.py 中定义并传递给 create_ui
-        # 目前我们先假设它会被传递进来
-        if hasattr(main_app_func, 'send_email_function') and callable(main_app_func.send_email_function):
+
+        if hasattr(main_app_func, "send_email_function") and callable(main_app_func.send_email_function):
             send_email_button.click(
                 fn=main_app_func.send_email_function,
                 inputs=[
-                    email_input,            # 邮箱地址
-                    text_input,             # 步骤1 用户写下的想法与感受
-                    image_input,            # 步骤2 用户上传或拍摄照片
-                    poet_image_output,      # 步骤3 唐宋八大家卡通人物图片
-                    poem_output,            # 步骤3 诗词回应
-                    guochao_image_output,   # 步骤3 为用户生成的卡通形象 (国潮伙伴)
-                    comfort_output          # 步骤3 安抚情绪鼓励的话语 (来自国潮伙伴的慰藉)
+                    email_input,
+                    text_input,
+                    confirmed_image_state,
+                    poet_image_output,
+                    poem_output,
+                    guochao_image_output,
+                    comfort_output,
                 ],
-                outputs=[email_status_output]
+                outputs=[email_status_output, history_selector, history_detail_output, history_status_output],
             )
         else:
-            # 如果没有提供邮件发送函数，则按钮点击时显示提示信息
-            def show_email_feature_not_implemented():
-                return "邮件发送功能暂未实现。"
             send_email_button.click(
-                fn=show_email_feature_not_implemented,
-                inputs=[],
-                outputs=[email_status_output]
+                fn=lambda *args: (
+                    "邮件发送功能暂未实现。",
+                    gr.update(),
+                    "暂无本地历史记录。",
+                    "邮件功能不可用。",
+                ),
+                inputs=[
+                    email_input,
+                    text_input,
+                    confirmed_image_state,
+                    poet_image_output,
+                    poem_output,
+                    guochao_image_output,
+                    comfort_output,
+                ],
+                outputs=[email_status_output, history_selector, history_detail_output, history_status_output],
             )
 
-        # 绑定重置按钮的点击事件
+        if hasattr(main_app_func, "refresh_history_panel") and callable(main_app_func.refresh_history_panel):
+            refresh_history_button.click(
+                fn=main_app_func.refresh_history_panel,
+                inputs=[history_selector],
+                outputs=[history_selector, history_detail_output, history_status_output],
+            )
+            iface.load(
+                fn=main_app_func.refresh_history_panel,
+                inputs=[history_selector],
+                outputs=[history_selector, history_detail_output, history_status_output],
+            )
+        else:
+            refresh_history_button.click(
+                fn=lambda selected: (gr.update(), "暂无本地历史记录。", "当前版本未实现历史能力。"),
+                inputs=[history_selector],
+                outputs=[history_selector, history_detail_output, history_status_output],
+            )
+
+        if hasattr(main_app_func, "show_history_detail") and callable(main_app_func.show_history_detail):
+            history_selector.change(
+                fn=main_app_func.show_history_detail,
+                inputs=[history_selector],
+                outputs=[history_detail_output],
+            )
+        else:
+            history_selector.change(
+                fn=lambda selected: "当前版本未实现历史详情。",
+                inputs=[history_selector],
+                outputs=[history_detail_output],
+            )
+
+        if hasattr(main_app_func, "clear_history_panel") and callable(main_app_func.clear_history_panel):
+            clear_history_button.click(
+                fn=main_app_func.clear_history_panel,
+                inputs=[],
+                outputs=[history_selector, history_detail_output, history_status_output],
+            )
+        else:
+            clear_history_button.click(
+                fn=lambda: (gr.update(), "暂无本地历史记录。", "当前版本未实现历史清空。"),
+                inputs=[],
+                outputs=[history_selector, history_detail_output, history_status_output],
+            )
+
         reset_button.click(
             fn=reset_all,
-            inputs=[], # 无需输入
+            inputs=[],
             outputs=[
-                text_input, image_input, audio_input,
-                emotion_output, poem_output, poet_image_output, comfort_output, guochao_image_output,
-                email_input, email_status_output # 新增重置项
-            ]
+                text_input,
+                camera_input,
+                confirmed_image_state,
+                confirmed_preview,
+                camera_check_status,
+                camera_confirm_status,
+                audio_input,
+                emotion_output,
+                analysis_status_output,
+                poem_output,
+                poet_image_output,
+                comfort_output,
+                guochao_image_output,
+                email_input,
+                email_status_output,
+            ],
         )
-        
+
     iface._launch_kwargs = build_launch_kwargs()
     return iface
-
-if __name__ == '__main__':
-    # 这是一个用于测试UI模块的简单示例
-    # 在实际应用中，main_app_func 会从 main.py 导入
-    
-    def mock_main_app(text, image, audio):
-        print(f"测试文本: {text}")
-        print(f"测试图像形状: {image.shape if image is not None else '无图像'}")
-        print(f"测试音频路径: {audio if audio else '无音频'}")
-        
-        # 模拟返回一些数据
-        emotion_res = "情绪: 开心"
-        poem_res = "《登高》\n杜甫\n风急天高猿啸哀，渚清沙白鸟飞回。\n无边落木萧萧下，不尽长江滚滚来。\n万里悲秋常作客，百年多病独登台。\n艰难苦恨繁霜鬓，潦倒新停浊酒杯。"
-        
-        # 模拟图像输出 (创建空白图像)
-        import numpy as np
-        from PIL import Image
-        
-        blank_image_data_poet = np.array(Image.new('RGB', (300, 400), color = 'skyblue'))
-        blank_image_data_guochao = np.array(Image.new('RGB', (350, 350), color = 'lightgreen'))
-        
-        comfort_res = "开心牛牛：\n今天真是美好的一天！"
-        
-        return emotion_res, poem_res, blank_image_data_poet, comfort_res, blank_image_data_guochao
-
-    # 为了测试邮件功能，我们需要一个模拟的 main_app_func 对象，它有一个 send_email_function 方法
-    class MockMainApp:
-        def __call__(self, text, image, audio):
-            return mock_main_app(text, image, audio)
-
-        def send_email_function(self, email, thoughts, user_photo, poet_img, poem, guochao_img, comfort):
-            print(f"模拟发送邮件到: {email}")
-            print(f"想法: {thoughts}")
-            print(f"用户照片: {'有' if user_photo is not None else '无'}")
-            print(f"诗人图片: {'有' if poet_img is not None else '无'}")
-            print(f"诗词: {poem}")
-            print(f"国潮形象: {'有' if guochao_img is not None else '无'}")
-            print(f"慰藉语: {comfort}")
-            if not email:
-                return "请输入邮箱地址。"
-            if "@" not in email or "." not in email: # 简单邮箱格式校验
-                return "邮箱格式不正确。"
-            return f"邮件已发送到 {email} (模拟)。"
-
-    iface = create_ui(MockMainApp()) # 使用新的 MockMainApp 实例
-    iface.launch(server_name="0.0.0.0", server_port=7860, **getattr(iface, "_launch_kwargs", {}))

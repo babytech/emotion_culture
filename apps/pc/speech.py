@@ -10,6 +10,65 @@ import logging
 # 配置日志
 logger = logging.getLogger(__name__)
 
+
+def _env_int(name, default):
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def _env_float(name, default):
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
+def validate_audio_input(audio_path):
+    """
+    对录音文件做基础可用性校验，失败时返回可重试提示。
+    """
+    if not audio_path:
+        return False, "未检测到录音文件，请先录音。"
+    if not os.path.exists(audio_path):
+        return False, "录音文件不存在，请重新录音。"
+
+    allowed_extensions = {".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".webm"}
+    extension = os.path.splitext(audio_path)[1].lower()
+    if extension and extension not in allowed_extensions:
+        return False, "录音格式不支持，请重新录制。"
+
+    min_file_size = _env_int("PC_AUDIO_MIN_FILE_SIZE_BYTES", 6000)
+    try:
+        file_size = os.path.getsize(audio_path)
+    except OSError:
+        return False, "录音文件读取失败，请重新录音。"
+    if file_size < min_file_size:
+        return False, "录音时长过短或音量过小，请重新录音。"
+
+    min_seconds = _env_float("PC_AUDIO_MIN_SECONDS", 1.0)
+    max_seconds = _env_float("PC_AUDIO_MAX_SECONDS", 90.0)
+    try:
+        duration = float(librosa.get_duration(path=audio_path))
+    except Exception:
+        return False, "无法读取录音时长，请重新录音。"
+
+    if duration < min_seconds:
+        return False, "录音太短，请补充完整表达后重录。"
+    if duration > max_seconds:
+        return False, "录音过长，请控制在 90 秒内后重录。"
+
+    return True, None
+
 def extract_audio_features(audio_path):
     """
     从音频文件中提取基本特征
@@ -23,19 +82,29 @@ def extract_audio_features(audio_path):
     try:
         # 加载音频文件
         y, sr = librosa.load(audio_path, sr=None)
+        if y is None or len(y) == 0:
+            logger.warning("音频为空，无法提取特征。")
+            return None
         
         # 提取基本特征
         # 1. 音频能量 - 情绪高涨时能量通常较高
-        energy = np.sum(y**2) / len(y)
+        energy = np.sum(y**2) / max(len(y), 1)
         
         # 2. 使用更安全的方式计算音高特征
         # 避免使用可能导致兼容性问题的librosa.piptrack
-        f0, voiced_flag, voiced_probs = librosa.pyin(y, 
-                                                    fmin=librosa.note_to_hz('C2'), 
-                                                    fmax=librosa.note_to_hz('C7'),
-                                                    sr=sr)
+        try:
+            f0, voiced_flag, _ = librosa.pyin(
+                y,
+                fmin=librosa.note_to_hz('C2'),
+                fmax=librosa.note_to_hz('C7'),
+                sr=sr
+            )
+        except Exception:
+            f0 = np.array([])
+            voiced_flag = np.array([], dtype=bool)
+
         pitch_mean = 0.0
-        if voiced_flag.any():
+        if len(voiced_flag) > 0 and voiced_flag.any():
             # 只考虑被识别为有声音的帧
             valid_pitches = f0[voiced_flag]
             if len(valid_pitches) > 0:
@@ -120,4 +189,4 @@ def analyze_speech_emotion(audio_path):
     
     except Exception as e:
         logger.error(f"分析语音情绪时出错: {e}")
-        return "neutral"  # 出错时默认返回中性 
+        return None
