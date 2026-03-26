@@ -14,6 +14,12 @@ Use `wx.cloud.callContainer` from mini program frontend.
 - Header `X-WX-SERVICE`: your cloud hosting service name
 - `path`: backend path (for example `/api/analyze`)
 
+Identity strategy (phase-1):
+
+- Mini program uses WeChat natural identity as primary user id (`x-wx-openid` injected by cloud hosting gateway).
+- Frontend should not force custom user id in production by default.
+- Optional fallback is only for local/dev environments without WeChat identity context.
+
 `apiBaseUrl` is only needed when frontend must resolve relative image paths such as `/assets/...`.
 
 ## Base URL (optional)

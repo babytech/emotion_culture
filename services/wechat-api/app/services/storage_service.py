@@ -1,6 +1,7 @@
 import os
 import tempfile
 import time
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,7 @@ from app.schemas.analyze import AnalyzeRequest
 API_ROOT = Path(__file__).resolve().parents[2]
 CORE_IMAGES_DIR = Path(__file__).resolve().parents[1] / "core" / "images"
 WECHAT_API_BASE = "https://api.weixin.qq.com"
+logger = logging.getLogger(__name__)
 
 _TOKEN_CACHE: dict[str, Optional[object]] = {"token": None, "expires_at": None}
 _HTTP_TRUST_ENV_HINT: Optional[bool] = None
@@ -242,6 +244,80 @@ def _get_cloudbase_download_url(file_id: str) -> str:
         raise ValueError("cloud file resolve failed: missing download_url")
 
     return str(download_url)
+
+
+def delete_cloud_file_ids(file_ids: list[str]) -> dict[str, list[str]]:
+    normalized: list[str] = []
+    for item in file_ids:
+        value = (item or "").strip()
+        if not value or not value.startswith("cloud://"):
+            continue
+        if value not in normalized:
+            normalized.append(value)
+
+    if not normalized:
+        return {"deleted_ids": [], "failed_ids": []}
+
+    grouped: dict[str, list[str]] = {}
+    failed_ids: list[str] = []
+    for file_id in normalized:
+        env_name = _extract_cloud_env_from_file_id(file_id) or os.getenv("WECHAT_CLOUDBASE_ENV", "").strip()
+        if not env_name:
+            failed_ids.append(file_id)
+            continue
+        grouped.setdefault(env_name, []).append(file_id)
+
+    deleted_ids: list[str] = []
+    access_token: Optional[str] = None
+    for env_name, env_file_ids in grouped.items():
+        try:
+            if access_token is None:
+                access_token = _get_access_token()
+
+            response = _http_request(
+                "POST",
+                f"{WECHAT_API_BASE}/tcb/batchdeletefile",
+                params={"access_token": access_token},
+                json={
+                    "env": env_name,
+                    "fileid_list": env_file_ids,
+                },
+                timeout=_env_int("WECHAT_BATCHDELETE_TIMEOUT_SEC", 10),
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if payload.get("errcode", 0) != 0:
+                failed_ids.extend(env_file_ids)
+                continue
+
+            entry_list = payload.get("delete_list")
+            if not isinstance(entry_list, list):
+                entry_list = payload.get("file_list")
+            status_map: dict[str, int] = {}
+            if isinstance(entry_list, list):
+                for entry in entry_list:
+                    if not isinstance(entry, dict):
+                        continue
+                    file_id = str(entry.get("fileid") or entry.get("file_id") or "").strip()
+                    if not file_id:
+                        continue
+                    try:
+                        status_map[file_id] = int(entry.get("status", -1))
+                    except Exception:
+                        status_map[file_id] = -1
+
+            for file_id in env_file_ids:
+                status = status_map.get(file_id)
+                # If API omits per-file status, treat as success when request itself succeeded.
+                if status is None or status == 0:
+                    deleted_ids.append(file_id)
+                else:
+                    failed_ids.append(file_id)
+        except Exception as exc:
+            logger.warning("cloud file delete failed(env=%s): %s", env_name, exc)
+            failed_ids.extend(env_file_ids)
+
+    return {"deleted_ids": deleted_ids, "failed_ids": failed_ids}
 
 
 def _guess_suffix(source: str) -> str:

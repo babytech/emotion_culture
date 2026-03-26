@@ -13,4 +13,9 @@ module.exports = {
 
   // Cloud Hosting service name for wx.cloud.callContainer.
   containerService: "emotion-culture-api",
+
+  // Identity strategy:
+  // - default: rely on WeChat natural identity injected by Cloud Hosting headers (x-wx-openid)
+  // - fallback: set true only for local/dev environments that cannot provide WeChat identity
+  enableClientUserIdFallback: false,
 };

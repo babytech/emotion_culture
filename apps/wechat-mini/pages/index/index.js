@@ -5,6 +5,9 @@ const recorder = wx.getRecorderManager();
 const IMAGE_COMPRESS_SKIP_BYTES = 900 * 1024;
 const IMAGE_COMPRESS_MEDIUM_BYTES = 2 * 1024 * 1024;
 const IMAGE_COMPRESS_HEAVY_BYTES = 4 * 1024 * 1024;
+const AUDIO_ALLOWED_EXTENSIONS = [".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".webm"];
+const AUDIO_MIN_SECONDS = 1;
+const AUDIO_MIN_FILE_SIZE_BYTES = 6000;
 const SUBMIT_STAGE = {
   IDLE: "idle",
   UPLOADING: "uploading",
@@ -12,6 +15,13 @@ const SUBMIT_STAGE = {
   RENDERING: "rendering",
   FAILED: "failed",
 };
+
+function getFileExtension(path) {
+  const value = (path || "").trim();
+  const index = value.lastIndexOf(".");
+  if (index < 0) return "";
+  return value.slice(index).toLowerCase();
+}
 
 function getFileSize(path) {
   return new Promise((resolve) => {
@@ -93,6 +103,45 @@ function buildRecoverableAnalyzeError(err) {
     return `${message} 可重新自拍后再次提交。`;
   }
   return `${message} 可直接重试，原输入已保留。`;
+}
+
+async function validateAudioBeforeUpload(audioTempPath, recordSeconds) {
+  const path = (audioTempPath || "").trim();
+  if (!path) {
+    return { ok: true, message: "" };
+  }
+
+  const extension = getFileExtension(path);
+  if (extension && !AUDIO_ALLOWED_EXTENSIONS.includes(extension)) {
+    return {
+      ok: false,
+      message: "录音格式不支持，请重新录制。",
+    };
+  }
+
+  const safeSeconds = Number(recordSeconds) || 0;
+  if (safeSeconds > 0 && safeSeconds < AUDIO_MIN_SECONDS) {
+    return {
+      ok: false,
+      message: "录音时长过短，请重新录音后提交。",
+    };
+  }
+
+  const sizeBytes = await getFileSize(path);
+  if (!sizeBytes) {
+    return {
+      ok: false,
+      message: "录音文件无法读取，请重新录音。",
+    };
+  }
+  if (sizeBytes < AUDIO_MIN_FILE_SIZE_BYTES) {
+    return {
+      ok: false,
+      message: "录音音量过小或时长过短，请重新录音。",
+    };
+  }
+
+  return { ok: true, message: "" };
 }
 
 Page({
@@ -335,6 +384,22 @@ Page({
 
     if (!text && !imageTempPath && !audioTempPath) {
       this.setData({ errorMsg: "请至少提供文本、自拍或语音中的一种输入。" });
+      return;
+    }
+
+    const audioValidation = await validateAudioBeforeUpload(audioTempPath, this.data.recordSeconds);
+    if (!audioValidation.ok) {
+      const guidance = `${audioValidation.message} 可重新录音，或清除语音后改用文字输入。`;
+      this.setData({
+        submitStage: SUBMIT_STAGE.FAILED,
+        submitStatusText: `语音校验失败：${guidance}`,
+        submitButtonText: "提交分析",
+        errorMsg: guidance,
+      });
+      wx.showToast({
+        title: "语音需重录",
+        icon: "none",
+      });
       return;
     }
 

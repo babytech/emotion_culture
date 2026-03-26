@@ -40,6 +40,10 @@ function getOrCreateClientUserId() {
   return generated;
 }
 
+function shouldUseClientUserIdFallback() {
+  return config.enableClientUserIdFallback === true;
+}
+
 function isInvalidHostError(errMsg) {
   return typeof errMsg === "string" && errMsg.includes("INVALID_HOST");
 }
@@ -51,17 +55,20 @@ function callContainerOnce(path, method, data, env) {
       return;
     }
 
-    const userId = getOrCreateClientUserId();
+    const headers = {
+      "X-WX-SERVICE": config.containerService,
+      "content-type": "application/json",
+    };
+    if (shouldUseClientUserIdFallback()) {
+      headers["X-EC-USER-ID"] = getOrCreateClientUserId();
+    }
+
     wx.cloud.callContainer({
       config: { env },
       path,
       method,
       data,
-      header: {
-        "X-WX-SERVICE": config.containerService,
-        "X-EC-USER-ID": userId,
-        "content-type": "application/json",
-      },
+      header: headers,
       success(res) {
         const statusCode = typeof res.statusCode === "number" ? res.statusCode : 200;
         if (statusCode >= 200 && statusCode < 300) {
@@ -120,15 +127,16 @@ async function callViaContainer(path, method, data, options = {}) {
 }
 
 function analyze(payload) {
-  const userId = getOrCreateClientUserId();
   const data = payload && typeof payload === "object" ? { ...payload } : {};
   const existingClient = data.client && typeof data.client === "object" ? data.client : {};
   data.client = {
     ...existingClient,
     platform: existingClient.platform || "mp-weixin",
     version: existingClient.version || "0.1.0",
-    user_id: existingClient.user_id || userId,
   };
+  if (!data.client.user_id && shouldUseClientUserIdFallback()) {
+    data.client.user_id = getOrCreateClientUserId();
+  }
   return callViaContainer("/api/analyze", "POST", data);
 }
 

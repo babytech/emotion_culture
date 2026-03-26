@@ -51,6 +51,7 @@ class QARegressionRunner:
         self.media_dir.mkdir(parents=True, exist_ok=True)
 
         self.history_store_path = self.workspace / "history_store.json"
+        self.media_retention_store_path = self.workspace / "media_retention_store.json"
         self.pc_cache_dir = self.workspace / "pc_cache"
         self.pc_cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -67,6 +68,7 @@ class QARegressionRunner:
         self.client: Any = None
         self.storage_service: Any = None
         self.email_service: Any = None
+        self.media_retention_service: Any = None
         self.pc_logic: Any = None
         self.results: list[CaseResult] = []
         self.metrics: dict[str, float] = {}
@@ -107,6 +109,8 @@ class QARegressionRunner:
         # 隔离历史数据，避免污染开发环境。
         os.environ["HISTORY_STORE_PATH"] = str(self.history_store_path)
         os.environ["HISTORY_RETENTION_DAYS"] = "180"
+        os.environ["MEDIA_RETENTION_STORE_PATH"] = str(self.media_retention_store_path)
+        os.environ["MEDIA_RETENTION_HOURS"] = "24"
 
         # 语音链路使用 mock 转写，保证本地无外部依赖可跑通。
         os.environ["SPEECH_STT_PROVIDER"] = "mock"
@@ -144,12 +148,14 @@ class QARegressionRunner:
 
         from app.main import app  # type: ignore
         import app.services.email_service as email_service  # type: ignore
+        import app.services.media_retention_service as media_retention_service  # type: ignore
         import app.services.storage_service as storage_service  # type: ignore
         from app.services.analysis_service import FaceQualityRejectError, _validate_face_quality  # type: ignore
 
         self.client = TestClient(app)
         self.storage_service = storage_service
         self.email_service = email_service
+        self.media_retention_service = media_retention_service
 
         # 从后端 assets 中自动选一个可通过自拍质量校验的图片，拷贝到 ASCII 路径。
         candidates = sorted((self.api_root / "app" / "core" / "images").rglob("*.png"))
@@ -563,11 +569,88 @@ class QARegressionRunner:
             finally:
                 self.storage_service.resolve_file_id_to_temp_path = original_resolve
 
+        def case_cloud_media_retention_cleanup() -> None:
+            user = "qa-privacy-cloud-retention"
+            self._clear_history(user)
+            self.media_retention_store_path.unlink(missing_ok=True)
+
+            file_id_image = "cloud://qa-env.12345/emotion-culture/images/qa_face.png"
+            file_id_audio = "cloud://qa-env.12345/emotion-culture/audio/qa_voice.wav"
+
+            created_paths: list[Path] = []
+            deleted_batches: list[list[str]] = []
+
+            original_resolve = self.storage_service.resolve_file_id_to_temp_path
+            original_delete_cloud = self.media_retention_service.delete_cloud_file_ids
+
+            def fake_resolve_file_id_to_temp_path(file_id: str, field_name: str) -> str:
+                is_image = "image" in field_name.lower()
+                source = self.valid_face_path if is_image else self.valid_voice_path
+                suffix = ".png" if is_image else ".wav"
+                temp_path = self.tmp_download_dir / f"wechat_media_retention_{len(created_paths)}{suffix}"
+                shutil.copyfile(source, temp_path)
+                created_paths.append(temp_path)
+                return str(temp_path)
+
+            def fake_delete_cloud_file_ids(file_ids: list[str]) -> dict[str, list[str]]:
+                ids = list(dict.fromkeys(file_ids))
+                deleted_batches.append(ids)
+                return {"deleted_ids": ids, "failed_ids": []}
+
+            self.storage_service.resolve_file_id_to_temp_path = fake_resolve_file_id_to_temp_path
+            self.media_retention_service.delete_cloud_file_ids = fake_delete_cloud_file_ids
+            try:
+                payload = {
+                    "input_modes": ["text", "selfie", "voice"],
+                    "text": "验证 cloud 媒体 24 小时保留清理。",
+                    "image": {"file_id": file_id_image},
+                    "audio": {"file_id": file_id_audio},
+                    "client": {"platform": "mp-weixin", "version": "0.1.0", "user_id": user},
+                }
+                resp = self._post_analyze(payload, user)
+                self._ensure(resp.status_code == 200, f"cloud file_id 媒体分析失败: {resp.text}")
+
+                self._ensure(self.media_retention_store_path.exists(), "媒体保留追踪文件未生成。")
+                with self.media_retention_store_path.open("r", encoding="utf-8") as f:
+                    store = json.load(f)
+                tracked_items = store.get("items", [])
+                tracked_ids = sorted(item.get("file_id") for item in tracked_items if isinstance(item, dict))
+                self._ensure(
+                    sorted([file_id_audio, file_id_image]) == tracked_ids,
+                    f"媒体保留追踪文件内容异常: {tracked_ids}",
+                )
+
+                old_time = self._old_iso(days_ago=2)
+                for item in tracked_items:
+                    if isinstance(item, dict):
+                        item["tracked_at"] = old_time
+                with self.media_retention_store_path.open("w", encoding="utf-8") as f:
+                    json.dump(store, f, ensure_ascii=False, indent=2)
+
+                cleanup_outcome = self.media_retention_service.cleanup_expired_media()
+                self._ensure(cleanup_outcome.get("expired", 0) >= 2, "未识别出过期 cloud 媒体。")
+                self._ensure(cleanup_outcome.get("deleted", 0) >= 2, "过期 cloud 媒体未执行删除。")
+                self._ensure(len(deleted_batches) >= 1, "未触发 cloud 媒体删除调用。")
+                deleted_ids = sorted({file_id for batch in deleted_batches for file_id in batch})
+                self._ensure(
+                    deleted_ids == sorted([file_id_audio, file_id_image]),
+                    f"删除调用 file_id 不匹配: {deleted_ids}",
+                )
+
+                with self.media_retention_store_path.open("r", encoding="utf-8") as f:
+                    persisted = json.load(f)
+                persisted_items = persisted.get("items", [])
+                self._ensure(len(persisted_items) == 0, "过期 cloud 媒体删除后仍残留追踪记录。")
+            finally:
+                self.storage_service.resolve_file_id_to_temp_path = original_resolve
+                self.media_retention_service.delete_cloud_file_ids = original_delete_cloud
+
         self._run_case("QA-003", "QA-003-1", "历史摘要不存原始媒体字段", case_summary_no_raw_media)
         self._run_case("QA-003", "QA-003-2", "历史保存开关即时生效", case_save_history_switch)
         self._run_case("QA-003", "QA-003-3", "支持删除单条与清空全部历史", case_delete_and_clear)
         self._run_case("QA-003", "QA-003-4", "180 天摘要保留策略可验证", case_retention_cleanup)
         self._run_case("QA-003", "QA-003-5", "原始媒体临时文件可自动清理", case_temp_media_cleanup)
+        self._run_case("QA-003", "QA-003-6", "cloud file_id 过期媒体可自动清理", case_cloud_media_retention_cleanup)
 
     def _measure_latency(
         self, payload_factory: Callable[[int], dict[str, Any]], user_id: str, rounds: int = 3
