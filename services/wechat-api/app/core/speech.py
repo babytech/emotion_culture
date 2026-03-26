@@ -26,6 +26,17 @@ class SpeechTranscription:
     error: Optional[str] = None
 
 
+def _env_bool_like(name: str, default: bool) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    if raw in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    if raw in {"0", "false", "no", "off", "disabled"}:
+        return False
+    return default
+
+
 def _env_int(name: str, default: int) -> int:
     raw = os.getenv(name, "").strip()
     if not raw:
@@ -291,6 +302,7 @@ def transcribe_speech_to_text(audio_path: str) -> SpeechTranscription:
     - http:    SPEECH_STT_PROVIDER=http, call SPEECH_STT_ENDPOINT
     - auto:    if SPEECH_STT_ENDPOINT is set, use http; otherwise no transcript
     - unset:   no transcript (compatible fallback)
+    - SPEECH_ASR_SERVICE=off: disable transcript request regardless of provider/endpoint
 
     HTTP adapter:
     - SPEECH_STT_HTTP_MODE=multipart|raw|json_base64
@@ -306,6 +318,15 @@ def transcribe_speech_to_text(audio_path: str) -> SpeechTranscription:
         )
 
     provider = os.getenv("SPEECH_STT_PROVIDER", "auto").strip().lower() or "auto"
+    asr_enabled = _env_bool_like("SPEECH_ASR_SERVICE", True)
+
+    if not asr_enabled:
+        return SpeechTranscription(
+            text=None,
+            provider=None,
+            status="service_disabled",
+            error="SPEECH_ASR_SERVICE=off",
+        )
 
     try:
         if provider == "mock":
@@ -318,6 +339,13 @@ def transcribe_speech_to_text(audio_path: str) -> SpeechTranscription:
             )
 
         if provider == "http":
+            if not os.getenv("SPEECH_STT_ENDPOINT", "").strip():
+                return SpeechTranscription(
+                    text=None,
+                    provider="http",
+                    status="provider_unconfigured",
+                    error="SPEECH_STT_ENDPOINT is empty",
+                )
             text = _transcribe_by_http_endpoint(audio_path)
             return SpeechTranscription(
                 text=text,

@@ -106,6 +106,7 @@ Optional:
 - `WECHAT_REQUESTS_TRUST_ENV` (default `1`, backend will also retry with `0` on SSL failure)
 - `WECHAT_CA_BUNDLE` (custom CA pem path, only when runtime requires custom trust chain)
 - `WECHAT_DISABLE_SSL_VERIFY` (default `0`; emergency only)
+- `SPEECH_ASR_SERVICE` (`on` | `off`, default `on`; ASR service switch. `off` will skip transcript request regardless of endpoint/provider)
 - `SPEECH_STT_PROVIDER` (`auto` | `http` | `mock`, default `auto`)
 - `SPEECH_STT_ENDPOINT` (used by `http` provider)
 - `SPEECH_STT_TOKEN` (optional bearer token for STT endpoint)
@@ -135,7 +136,7 @@ Optional:
 - `TENCENT_ASR_TIMEOUT_SEC` (default `20`)
 - `TENCENT_ASR_MAX_AUDIO_BYTES` (default `3145728`)
 - `TENCENT_STT_GATEWAY_TOKEN` (required before mini program production launch; used to protect `/api/stt/tencent` from abuse)
-- `VOICE_REQUIRE_TRANSCRIPT` (`0` | `1`, default `0`; when `0`, voice can still be analyzed by acoustic features if transcript is empty)
+- `VOICE_REQUIRE_TRANSCRIPT` (`0` | `1`, default `0`; transcript strictness gate, NOT ASR on/off switch)
 - `FACE_MIN_CANDIDATE_AREA_RATIO` (default `0.01`, tiny box filter for initial face candidates)
 - `FACE_DEDUPE_IOU_THRESHOLD` (default `0.3`, merge duplicated overlapping face boxes)
 - `FACE_MIN_PRESENCE_EYE_COUNT` (default `1`, minimum eyes for considering a face as valid)
@@ -151,6 +152,7 @@ Optional:
 Tencent ASR gateway in this same backend service (recommended):
 
 ```env
+SPEECH_ASR_SERVICE=on
 SPEECH_STT_PROVIDER=http
 SPEECH_STT_ENDPOINT=https://<your-cloud-host-domain>/api/stt/tencent
 SPEECH_STT_HTTP_MODE=multipart
@@ -163,6 +165,21 @@ TENCENT_SECRET_KEY=<sub_account_secret_key>
 TENCENT_ASR_REGION=ap-guangzhou
 TENCENT_ASR_ENGINE_MODEL_TYPE=16k_zh
 TENCENT_STT_GATEWAY_TOKEN=<random_long_secret>
+```
+
+ASR switch vs strictness:
+
+- Use `SPEECH_ASR_SERVICE=on/off` to control whether backend calls STT service.
+- Keep `SPEECH_STT_ENDPOINT` stable in env and switch by `SPEECH_ASR_SERVICE` to reduce misconfiguration risk.
+- `VOICE_REQUIRE_TRANSCRIPT` only controls strictness when transcript is empty; it does not enable/disable ASR by itself.
+
+Disable ASR but keep endpoint unchanged (admin switch example):
+
+```env
+SPEECH_ASR_SERVICE=off
+SPEECH_STT_PROVIDER=http
+SPEECH_STT_ENDPOINT=https://<your-cloud-host-domain>/api/stt/tencent
+VOICE_REQUIRE_TRANSCRIPT=0
 ```
 
 Built-in gateway endpoint:

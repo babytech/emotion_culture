@@ -49,7 +49,10 @@ function buildSpeechTranscriptHint(systemFields) {
   if (!status) return "";
 
   if (status === "provider_unconfigured") {
-    return "语音转写未开启，当前仅使用录音音色特征参与分析。";
+    return "语音转写未配置（SPEECH_STT_ENDPOINT 为空），当前仅使用录音音色特征参与分析。";
+  }
+  if (status === "service_disabled") {
+    return "语音转写已由管理员关闭，当前仅使用录音音色特征参与分析。";
   }
   if (status === "request_failed" || status === "runtime_error") {
     return "语音转写失败，当前已降级为仅使用录音音色特征参与分析。";

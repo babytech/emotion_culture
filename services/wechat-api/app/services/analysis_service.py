@@ -151,7 +151,13 @@ def _is_unstable_transcript(raw_text: str) -> bool:
     return False
 
 
-def _validate_voice_quality(audio_path: str, speech_transcript: Optional[str]) -> None:
+def _validate_voice_quality(
+    audio_path: str,
+    speech_transcript: Optional[str],
+    *,
+    speech_transcript_status: Optional[str] = None,
+    speech_transcript_error: Optional[str] = None,
+) -> None:
     min_file_size = _env_int("VOICE_MIN_FILE_SIZE_BYTES", 6000)
     min_transcript_chars = _env_int("VOICE_MIN_TRANSCRIPT_CHARS", 2)
     require_transcript = _env_bool("VOICE_REQUIRE_TRANSCRIPT", False)
@@ -172,9 +178,36 @@ def _validate_voice_quality(audio_path: str, speech_transcript: Optional[str]) -
 
     if not (speech_transcript or "").strip():
         if require_transcript:
+            status = (speech_transcript_status or "unknown").strip() or "unknown"
+            base_message = (
+                f"语音识别结果为空（VOICE_REQUIRE_TRANSCRIPT=1，ASR状态={status}），"
+                "当前请求要求必须拿到转写文本。"
+            )
+            if status == "provider_unconfigured":
+                raise VoiceQualityRejectError(
+                    code="VOICE_TRANSCRIPT_EMPTY",
+                    message=(
+                        f"{base_message} 当前未配置 STT 转写端点（SPEECH_STT_ENDPOINT 为空）。"
+                    ),
+                    retry_hint="请联系管理员开启 ASR 转写，或将 VOICE_REQUIRE_TRANSCRIPT 调整为 0。",
+                )
+            if status == "service_disabled":
+                raise VoiceQualityRejectError(
+                    code="VOICE_TRANSCRIPT_EMPTY",
+                    message=f"{base_message} 管理员已关闭 ASR 转写服务（SPEECH_ASR_SERVICE=off）。",
+                    retry_hint="如需强制转写，请联系管理员开启 ASR 服务或将 VOICE_REQUIRE_TRANSCRIPT 调整为 0。",
+                )
+            if status in {"request_failed", "runtime_error"}:
+                details = (speech_transcript_error or "").strip()
+                detail_text = f" 详细原因：{details}" if details else ""
+                raise VoiceQualityRejectError(
+                    code="VOICE_TRANSCRIPT_EMPTY",
+                    message=f"{base_message}{detail_text}",
+                    retry_hint="请稍后重试；若持续失败请检查 STT 网关可用性，或改用文字输入。",
+                )
             raise VoiceQualityRejectError(
                 code="VOICE_TRANSCRIPT_EMPTY",
-                message="语音识别结果为空，可能存在静音或环境杂音过大。",
+                message=f"{base_message} 可能存在静音、杂音过大或语音内容过短。",
             )
         return
 
@@ -532,6 +565,8 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
                 _validate_voice_quality(
                     audio_path=resolved.audio_path,
                     speech_transcript=speech_transcript,
+                    speech_transcript_status=speech_transcript_status,
+                    speech_transcript_error=speech_transcript_error,
                 )
                 speech_emotion = analyze_speech_emotion(resolved.audio_path)
             except VoiceQualityRejectError as exc:

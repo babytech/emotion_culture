@@ -69,7 +69,8 @@ BE-010 main-chain rule:
 - If `text` exists, backend uses `text` as analysis text.
 - If `text` is empty and `audio` exists, backend first transcribes audio to text, then runs unified text analysis.
 - `speech` emotion remains an auxiliary signal in fusion.
-- If transcript is empty (for example STT endpoint not configured / timeout), backend still keeps voice emotion as auxiliary signal by default (`VOICE_REQUIRE_TRANSCRIPT=0`).
+- `SPEECH_ASR_SERVICE` controls ASR switch (`on`/`off`); when `off`, backend skips transcript request regardless of endpoint/provider.
+- `VOICE_REQUIRE_TRANSCRIPT` is strictness gate, not ASR switch. If set to `1`, empty transcript will be rejected; if set to `0`, backend keeps voice emotion as auxiliary signal.
 - STT provider is integrated via `SPEECH_STT_ENDPOINT` HTTP adapter and can connect to Whisper/腾讯云/阿里云/讯飞 through your own gateway.
 
 Example:
@@ -234,7 +235,7 @@ Failure example (still HTTP 200, frontend retries only this endpoint):
 
 Purpose:
 
-- This endpoint is used by backend STT adapter (`SPEECH_STT_ENDPOINT`) and is not required for mini program direct calls.
+- This endpoint is used by backend STT adapter (`SPEECH_STT_ENDPOINT`) when `SPEECH_ASR_SERVICE=on`; it is not required for mini program direct calls.
 - It wraps Tencent SentenceRecognition API with server-side credential signing.
 
 Request:
@@ -331,11 +332,13 @@ Voice quality reject details (`400`, from BE-011):
 - `[VOICE_TRANSCRIPT_EMPTY]`: transcript empty (only when `VOICE_REQUIRE_TRANSCRIPT=1`)
 - `[VOICE_TEXT_TOO_SHORT]`: recognized text too short
 - `[VOICE_TEXT_UNSTABLE]`: unstable transcript, suggest re-record in quieter environment
+- For `[VOICE_TRANSCRIPT_EMPTY]`, response detail includes current config/status context (for example `VOICE_REQUIRE_TRANSCRIPT=1`, `ASR状态=provider_unconfigured/service_disabled`) to distinguish config issues from user recording issues.
 
 `system_fields.speech_transcript_status` can be used for diagnosis:
 
 - `ok`: transcript available
 - `empty`: STT responded but transcript empty
+- `service_disabled`: ASR disabled by admin config (`SPEECH_ASR_SERVICE=off`)
 - `provider_unconfigured`: endpoint not configured
 - `request_failed`: STT HTTP request failed
 - `runtime_error`: unexpected STT runtime error

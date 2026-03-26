@@ -342,12 +342,15 @@ class QARegressionRunner:
                 else:
                     os.environ["SPEECH_STT_MOCK_TEXT"] = prev_mock_text
 
-        def case_voice_without_stt_config_still_available() -> None:
+        def case_voice_with_asr_service_off_still_available() -> None:
+            prev_asr_service = os.environ.get("SPEECH_ASR_SERVICE")
             prev_provider = os.environ.get("SPEECH_STT_PROVIDER")
             prev_endpoint = os.environ.get("SPEECH_STT_ENDPOINT")
             prev_require = os.environ.get("VOICE_REQUIRE_TRANSCRIPT")
+            os.environ["SPEECH_ASR_SERVICE"] = "off"
             os.environ["SPEECH_STT_PROVIDER"] = "auto"
-            os.environ["SPEECH_STT_ENDPOINT"] = ""
+            # Keep endpoint value unchanged behavior-wise when service switch is off.
+            os.environ["SPEECH_STT_ENDPOINT"] = "https://mock-stt.example.com/transcribe"
             os.environ["VOICE_REQUIRE_TRANSCRIPT"] = "0"
             try:
                 payload = {
@@ -356,11 +359,15 @@ class QARegressionRunner:
                     "client": {"platform": "mp-weixin", "version": "0.1.0", "user_id": user},
                 }
                 resp = self._post_analyze(payload, user)
-                self._ensure(resp.status_code == 200, f"无 STT 配置时 voice 链路失败: {resp.text}")
+                self._ensure(resp.status_code == 200, f"ASR 关闭时 voice 链路失败: {resp.text}")
                 body = resp.json()
                 status = body.get("system_fields", {}).get("speech_transcript_status")
-                self._ensure(status in {"provider_unconfigured", "empty"}, f"转写状态不符合预期: {status}")
+                self._ensure(status in {"service_disabled", "empty"}, f"转写状态不符合预期: {status}")
             finally:
+                if prev_asr_service is None:
+                    os.environ.pop("SPEECH_ASR_SERVICE", None)
+                else:
+                    os.environ["SPEECH_ASR_SERVICE"] = prev_asr_service
                 if prev_provider is None:
                     os.environ.pop("SPEECH_STT_PROVIDER", None)
                 else:
@@ -522,7 +529,7 @@ class QARegressionRunner:
         self._run_case("QA-001", "QA-001-4", "小程序语音失败后可恢复", case_voice_fail_recover)
         self._run_case("QA-001", "QA-001-5", "小程序自拍失败后可恢复", case_selfie_fail_recover)
         self._run_case("QA-001", "QA-001-6", "文本+语音在空转写时自动降级", case_text_voice_empty_transcript_fallback)
-        self._run_case("QA-001", "QA-001-7", "无 STT 配置时语音链路仍可用", case_voice_without_stt_config_still_available)
+        self._run_case("QA-001", "QA-001-7", "ASR 关闭时语音链路仍可用", case_voice_with_asr_service_off_still_available)
         self._run_case("QA-001", "QA-001-8", "SPEECH_STT_ENDPOINT 支持可配置请求格式", case_http_stt_endpoint_configurable)
         self._run_case("QA-001", "QA-001-9", "内置腾讯 STT 网关可用", case_tencent_stt_gateway_endpoint)
 
