@@ -96,6 +96,10 @@ function buildRecoverableAnalyzeError(err) {
     return "分析失败，请重试。你之前填写的内容已保留。";
   }
 
+  const lowerMsg = message.toLowerCase();
+  if (message.includes("102002") || message.includes("请求超时") || lowerMsg.includes("timeout")) {
+    return "云端请求超时，请检查网络后重试。若连续超时，可先仅用文字输入提交。";
+  }
   if (message.includes("[VOICE_")) {
     return `${message} 可重新录音，或改用文字输入后再次提交。`;
   }
@@ -418,27 +422,43 @@ Page({
       let audioFileId = "";
       let audioTempUrl = "";
 
+      const uploadLabel =
+        imageTempPath && audioTempPath
+          ? "上传中：正在上传自拍和语音..."
+          : imageTempPath
+            ? "上传中：正在上传自拍照片..."
+            : audioTempPath
+              ? "上传中：正在上传语音..."
+              : "上传中：正在准备输入内容...";
+      this.setData({
+        submitStage: SUBMIT_STAGE.UPLOADING,
+        submitStatusText: uploadLabel,
+      });
+      wx.showLoading({ title: "上传中..." });
+
+      const uploadTasks = [];
       if (imageTempPath) {
-        this.setData({
-          submitStage: SUBMIT_STAGE.UPLOADING,
-          submitStatusText: "上传中：正在上传自拍照片...",
-        });
-        wx.showLoading({ title: "上传图片中..." });
-        const preparedImage = await prepareImageForUpload(imageTempPath);
-        const uploadedImage = await uploadTempFile(preparedImage.path, "images");
-        imageFileId = (uploadedImage && uploadedImage.fileID) || "";
-        imageTempUrl = (uploadedImage && uploadedImage.tempFileURL) || "";
+        uploadTasks.push(
+          (async () => {
+            const preparedImage = await prepareImageForUpload(imageTempPath);
+            const uploadedImage = await uploadTempFile(preparedImage.path, "images");
+            imageFileId = (uploadedImage && uploadedImage.fileID) || "";
+            imageTempUrl = (uploadedImage && uploadedImage.tempFileURL) || "";
+          })()
+        );
       }
 
       if (audioTempPath) {
-        this.setData({
-          submitStage: SUBMIT_STAGE.UPLOADING,
-          submitStatusText: "上传中：正在上传语音...",
-        });
-        wx.showLoading({ title: "上传语音中..." });
-        const uploadedAudio = await uploadTempFile(audioTempPath, "audio");
-        audioFileId = (uploadedAudio && uploadedAudio.fileID) || "";
-        audioTempUrl = (uploadedAudio && uploadedAudio.tempFileURL) || "";
+        uploadTasks.push(
+          (async () => {
+            const uploadedAudio = await uploadTempFile(audioTempPath, "audio");
+            audioFileId = (uploadedAudio && uploadedAudio.fileID) || "";
+            audioTempUrl = (uploadedAudio && uploadedAudio.tempFileURL) || "";
+          })()
+        );
+      }
+      if (uploadTasks.length > 0) {
+        await Promise.all(uploadTasks);
       }
 
       this.setData({
@@ -453,23 +473,26 @@ Page({
       if (imageTempUrl || imageFileId) inputModes.push("selfie");
       if (audioTempUrl || audioFileId) inputModes.push("voice");
 
+      const imagePayload =
+        imageFileId || imageTempUrl
+          ? {
+              file_id: imageFileId || undefined,
+              url: imageTempUrl || undefined,
+            }
+          : undefined;
+      const audioPayload =
+        audioFileId || audioTempUrl
+          ? {
+              file_id: audioFileId || undefined,
+              url: audioTempUrl || undefined,
+            }
+          : undefined;
+
       const result = await analyze({
         input_modes: inputModes,
         text: text || undefined,
-        image:
-          imageTempUrl || imageFileId
-            ? {
-                url: imageTempUrl || undefined,
-                file_id: imageFileId || undefined,
-              }
-            : undefined,
-        audio:
-          audioTempUrl || audioFileId
-            ? {
-                url: audioTempUrl || undefined,
-                file_id: audioFileId || undefined,
-              }
-            : undefined,
+        image: imagePayload,
+        audio: audioPayload,
 
         // Legacy fields kept until all clients migrate.
         image_url: imageTempUrl || undefined,

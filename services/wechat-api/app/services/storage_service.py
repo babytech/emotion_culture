@@ -413,6 +413,19 @@ def resolve_input_file(
             cleanup_path=None,
         )
 
+    normalized_file_id = (file_id or "").strip()
+    preferred_file_id_error: Optional[Exception] = None
+    # When both temp URL and cloud:// file_id are provided, prefer cloud file_id first.
+    # In practice this is more stable than directly downloading a temp URL in container runtime.
+    if normalized_file_id.startswith("cloud://"):
+        try:
+            temp_path = resolve_file_id_to_temp_path(normalized_file_id, field_name)
+            return ResolvedInputFile(path=temp_path, cleanup_path=temp_path)
+        except ValueError as exc:
+            preferred_file_id_error = exc
+            if not file_url:
+                raise
+
     url_error: Optional[Exception] = None
     if file_url:
         try:
@@ -420,19 +433,27 @@ def resolve_input_file(
             return ResolvedInputFile(path=temp_path, cleanup_path=temp_path)
         except ValueError as exc:
             url_error = exc
-            if not file_id:
+            if not normalized_file_id:
                 raise
 
-    if file_id:
-        local_assets_file = _resolve_assets_file_id(file_id, field_name)
+    if normalized_file_id:
+        local_assets_file = _resolve_assets_file_id(normalized_file_id, field_name)
         if local_assets_file:
             return ResolvedInputFile(path=local_assets_file, cleanup_path=None)
 
-        temp_path = resolve_file_id_to_temp_path(file_id, field_name)
+        # For cloud:// file_id we already attempted once above to avoid duplicate long retries.
+        if normalized_file_id.startswith("cloud://") and preferred_file_id_error is not None:
+            if url_error:
+                raise url_error
+            raise preferred_file_id_error
+
+        temp_path = resolve_file_id_to_temp_path(normalized_file_id, field_name)
         return ResolvedInputFile(path=temp_path, cleanup_path=temp_path)
 
     if url_error:
         raise url_error
+    if preferred_file_id_error:
+        raise preferred_file_id_error
 
     return ResolvedInputFile(path=None, cleanup_path=None)
 

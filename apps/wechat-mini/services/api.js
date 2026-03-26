@@ -48,6 +48,23 @@ function isInvalidHostError(errMsg) {
   return typeof errMsg === "string" && errMsg.includes("INVALID_HOST");
 }
 
+function isTimeoutLikeError(errMsg) {
+  if (typeof errMsg !== "string") return false;
+  const text = errMsg.toLowerCase();
+  return (
+    text.includes("102002") ||
+    text.includes("timeout") ||
+    text.includes("timed out") ||
+    text.includes("请求超时")
+  );
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function callContainerOnce(path, method, data, env) {
   return new Promise((resolve, reject) => {
     if (!wx.cloud || !wx.cloud.callContainer) {
@@ -92,6 +109,9 @@ function callContainerOnce(path, method, data, env) {
 async function callViaContainer(path, method, data, options = {}) {
   const fallbackPaths = Array.isArray(options.fallbackPaths) ? options.fallbackPaths : [];
   const retryOnInvalidHost = Boolean(options.retryOnInvalidHost);
+  const retryOnTimeout = Boolean(options.retryOnTimeout);
+  const timeoutRetryCount = Math.max(0, Number(options.timeoutRetryCount) || 0);
+  const timeoutRetryDelayMs = Math.max(0, Number(options.timeoutRetryDelayMs) || 300);
 
   const preferredEnv = config.containerEnv || config.cloudEnv;
   const envCandidates = [];
@@ -107,11 +127,25 @@ async function callViaContainer(path, method, data, options = {}) {
   let lastError = null;
   for (const env of envCandidates) {
     for (const currentPath of pathCandidates) {
-      try {
-        return await callContainerOnce(currentPath, method, data, env);
-      } catch (err) {
-        lastError = err;
-        if (!retryOnInvalidHost || !isInvalidHostError(err.message)) {
+      let timeoutRetried = 0;
+      while (true) {
+        try {
+          return await callContainerOnce(currentPath, method, data, env);
+        } catch (err) {
+          lastError = err;
+          const message = (err && err.message) || "";
+          const canRetryTimeout =
+            retryOnTimeout && isTimeoutLikeError(message) && timeoutRetried < timeoutRetryCount;
+
+          if (canRetryTimeout) {
+            timeoutRetried += 1;
+            await sleep(timeoutRetryDelayMs);
+            continue;
+          }
+
+          if (retryOnInvalidHost && isInvalidHostError(message)) {
+            break;
+          }
           throw err;
         }
       }
@@ -137,7 +171,11 @@ function analyze(payload) {
   if (!data.client.user_id && shouldUseClientUserIdFallback()) {
     data.client.user_id = getOrCreateClientUserId();
   }
-  return callViaContainer("/api/analyze", "POST", data);
+  return callViaContainer("/api/analyze", "POST", data, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 350,
+  });
 }
 
 function sendEmail(payload) {
