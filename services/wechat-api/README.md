@@ -134,7 +134,7 @@ Optional:
 - `TENCENT_ASR_WORD_INFO` (default `0`)
 - `TENCENT_ASR_TIMEOUT_SEC` (default `20`)
 - `TENCENT_ASR_MAX_AUDIO_BYTES` (default `3145728`)
-- `TENCENT_STT_GATEWAY_TOKEN` (optional shared secret for `/api/stt/tencent`)
+- `TENCENT_STT_GATEWAY_TOKEN` (required before mini program production launch; used to protect `/api/stt/tencent` from abuse)
 - `VOICE_REQUIRE_TRANSCRIPT` (`0` | `1`, default `0`; when `0`, voice can still be analyzed by acoustic features if transcript is empty)
 - `FACE_MIN_CANDIDATE_AREA_RATIO` (default `0.01`, tiny box filter for initial face candidates)
 - `FACE_DEDUPE_IOU_THRESHOLD` (default `0.3`, merge duplicated overlapping face boxes)
@@ -169,6 +169,7 @@ Built-in gateway endpoint:
 
 - `POST /api/stt/tencent` (multipart form-data, file field supports `audio` / `file` / `voice`)
 - Returns `{ "text": "...", "provider": "tencent_asr", ... }`
+- Production hardening: always configure `TENCENT_STT_GATEWAY_TOKEN` and pass it via `SPEECH_STT_HEADERS_JSON` (`X-STT-GATEWAY-TOKEN`) before going live.
 
 Whisper-compatible HTTP gateway (multipart):
 

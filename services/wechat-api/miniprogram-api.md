@@ -256,6 +256,7 @@ Response example:
 Security recommendation:
 
 - Configure `TENCENT_STT_GATEWAY_TOKEN` and set the same value through `SPEECH_STT_HEADERS_JSON` as `X-STT-GATEWAY-TOKEN`.
+- Mini program production launch requirement: this token must be configured before go-live, otherwise the STT gateway is exposed to public abuse risk.
 
 ## 5) History APIs
 
