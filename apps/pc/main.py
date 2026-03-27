@@ -21,7 +21,11 @@ import signal
 import sys
 import time
 import uuid
-from datetime import datetime
+from collections import Counter
+from datetime import datetime, timedelta
+from urllib import error as urllib_error
+from urllib import parse as urllib_parse
+from urllib import request as urllib_request
 from PIL import Image
 import pyttsx3
 import platform
@@ -558,7 +562,12 @@ class AppLogic:
         self.history_cache_file = app_path("cache", "history_summary.json")
         self.cache_lock = threading.Lock()
         self.max_history_items = max(10, _env_int("PC_HISTORY_MAX_ITEMS", 60))
+        self.retention_api_base = os.environ.get("PC_RETENTION_API_BASE", "").strip().rstrip("/")
+        self.retention_user_id = os.environ.get("PC_RETENTION_USER_ID", "pc_local_user").strip() or "pc_local_user"
+        self.retention_api_timeout = max(1.0, _env_float("PC_RETENTION_API_TIMEOUT", 8.0))
+        self.max_favorites_panel_items = max(10, _env_int("PC_RETENTION_FAVORITES_LIMIT", 80))
         self.latest_analysis_request_id = None
+        self._favorites_cache_by_id = {}
         self._ensure_history_cache_ready()
 
     @staticmethod
@@ -924,6 +933,450 @@ class AppLogic:
         if changed:
             self._save_history_items(items)
         return changed
+
+    @staticmethod
+    def _parse_iso_datetime(iso_text):
+        raw = (iso_text or "").strip()
+        if not raw:
+            return None
+        try:
+            return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except Exception:
+            return None
+
+    @staticmethod
+    def _month_text_from_datetime(dt):
+        return f"{dt.year:04d}-{dt.month:02d}"
+
+    @staticmethod
+    def _week_start_by_offset(week_offset):
+        safe_offset = int(week_offset or 0)
+        today = datetime.now().date()
+        monday = today - timedelta(days=today.weekday())
+        return monday + timedelta(days=7 * safe_offset)
+
+    @staticmethod
+    def _compute_streaks(day_set, window_end):
+        if not day_set:
+            return 0, 0
+
+        ordered = sorted(day_set)
+        longest = 0
+        streak = 0
+        previous_day = None
+        for day_item in ordered:
+            if previous_day and (day_item - previous_day).days == 1:
+                streak += 1
+            else:
+                streak = 1
+            previous_day = day_item
+            longest = max(longest, streak)
+
+        current = 0
+        cursor = window_end
+        while cursor in day_set:
+            current += 1
+            cursor -= timedelta(days=1)
+        return current, longest
+
+    def _retention_api_get_json(self, path, query=None):
+        if not self.retention_api_base:
+            raise RuntimeError("未配置 PC_RETENTION_API_BASE，无法访问后端留存接口。")
+
+        query = query or {}
+        url = f"{self.retention_api_base}{path}"
+        if query:
+            query_text = urllib_parse.urlencode(query)
+            url = f"{url}?{query_text}"
+
+        headers = {
+            "Accept": "application/json",
+            "X-EC-USER-ID": self.retention_user_id,
+        }
+        request = urllib_request.Request(url=url, headers=headers, method="GET")
+        try:
+            with urllib_request.urlopen(request, timeout=self.retention_api_timeout) as response:
+                payload = response.read().decode("utf-8")
+        except urllib_error.HTTPError as exc:
+            detail = f"HTTP {exc.code}"
+            try:
+                body = exc.read().decode("utf-8")
+                body_json = json.loads(body) if body else {}
+                detail = body_json.get("detail") or body_json.get("message") or detail
+            except Exception:
+                pass
+            raise RuntimeError(f"后端接口失败: {detail}") from exc
+        except urllib_error.URLError as exc:
+            raise RuntimeError(f"后端接口连接失败: {exc.reason}") from exc
+        except Exception as exc:
+            raise RuntimeError(f"后端接口调用失败: {exc}") from exc
+
+        try:
+            data = json.loads(payload) if payload else {}
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("后端接口返回非 JSON 数据。") from exc
+        if not isinstance(data, dict):
+            raise RuntimeError("后端接口返回格式异常。")
+        return data
+
+    def _build_day_map_from_backend(self):
+        today = datetime.now()
+        months = []
+        year = today.year
+        month = today.month
+        for delta in range(0, 3):
+            month_index = year * 12 + (month - 1) - delta
+            month_year = month_index // 12
+            month_value = month_index % 12 + 1
+            months.append(f"{month_year:04d}-{month_value:02d}")
+
+        day_map = {}
+        for month_text in months:
+            response = self._retention_api_get_json("/api/retention/calendar", {"month": month_text})
+            items = response.get("items", [])
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                date_text = (item.get("date") or "").strip()
+                if not date_text:
+                    continue
+                has_checkin = bool(item.get("has_checkin"))
+                analyses_count = int(item.get("analyses_count") or 0)
+                primary = item.get("primary_emotion") if isinstance(item.get("primary_emotion"), dict) else {}
+                emotion_label = (
+                    (primary.get("label") or "").strip()
+                    or (primary.get("code") or "").strip()
+                    or "未识别"
+                )
+                day_map[date_text] = {
+                    "has_checkin": has_checkin,
+                    "analyses_count": analyses_count,
+                    "emotion_label": emotion_label,
+                }
+        return day_map
+
+    def _build_day_map_from_local_history(self):
+        items = self._load_history_items()
+        day_map = {}
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            analyzed_at = self._parse_iso_datetime(item.get("analyzed_at"))
+            if not analyzed_at:
+                continue
+            date_text = analyzed_at.date().isoformat()
+            bucket = day_map.setdefault(
+                date_text,
+                {
+                    "has_checkin": True,
+                    "analyses_count": 0,
+                    "emotion_counter": Counter(),
+                },
+            )
+            bucket["analyses_count"] += 1
+            primary = item.get("primary_emotion") if isinstance(item.get("primary_emotion"), dict) else {}
+            emotion_label = (
+                (primary.get("label") or "").strip()
+                or culture_manager.translate_emotion((primary.get("code") or "neutral").strip())
+            )
+            bucket["emotion_counter"][emotion_label] += 1
+
+        normalized = {}
+        for date_text, bucket in day_map.items():
+            emotion_label = "未识别"
+            if bucket["emotion_counter"]:
+                emotion_label = bucket["emotion_counter"].most_common(1)[0][0]
+            normalized[date_text] = {
+                "has_checkin": True,
+                "analyses_count": int(bucket["analyses_count"]),
+                "emotion_label": emotion_label,
+            }
+        return normalized
+
+    def _build_window_summary_text(self, day_map, days):
+        if not isinstance(day_map, dict):
+            return f"最近 {days} 天暂无记录。"
+
+        today = datetime.now().date()
+        start_day = today - timedelta(days=max(0, days - 1))
+        checked_days = []
+        analyses_total = 0
+        emotion_counter = Counter()
+        for i in range(days):
+            day_value = start_day + timedelta(days=i)
+            date_text = day_value.isoformat()
+            row = day_map.get(date_text)
+            if not isinstance(row, dict):
+                continue
+            if row.get("has_checkin"):
+                checked_days.append(day_value)
+                analyses_total += int(row.get("analyses_count") or 0)
+                emotion_label = (row.get("emotion_label") or "未识别").strip() or "未识别"
+                emotion_counter[emotion_label] += 1
+
+        if not checked_days:
+            return f"最近 {days} 天：暂无打卡记录。"
+
+        checked_set = set(checked_days)
+        current_streak, longest_streak = self._compute_streaks(checked_set, window_end=today)
+        top_parts = [f"{name}{count}次" for name, count in emotion_counter.most_common(3)]
+        top_text = "、".join(top_parts) if top_parts else "未识别"
+        return (
+            f"最近 {days} 天：打卡 {len(checked_days)}/{days} 天，分析 {analyses_total} 次，"
+            f"当前连续 {current_streak} 天，最长连续 {longest_streak} 天，主情绪 Top: {top_text}。"
+        )
+
+    def refresh_retention_trend_panel(self):
+        local_day_map = self._build_day_map_from_local_history()
+        local_text = "\n".join(
+            [
+                self._build_window_summary_text(local_day_map, 7),
+                self._build_window_summary_text(local_day_map, 30),
+            ]
+        )
+
+        if not self.retention_api_base:
+            status = "来源：本地历史摘要（未配置 PC_RETENTION_API_BASE）。"
+            return local_text, status
+
+        try:
+            backend_day_map = self._build_day_map_from_backend()
+            backend_text = "\n".join(
+                [
+                    self._build_window_summary_text(backend_day_map, 7),
+                    self._build_window_summary_text(backend_day_map, 30),
+                ]
+            )
+            status = f"来源：后端留存接口（user_id={self.retention_user_id}）。"
+            return backend_text, status
+        except Exception as exc:
+            status = f"后端留存接口不可用，已降级本地历史：{exc}"
+            return local_text, status
+
+    def _build_local_weekly_report(self, week_offset):
+        week_start = self._week_start_by_offset(week_offset)
+        week_end = week_start + timedelta(days=6)
+        items = self._load_history_items()
+
+        selected = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            analyzed_at = self._parse_iso_datetime(item.get("analyzed_at"))
+            if not analyzed_at:
+                continue
+            day_value = analyzed_at.date()
+            if week_start <= day_value <= week_end:
+                selected.append(item)
+
+        header = f"周区间：{week_start.isoformat()} ~ {week_end.isoformat()}"
+        if not selected:
+            return f"{header}\n本周暂无本地分析记录。"
+
+        emotion_counter = Counter()
+        trigger_counter = Counter()
+        suggestions = []
+        checkin_days = set()
+        for item in selected:
+            primary = item.get("primary_emotion") if isinstance(item.get("primary_emotion"), dict) else {}
+            emotion_label = (
+                (primary.get("label") or "").strip()
+                or culture_manager.translate_emotion((primary.get("code") or "neutral").strip())
+            )
+            emotion_counter[emotion_label] += 1
+            for tag in item.get("trigger_tags") or []:
+                if isinstance(tag, str) and tag.strip():
+                    trigger_counter[tag.strip()] += 1
+            suggestion = (item.get("daily_suggestion_summary") or "").strip()
+            if suggestion:
+                suggestions.append(suggestion)
+            analyzed_at = self._parse_iso_datetime(item.get("analyzed_at"))
+            if analyzed_at:
+                checkin_days.add(analyzed_at.date())
+
+        emotion_text = "、".join([f"{k}{v}次" for k, v in emotion_counter.most_common(3)]) or "暂无"
+        trigger_text = "、".join([f"{k}{v}次" for k, v in trigger_counter.most_common(3)]) or "暂无"
+        suggestion_text = "；".join(dict.fromkeys(suggestions)) if suggestions else "保持规律作息，按节奏记录情绪变化。"
+
+        return (
+            f"{header}\n"
+            f"本周记录：{len(selected)} 次分析，覆盖 {len(checkin_days)} 天。\n"
+            f"主情绪分布：{emotion_text}\n"
+            f"高频触发因素：{trigger_text}\n"
+            f"建议回顾：{suggestion_text}"
+        )
+
+    def _build_backend_weekly_report(self, week_offset):
+        week_start = self._week_start_by_offset(week_offset).isoformat()
+        response = self._retention_api_get_json("/api/retention/weekly-report", {"week_start": week_start})
+
+        report_week_start = (response.get("week_start") or week_start).strip()
+        report_week_end = (response.get("week_end") or "").strip()
+        total_checkin_days = int(response.get("total_checkin_days") or 0)
+        current_streak = int(response.get("current_streak") or 0)
+        checked_today = "是" if response.get("checked_today") else "否"
+
+        dominant = response.get("dominant_emotions") if isinstance(response.get("dominant_emotions"), list) else []
+        dominant_text = "、".join(
+            [
+                f"{(item.get('label') or item.get('code') or '未识别')}{int(item.get('days') or 0)}天"
+                for item in dominant
+                if isinstance(item, dict)
+            ]
+        ) or "暂无"
+
+        triggers = response.get("top_trigger_tags") if isinstance(response.get("top_trigger_tags"), list) else []
+        trigger_text = "、".join(
+            [
+                f"{(item.get('tag') or '未标注')}{int(item.get('count') or 0)}次"
+                for item in triggers
+                if isinstance(item, dict)
+            ]
+        ) or "暂无"
+
+        suggestions = response.get("suggestion_highlights") if isinstance(response.get("suggestion_highlights"), list) else []
+        suggestion_text = "；".join([str(item).strip() for item in suggestions if str(item).strip()]) or "保持规律作息，按节奏记录情绪变化。"
+        insight = (response.get("insight") or "").strip() or "本周暂无可展示洞察。"
+        source = (response.get("source") or "generated").strip()
+
+        return (
+            f"周区间：{report_week_start} ~ {report_week_end}\n"
+            f"本周打卡：{total_checkin_days} 天，今日已打卡：{checked_today}，当前连续：{current_streak} 天。\n"
+            f"主情绪分布：{dominant_text}\n"
+            f"高频触发因素：{trigger_text}\n"
+            f"建议回顾：{suggestion_text}\n"
+            f"周洞察：{insight}\n"
+            f"数据来源：{source}"
+        )
+
+    def refresh_weekly_report_panel(self, week_offset=0):
+        safe_offset = int(week_offset or 0)
+        if self.retention_api_base:
+            try:
+                text = self._build_backend_weekly_report(safe_offset)
+                return text, f"来源：后端周报接口（user_id={self.retention_user_id}）。"
+            except Exception as exc:
+                local_text = self._build_local_weekly_report(safe_offset)
+                return local_text, f"后端周报不可用，已降级本地历史：{exc}"
+
+        local_text = self._build_local_weekly_report(safe_offset)
+        return local_text, "来源：本地历史摘要（未配置 PC_RETENTION_API_BASE）。"
+
+    def shift_weekly_report_offset(self, current_offset=0, delta=0):
+        next_offset = int(current_offset or 0) + int(delta or 0)
+        text, status = self.refresh_weekly_report_panel(next_offset)
+        return next_offset, text, status
+
+    @staticmethod
+    def _favorite_type_label(favorite_type):
+        if favorite_type == "poem":
+            return "诗词"
+        if favorite_type == "guochao":
+            return "国潮"
+        return "未知"
+
+    def _favorite_item_to_detail(self, item):
+        if not isinstance(item, dict):
+            return "收藏项格式异常。"
+        favorite_type = self._favorite_type_label((item.get("favorite_type") or "").strip())
+        title = (item.get("title") or "-").strip()
+        subtitle = (item.get("subtitle") or "-").strip()
+        content_summary = (item.get("content_summary") or "-").strip()
+        request_id = (item.get("request_id") or "-").strip()
+        created_at = self._to_display_time(item.get("created_at"))
+        updated_at = self._to_display_time(item.get("updated_at"))
+        target_id = (item.get("target_id") or "-").strip()
+        favorite_id = (item.get("favorite_id") or "-").strip()
+        return (
+            f"类型：{favorite_type}\n"
+            f"标题：{title}\n"
+            f"副标题：{subtitle}\n"
+            f"摘要：{content_summary}\n"
+            f"创建时间：{created_at}\n"
+            f"更新时间：{updated_at}\n"
+            f"请求ID：{request_id}\n"
+            f"target_id：{target_id}\n"
+            f"favorite_id：{favorite_id}"
+        )
+
+    def _build_favorite_choices(self, items):
+        choices = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            favorite_id = (item.get("favorite_id") or "").strip()
+            if not favorite_id:
+                continue
+            type_label = self._favorite_type_label((item.get("favorite_type") or "").strip())
+            title = (item.get("title") or "未命名收藏").strip()
+            updated_at = self._to_display_time(item.get("updated_at"))
+            label = f"{updated_at} | {type_label} | {self._truncate_text(title, 28)}"
+            choices.append((label, favorite_id))
+        return choices
+
+    def _list_backend_favorites(self, favorite_type):
+        safe_type = (favorite_type or "").strip()
+        query = {"limit": min(self.max_favorites_panel_items, 100), "offset": 0}
+        if safe_type and safe_type != "all":
+            query["favorite_type"] = safe_type
+        response = self._retention_api_get_json("/api/favorites", query)
+        items = response.get("items") if isinstance(response.get("items"), list) else []
+        return [item for item in items if isinstance(item, dict)]
+
+    def refresh_favorites_panel(self, favorite_type="all", selected_favorite_id=None):
+        if not self.retention_api_base:
+            self._favorites_cache_by_id = {}
+            return (
+                gr.update(choices=[], value=None),
+                "未配置 PC_RETENTION_API_BASE，无法读取与小程序一致的收藏数据。",
+                "收藏来源：不可用（需配置后端地址与用户ID）。",
+            )
+
+        try:
+            items = self._list_backend_favorites(favorite_type=favorite_type)
+        except Exception as exc:
+            self._favorites_cache_by_id = {}
+            return (
+                gr.update(choices=[], value=None),
+                "后端收藏接口不可用，请稍后重试。",
+                f"收藏加载失败：{exc}",
+            )
+
+        if not items:
+            self._favorites_cache_by_id = {}
+            return (
+                gr.update(choices=[], value=None),
+                "当前筛选下暂无收藏条目。",
+                f"收藏来源：后端接口（user_id={self.retention_user_id}），共 0 条。",
+            )
+
+        self._favorites_cache_by_id = {
+            (item.get("favorite_id") or "").strip(): item
+            for item in items
+            if isinstance(item, dict) and (item.get("favorite_id") or "").strip()
+        }
+        choices = self._build_favorite_choices(items)
+        available_ids = [value for _, value in choices]
+        if selected_favorite_id not in available_ids:
+            selected_favorite_id = available_ids[0]
+
+        detail_text = self.show_favorite_detail(selected_favorite_id)
+        status_text = (
+            f"收藏来源：后端接口（user_id={self.retention_user_id}），"
+            f"当前筛选共 {len(choices)} 条。"
+        )
+        return gr.update(choices=choices, value=selected_favorite_id), detail_text, status_text
+
+    def show_favorite_detail(self, favorite_id):
+        safe_id = (favorite_id or "").strip()
+        if not safe_id:
+            return "请选择一条收藏记录。"
+        item = self._favorites_cache_by_id.get(safe_id)
+        if not item:
+            return "未找到该收藏记录，请刷新收藏列表后重试。"
+        return self._favorite_item_to_detail(item)
 
     def check_camera_availability(self):
         capture = None

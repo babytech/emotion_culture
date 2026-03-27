@@ -284,6 +284,7 @@ def create_ui(main_app_func):
         gr.Markdown("<h1 style='text-align: center; color: #FF4500;'>青少年情绪识别与文化心理疏导系统</h1>")
 
         confirmed_image_state = gr.State(None)
+        weekly_offset_state = gr.State(0)
 
         with gr.Row():
             with gr.Column(scale=2):
@@ -418,6 +419,61 @@ def create_ui(main_app_func):
                 )
                 history_status_output = gr.Textbox(
                     label="历史状态",
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+
+                gr.Markdown("### 阶段 2：留存回看（PC）")
+                with gr.Row():
+                    refresh_retention_button = gr.Button("刷新趋势摘要")
+                retention_trend_output = gr.Textbox(
+                    label="近 7/30 天趋势摘要",
+                    lines=6,
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+                retention_status_output = gr.Textbox(
+                    label="趋势数据状态",
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+
+                with gr.Row():
+                    weekly_prev_button = gr.Button("上一周")
+                    weekly_refresh_button = gr.Button("刷新周报")
+                    weekly_next_button = gr.Button("下一周")
+                weekly_report_output = gr.Textbox(
+                    label="周报回看摘要",
+                    lines=8,
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+                weekly_status_output = gr.Textbox(
+                    label="周报状态",
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+
+                with gr.Row():
+                    favorites_type_selector = gr.Dropdown(
+                        label="收藏筛选",
+                        choices=[
+                            ("全部", "all"),
+                            ("诗词", "poem"),
+                            ("国潮", "guochao"),
+                        ],
+                        value="all",
+                    )
+                    refresh_favorites_button = gr.Button("刷新收藏")
+                favorites_selector = gr.Dropdown(label="收藏列表", choices=[], value=None)
+                favorites_detail_output = gr.Textbox(
+                    label="收藏详情",
+                    lines=8,
+                    interactive=False,
+                    elem_classes="textbox-container",
+                )
+                favorites_status_output = gr.Textbox(
+                    label="收藏状态",
                     interactive=False,
                     elem_classes="textbox-container",
                 )
@@ -580,6 +636,114 @@ def create_ui(main_app_func):
                 fn=lambda: (gr.update(), "暂无本地历史记录。", "当前版本未实现历史清空。"),
                 inputs=[],
                 outputs=[history_selector, history_detail_output, history_status_output],
+            )
+
+        if hasattr(main_app_func, "refresh_retention_trend_panel") and callable(main_app_func.refresh_retention_trend_panel):
+            refresh_retention_button.click(
+                fn=main_app_func.refresh_retention_trend_panel,
+                inputs=[],
+                outputs=[retention_trend_output, retention_status_output],
+            )
+            iface.load(
+                fn=main_app_func.refresh_retention_trend_panel,
+                inputs=[],
+                outputs=[retention_trend_output, retention_status_output],
+            )
+        else:
+            refresh_retention_button.click(
+                fn=lambda: ("当前版本未实现趋势摘要。", "趋势功能不可用。"),
+                inputs=[],
+                outputs=[retention_trend_output, retention_status_output],
+            )
+
+        if hasattr(main_app_func, "refresh_weekly_report_panel") and callable(main_app_func.refresh_weekly_report_panel):
+            weekly_refresh_button.click(
+                fn=main_app_func.refresh_weekly_report_panel,
+                inputs=[weekly_offset_state],
+                outputs=[weekly_report_output, weekly_status_output],
+            )
+            iface.load(
+                fn=main_app_func.refresh_weekly_report_panel,
+                inputs=[weekly_offset_state],
+                outputs=[weekly_report_output, weekly_status_output],
+            )
+        else:
+            weekly_refresh_button.click(
+                fn=lambda offset: ("当前版本未实现周报回看。", "周报功能不可用。"),
+                inputs=[weekly_offset_state],
+                outputs=[weekly_report_output, weekly_status_output],
+            )
+
+        if hasattr(main_app_func, "shift_weekly_report_offset") and callable(main_app_func.shift_weekly_report_offset):
+            weekly_prev_button.click(
+                fn=lambda offset: main_app_func.shift_weekly_report_offset(offset, -1),
+                inputs=[weekly_offset_state],
+                outputs=[weekly_offset_state, weekly_report_output, weekly_status_output],
+            )
+            weekly_next_button.click(
+                fn=lambda offset: main_app_func.shift_weekly_report_offset(offset, 1),
+                inputs=[weekly_offset_state],
+                outputs=[weekly_offset_state, weekly_report_output, weekly_status_output],
+            )
+        else:
+            weekly_prev_button.click(
+                fn=lambda offset: (offset, "当前版本未实现切周查看。", "切周功能不可用。"),
+                inputs=[weekly_offset_state],
+                outputs=[weekly_offset_state, weekly_report_output, weekly_status_output],
+            )
+            weekly_next_button.click(
+                fn=lambda offset: (offset, "当前版本未实现切周查看。", "切周功能不可用。"),
+                inputs=[weekly_offset_state],
+                outputs=[weekly_offset_state, weekly_report_output, weekly_status_output],
+            )
+
+        if hasattr(main_app_func, "refresh_favorites_panel") and callable(main_app_func.refresh_favorites_panel):
+            refresh_favorites_button.click(
+                fn=main_app_func.refresh_favorites_panel,
+                inputs=[favorites_type_selector, favorites_selector],
+                outputs=[favorites_selector, favorites_detail_output, favorites_status_output],
+            )
+            favorites_type_selector.change(
+                fn=main_app_func.refresh_favorites_panel,
+                inputs=[favorites_type_selector, favorites_selector],
+                outputs=[favorites_selector, favorites_detail_output, favorites_status_output],
+            )
+            iface.load(
+                fn=main_app_func.refresh_favorites_panel,
+                inputs=[favorites_type_selector, favorites_selector],
+                outputs=[favorites_selector, favorites_detail_output, favorites_status_output],
+            )
+        else:
+            refresh_favorites_button.click(
+                fn=lambda favorite_type, selected_id: (
+                    gr.update(choices=[], value=None),
+                    "当前版本未实现收藏回看。",
+                    "收藏功能不可用。",
+                ),
+                inputs=[favorites_type_selector, favorites_selector],
+                outputs=[favorites_selector, favorites_detail_output, favorites_status_output],
+            )
+            favorites_type_selector.change(
+                fn=lambda favorite_type, selected_id: (
+                    gr.update(choices=[], value=None),
+                    "当前版本未实现收藏回看。",
+                    "收藏功能不可用。",
+                ),
+                inputs=[favorites_type_selector, favorites_selector],
+                outputs=[favorites_selector, favorites_detail_output, favorites_status_output],
+            )
+
+        if hasattr(main_app_func, "show_favorite_detail") and callable(main_app_func.show_favorite_detail):
+            favorites_selector.change(
+                fn=main_app_func.show_favorite_detail,
+                inputs=[favorites_selector],
+                outputs=[favorites_detail_output],
+            )
+        else:
+            favorites_selector.change(
+                fn=lambda selected: "当前版本未实现收藏详情。",
+                inputs=[favorites_selector],
+                outputs=[favorites_detail_output],
             )
 
         reset_button.click(
