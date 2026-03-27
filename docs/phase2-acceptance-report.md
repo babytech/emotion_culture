@@ -3,9 +3,9 @@
 ## 验收结论
 
 - 验收日期：`2026-03-28`
-- 总体结论：**进行中**（全量回归已通过，剩余少量清单项待补齐）
-- 清单完成率：`55/61`（`90.2%`）
-- 当前回归结论：`PASS`（`15/15`）
+- 总体结论：**已完成**（第二阶段范围已补齐并通过全量回归）
+- 清单完成率：`61/61`（`100.0%`）
+- 当前回归结论：`PASS`（`20/20`）
 
 最终回归详情见：
 - [phase2-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase2-qa-regression-report.md)
@@ -32,6 +32,7 @@
 - 关键实现：
   - 日历、连续打卡、周报、收藏、分享卡片功能闭环
   - 周报页新增“清除本周缓存”入口，支持失败后重取
+  - 日历/周报/收藏页失败态新增显式“重试”入口
 - 变更文件：
   - [calendar/index.js](/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/calendar/index.js)
   - [report/index.js](/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/report/index.js)
@@ -51,30 +52,39 @@
 - 回归验证：
   - `QA-203-1 ~ QA-203-3` 均为 `PASS`
 
-### 4) 数据与隐私策略收口
+### 4) 数据与隐私策略收口（含媒体边界）
 
-- 状态：已完成（待最终全量回归确认）
+- 状态：已完成
 - 关键实现：
-  - 留存清理服务独立化
+  - 留存清理服务独立化，原始媒体走短期保留并自动过期清理
   - 留存删除能力扩展（周报快照、收藏清空、写入开关）
-  - 留存接口脱敏边界收口（隐藏敏感追踪字段）
+  - 留存接口脱敏边界收口（隐藏敏感追踪字段），历史存储不落原始媒体字段
+  - 录音附件发送能力与第一阶段保持一致，且不受 `SPEECH_ASR_SERVICE` 开关影响
 - 变更文件：
+  - [media_retention_service.py](/Users/babytech/github/emotion_culture/services/wechat-api/app/services/media_retention_service.py)
   - [retention_cleanup_service.py](/Users/babytech/github/emotion_culture/services/wechat-api/app/services/retention_cleanup_service.py)
   - [favorites.py](/Users/babytech/github/emotion_culture/services/wechat-api/app/schemas/favorites.py)
   - [retention.py](/Users/babytech/github/emotion_culture/services/wechat-api/app/schemas/retention.py)
+  - [calendar/index.wxml](/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/calendar/index.wxml)
+  - [report/index.wxml](/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/report/index.wxml)
+  - [favorites/index.wxml](/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/favorites/index.wxml)
   - [miniprogram-api.md](/Users/babytech/github/emotion_culture/services/wechat-api/miniprogram-api.md)
 - 回归验证：
-  - `QA-202-1 ~ QA-202-4` 均为 `PASS`
+  - `QA-202-5` 原始媒体边界未被扩大：`PASS`
+  - `QA-204-6` 原始媒体短期保留策略有效：`PASS`
+  - `QA-204-7` 录音附件发送能力与 ASR 开关无关：`PASS`
+  - `QA-204-8` 失败提示明确且可重试：`PASS`
 
 ## 最终全量回归结果
 
-- 执行时间（UTC）：`2026-03-27T16:16:36Z`
+- 执行时间（UTC）：`2026-03-27T16:31:09Z`
 - 命令：`./.venv/bin/python tools/phase2_qa_regression.py --qas QA-201,QA-202,QA-203,QA-204`
-- 结果：`PASS (15/15)`
+- 结果：`PASS (20/20)`
 - 关键指标：
-  - `calendar_latency_max_s=0.0036`（<= 0.8）
-  - `weekly_report_latency_max_s=0.0284`（<= 1.2）
+  - `calendar_latency_max_s=0.0017`（<= 0.8）
+  - `weekly_report_latency_max_s=0.0033`（<= 1.2）
   - `favorite_write_latency_max_s=0.0052`（<= 0.5）
+  - `retention_page_first_screen_max_s=0.0034`（<= 2.0）
 
 ## 文档同步结果
 

@@ -43,6 +43,7 @@ CASE_CATALOG: list[tuple[str, str, str]] = [
     ("QA-202", "QA-202-2", "后端周报聚合口径一致"),
     ("QA-202", "QA-202-3", "收藏接口权限与越权保护"),
     ("QA-202", "QA-202-4", "配置守卫语义一致"),
+    ("QA-202", "QA-202-5", "原始媒体边界未被扩大"),
     ("QA-203", "QA-203-1", "PC 趋势摘要回看可用"),
     ("QA-203", "QA-203-2", "PC 周报回看可用"),
     ("QA-203", "QA-203-3", "PC 收藏回看可用"),
@@ -50,6 +51,10 @@ CASE_CATALOG: list[tuple[str, str, str]] = [
     ("QA-204", "QA-204-2", "周报聚合接口耗时达标"),
     ("QA-204", "QA-204-3", "收藏写接口耗时达标"),
     ("QA-204", "QA-204-4", "留存接口失败不阻塞主分析"),
+    ("QA-204", "QA-204-5", "留存页面首屏加载耗时达标"),
+    ("QA-204", "QA-204-6", "原始媒体短期保留策略有效"),
+    ("QA-204", "QA-204-7", "录音附件发送能力与 ASR 开关无关"),
+    ("QA-204", "QA-204-8", "失败提示明确且可重试"),
 ]
 
 
@@ -94,6 +99,9 @@ class Phase2QARegressionRunner:
     def _set_test_env(self) -> None:
         os.environ["HISTORY_STORE_PATH"] = str(self.history_store_path)
         os.environ["HISTORY_RETENTION_DAYS"] = "180"
+        os.environ["MEDIA_RETENTION_STORE_PATH"] = str(self.workspace / "media_retention_store.json")
+        os.environ["MEDIA_RETENTION_HOURS"] = "24"
+        os.environ["MEDIA_RETENTION_MAX_ITEMS"] = "2000"
         os.environ["SPEECH_STT_PROVIDER"] = "mock"
         os.environ["SPEECH_STT_MOCK_TEXT"] = "今天情绪有起伏，但我会慢慢调整"
         os.environ["VOICE_REQUIRE_TRANSCRIPT"] = "0"
@@ -436,10 +444,43 @@ class Phase2QARegressionRunner:
                     else:
                         os.environ[key] = value
 
+        def case_media_boundary_not_expanded() -> None:
+            user = "qa2-privacy-boundary"
+            self._clear_retention_state(user)
+            analyze_resp = self._post_analyze(user, "原始媒体边界回归校验样本。")
+            self._ensure(analyze_resp.status_code == 200, f"analyze 失败: {analyze_resp.text}")
+
+            store = self._read_store()
+            users = store.get("users", {})
+            self._ensure(isinstance(users, dict), "history store users 结构异常。")
+            bucket = users.get(user, {})
+            self._ensure(isinstance(bucket, dict), "history user bucket 缺失。")
+            self._ensure(bool(bucket.get("history")), "history 未落盘，无法校验媒体边界。")
+
+            forbidden_tokens = ("image", "audio", "file_id", "url", "temp_path", "local_path")
+            violations: list[str] = []
+
+            def walk(value: Any, path: str) -> None:
+                if isinstance(value, dict):
+                    for key, child in value.items():
+                        key_text = str(key)
+                        key_lower = key_text.lower()
+                        if any(token in key_lower for token in forbidden_tokens):
+                            violations.append(f"{path}.{key_text}")
+                        walk(child, f"{path}.{key_text}")
+                    return
+                if isinstance(value, list):
+                    for index, child in enumerate(value):
+                        walk(child, f"{path}[{index}]")
+
+            walk(bucket, "bucket")
+            self._ensure(not violations, f"检测到潜在原始媒体字段泄漏: {violations}")
+
         self._run_case("QA-202", "QA-202-1", "后端日历聚合口径一致", case_calendar_consistency)
         self._run_case("QA-202", "QA-202-2", "后端周报聚合口径一致", case_weekly_consistency)
         self._run_case("QA-202", "QA-202-3", "收藏接口权限与越权保护", case_favorites_authz)
         self._run_case("QA-202", "QA-202-4", "配置守卫语义一致", case_config_guards)
+        self._run_case("QA-202", "QA-202-5", "原始媒体边界未被扩大", case_media_boundary_not_expanded)
 
     def _qa_203(self) -> None:
         def seed_user_data(user_id: str) -> None:
@@ -577,10 +618,152 @@ class Phase2QARegressionRunner:
                 else:
                     os.environ["RETENTION_SERVICE_ENABLED"] = backup
 
+        def case_retention_first_screen_latency() -> None:
+            user = "qa2-perf-first-screen"
+            self._clear_retention_state(user)
+            self._post_analyze(user, "留存首页加载性能样本。")
+            favorite_resp = self.client.post(
+                "/api/favorites",
+                json={
+                    "favorite_type": "poem",
+                    "target_id": "poem_first_screen_001",
+                    "title": "首屏性能样本",
+                    "subtitle": "perf",
+                    "content_summary": "retention first screen",
+                },
+                headers=self._headers(user),
+            )
+            self._ensure(favorite_resp.status_code == 200, f"收藏样本写入失败: {favorite_resp.text}")
+
+            checks = [
+                ("calendar", "/api/retention/calendar"),
+                ("weekly", "/api/retention/weekly-report"),
+                ("favorites", "/api/favorites?limit=20&offset=0"),
+            ]
+            latencies: dict[str, float] = {}
+            for name, path in checks:
+                start = time.perf_counter()
+                resp = self.client.get(path, headers=self._headers(user))
+                elapsed = time.perf_counter() - start
+                self._ensure(resp.status_code == 200, f"{name} 首屏接口失败: {resp.text}")
+                latencies[name] = elapsed
+
+            max_latency = max(latencies.values())
+            self.metrics["retention_page_first_screen_max_s"] = round(max_latency, 4)
+            self._ensure(max_latency <= 2.0, f"留存页面首屏加载超标: {max_latency:.4f}s > 2.0s")
+
+        def case_media_short_term_retention() -> None:
+            from app.services import media_retention_service as media_retention
+
+            store_path = Path(os.environ["MEDIA_RETENTION_STORE_PATH"])
+            if store_path.exists():
+                store_path.unlink()
+
+            added = media_retention.record_cloud_file_ids(
+                [
+                    "cloud://prod-xxx.bucket/audio/test_voice_1.mp3",
+                    "cloud://prod-xxx.bucket/images/test_img_1.jpg",
+                ],
+                source="qa-media",
+            )
+            self._ensure(added == 2, f"媒体追踪新增数量异常: {added}")
+            payload = json.loads(store_path.read_text(encoding="utf-8"))
+            self._ensure(len(payload.get("items", [])) == 2, "媒体追踪存储未写入 2 条记录。")
+
+            expired_at = (datetime.now(timezone.utc) - timedelta(hours=72)).isoformat(timespec="seconds").replace(
+                "+00:00",
+                "Z",
+            )
+            for item in payload.get("items", []):
+                item["tracked_at"] = expired_at
+            store_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+            original_delete = media_retention.delete_cloud_file_ids
+            try:
+                media_retention.delete_cloud_file_ids = lambda ids: {  # type: ignore[assignment]
+                    "deleted_ids": list(ids),
+                    "failed_ids": [],
+                }
+                outcome = media_retention.cleanup_expired_media()
+            finally:
+                media_retention.delete_cloud_file_ids = original_delete  # type: ignore[assignment]
+
+            self._ensure(outcome.get("expired", 0) >= 2, f"过期媒体识别异常: {outcome}")
+            self._ensure(outcome.get("deleted", 0) >= 2, f"过期媒体删除异常: {outcome}")
+            final_payload = json.loads(store_path.read_text(encoding="utf-8"))
+            self._ensure(len(final_payload.get("items", [])) == 0, "过期媒体删除后仍有残留。")
+
+        def case_audio_attachment_not_affected_by_asr_switch() -> None:
+            import app.services.email_service as email_service_module
+            from app.schemas.email import SendEmailRequest
+
+            audio_path = self.workspace / "qa_voice_attachment.mp3"
+            audio_path.write_bytes(b"ID3" + b"\x00" * 8192)
+
+            captured_audio_paths: list[str] = []
+
+            def fake_send_analysis_email(**kwargs: Any) -> tuple[bool, str]:
+                captured_audio_paths.append(str(kwargs.get("user_audio_path") or ""))
+                return True, "mock email ok"
+
+            backup_send = email_service_module.send_analysis_email
+            backup_asr = os.environ.get("SPEECH_ASR_SERVICE")
+            try:
+                email_service_module.send_analysis_email = fake_send_analysis_email  # type: ignore[assignment]
+                for asr_switch in ("on", "off"):
+                    os.environ["SPEECH_ASR_SERVICE"] = asr_switch
+                    payload = SendEmailRequest(
+                        to_email="qa@example.com",
+                        thoughts=f"asr={asr_switch}",
+                        poem_text="测试诗词",
+                        comfort_text="测试慰藉",
+                        user_audio_path=str(audio_path),
+                    )
+                    response = email_service_module.send_analysis_result_email(payload)
+                    self._ensure(response.success, f"send_analysis_result_email 失败(asr={asr_switch}): {response}")
+                    self._ensure(
+                        captured_audio_paths and captured_audio_paths[-1] == str(audio_path),
+                        f"录音附件未透传(asr={asr_switch})",
+                    )
+            finally:
+                email_service_module.send_analysis_email = backup_send  # type: ignore[assignment]
+                if backup_asr is None:
+                    os.environ.pop("SPEECH_ASR_SERVICE", None)
+                else:
+                    os.environ["SPEECH_ASR_SERVICE"] = backup_asr
+
+            self._ensure(len(captured_audio_paths) == 2, "录音附件回归校验未覆盖 on/off 两种场景。")
+
+        def case_retry_feedback_visible() -> None:
+            checks = [
+                (
+                    self.repo_root / "apps" / "wechat-mini" / "pages" / "calendar" / "index.js",
+                    self.repo_root / "apps" / "wechat-mini" / "pages" / "calendar" / "index.wxml",
+                ),
+                (
+                    self.repo_root / "apps" / "wechat-mini" / "pages" / "report" / "index.js",
+                    self.repo_root / "apps" / "wechat-mini" / "pages" / "report" / "index.wxml",
+                ),
+                (
+                    self.repo_root / "apps" / "wechat-mini" / "pages" / "favorites" / "index.js",
+                    self.repo_root / "apps" / "wechat-mini" / "pages" / "favorites" / "index.wxml",
+                ),
+            ]
+            for js_path, wxml_path in checks:
+                js_text = js_path.read_text(encoding="utf-8")
+                wxml_text = wxml_path.read_text(encoding="utf-8")
+                self._ensure("retryLoad()" in js_text, f"{js_path.name} 缺少 retryLoad 方法。")
+                self._ensure("bindtap=\"retryLoad\"" in wxml_text, f"{wxml_path.name} 缺少重试按钮绑定。")
+                self._ensure("请稍后重试" in js_text, f"{js_path.name} 缺少明确重试提示文案。")
+
         self._run_case("QA-204", "QA-204-1", "日历聚合接口耗时达标", case_calendar_latency)
         self._run_case("QA-204", "QA-204-2", "周报聚合接口耗时达标", case_weekly_latency)
         self._run_case("QA-204", "QA-204-3", "收藏写接口耗时达标", case_favorite_write_latency)
         self._run_case("QA-204", "QA-204-4", "留存接口失败不阻塞主分析", case_retention_failure_not_blocking_analyze)
+        self._run_case("QA-204", "QA-204-5", "留存页面首屏加载耗时达标", case_retention_first_screen_latency)
+        self._run_case("QA-204", "QA-204-6", "原始媒体短期保留策略有效", case_media_short_term_retention)
+        self._run_case("QA-204", "QA-204-7", "录音附件发送能力与 ASR 开关无关", case_audio_attachment_not_affected_by_asr_switch)
+        self._run_case("QA-204", "QA-204-8", "失败提示明确且可重试", case_retry_feedback_visible)
 
     def _mark_not_run_cases(self) -> None:
         existing_ids = {item.case_id for item in self.results}
@@ -660,6 +843,7 @@ class Phase2QARegressionRunner:
         lines.append(f"- `calendar_latency_max_s`: `{self._metric_text(self.metrics.get('calendar_latency_max_s'))}`")
         lines.append(f"- `weekly_report_latency_max_s`: `{self._metric_text(self.metrics.get('weekly_report_latency_max_s'))}`")
         lines.append(f"- `favorite_write_latency_max_s`: `{self._metric_text(self.metrics.get('favorite_write_latency_max_s'))}`")
+        lines.append(f"- `retention_page_first_screen_max_s`: `{self._metric_text(self.metrics.get('retention_page_first_screen_max_s'))}`")
         lines.append(f"- `retention_fallback_ratio`: `{self._metric_text(self.metrics.get('retention_fallback_ratio'))}`")
 
         self.report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")

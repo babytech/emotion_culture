@@ -261,4 +261,9 @@ Page({
     if (!this.data.hasMore) return;
     this.loadFavorites({ reset: false });
   },
+
+  retryLoad() {
+    if (this.data.isLoading || this.data.isLoadingMore) return;
+    this.loadFavorites({ reset: true });
+  },
 });

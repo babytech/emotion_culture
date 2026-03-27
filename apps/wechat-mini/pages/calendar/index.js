@@ -121,6 +121,12 @@ Page({
     this.shiftMonth(1);
   },
 
+  retryLoad() {
+    if (this.data.isLoading) return;
+    const month = this.data.currentMonth || toMonthText(new Date());
+    this.loadCalendar(month);
+  },
+
   goReport() {
     wx.navigateTo({ url: "/pages/report/index" });
   },

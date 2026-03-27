@@ -162,6 +162,12 @@ Page({
     this.shiftWeek(7);
   },
 
+  retryLoad() {
+    if (this.data.isLoading || this.data.cacheActionLoading) return;
+    const weekStart = (this.data.weekStart || "").trim() || toYmd(mondayOf(new Date()));
+    this.loadWeeklyReport(weekStart);
+  },
+
   async handleDeleteCurrentWeekSnapshot() {
     const weekStart = (this.data.weekStart || "").trim();
     if (!weekStart) {

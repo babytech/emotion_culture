@@ -15,7 +15,12 @@
     </view>
   </view>
 
-  <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
+  <view wx:if="{{errorMsg}}" class="error card">
+    <view>{{errorMsg}}</view>
+    <button class="btn btn-secondary mini-btn" bindtap="retryLoad" disabled="{{isLoading || isLoadingMore}}">
+      重试
+    </button>
+  </view>
   <view wx:if="{{isLoading}}" class="loading card">正在加载收藏内容...</view>
 
   <view wx:elif="{{!items.length}}" class="empty card">
