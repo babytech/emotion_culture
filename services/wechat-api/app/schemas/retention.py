@@ -60,3 +60,18 @@ class WeeklyReportResponse(BaseModel):
     daily_digests: list[WeeklyDailyDigest] = Field(default_factory=list)
     insight: str
     source: str = "generated"
+
+
+class RetentionDeleteResponse(BaseModel):
+    success: bool
+    deleted_count: int = 0
+    message: str
+
+
+class RetentionWriteSettingsResponse(BaseModel):
+    write_enabled: bool = True
+    updated_at: Optional[str] = None
+
+
+class RetentionWriteSettingsUpdateRequest(BaseModel):
+    write_enabled: bool

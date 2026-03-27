@@ -1,4 +1,4 @@
-const { getRetentionWeeklyReport } = require("../../services/api");
+const { deleteRetentionWeeklyReport, getRetentionWeeklyReport } = require("../../services/api");
 
 function toDate(input) {
   const raw = (input || "").trim();
@@ -73,6 +73,7 @@ function buildTopTriggerTagItem(item) {
 Page({
   data: {
     isLoading: false,
+    cacheActionLoading: false,
     errorMsg: "",
     weekStart: "",
     weekEnd: "",
@@ -159,6 +160,52 @@ Page({
 
   goNextWeek() {
     this.shiftWeek(7);
+  },
+
+  async handleDeleteCurrentWeekSnapshot() {
+    const weekStart = (this.data.weekStart || "").trim();
+    if (!weekStart) {
+      return;
+    }
+
+    const confirmed = await new Promise((resolve) => {
+      wx.showModal({
+        title: "删除周报快照",
+        content: "将删除当前周报缓存，稍后会重新生成，是否继续？",
+        confirmText: "删除",
+        cancelText: "取消",
+        success(res) {
+          resolve(!!(res && res.confirm));
+        },
+        fail() {
+          resolve(false);
+        },
+      });
+    });
+    if (!confirmed) {
+      return;
+    }
+
+    this.setData({ cacheActionLoading: true, errorMsg: "" });
+    try {
+      const result = await deleteRetentionWeeklyReport(weekStart);
+      const deleted = Number(result && result.deleted_count) || 0;
+      wx.showToast({
+        title: deleted > 0 ? "已删除周报缓存" : "当前周无缓存",
+        icon: "none",
+      });
+      await this.loadWeeklyReport(weekStart);
+    } catch (err) {
+      this.setData({
+        errorMsg: (err && err.message) || "删除周报缓存失败，请稍后重试。",
+      });
+      wx.showToast({
+        title: "删除失败",
+        icon: "none",
+      });
+    } finally {
+      this.setData({ cacheActionLoading: false });
+    }
   },
 
   goCalendar() {

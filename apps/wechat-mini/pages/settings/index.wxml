@@ -5,7 +5,7 @@
       <view class="row-main">
         <view class="row-title">保存我的历史记录</view>
         <view class="row-desc text-muted">
-          默认开启，关闭后新分析结果将不再写入历史。
+          默认开启，关闭后新分析结果、打卡与周报缓存不再写入，收藏新增也会关闭。
         </view>
       </view>
       <switch
@@ -29,7 +29,7 @@
     <view class="section-title">隐私与数据说明</view>
     <view class="desc">1. 仅保存分析结果摘要，不保存原始自拍、图片和录音。</view>
     <view class="desc">2. 原始媒体仅用于本次分析或短期失败恢复，最长保留 24 小时。</view>
-    <view class="desc">3. 你可以随时删除单条历史或清空全部历史。</view>
+    <view class="desc">3. 你可以随时删除单条历史、清空收藏，或在周报页清除周报缓存。</view>
     <view class="desc">4. 本项目仅作情绪文化陪伴，不作医疗诊断。</view>
   </view>
 

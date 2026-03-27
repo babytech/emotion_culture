@@ -23,6 +23,14 @@
   <view class="toolbar card">
     <button class="btn btn-secondary mini-btn" bindtap="goPrevWeek" disabled="{{isLoading}}">上一周</button>
     <button class="btn btn-secondary mini-btn" bindtap="goNextWeek" disabled="{{isLoading}}">下一周</button>
+    <button
+      class="btn btn-secondary mini-btn"
+      bindtap="handleDeleteCurrentWeekSnapshot"
+      loading="{{cacheActionLoading}}"
+      disabled="{{isLoading || cacheActionLoading}}"
+    >
+      清除本周缓存
+    </button>
   </view>
 
   <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>

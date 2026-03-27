@@ -53,7 +53,6 @@ function buildFavoriteItemView(item) {
     title: safeText(item && item.title) || "未命名收藏",
     subtitle: safeText(item && item.subtitle),
     contentSummary: safeText(item && item.content_summary),
-    requestId: safeText(item && item.request_id),
     createdAtText: formatUpdatedAt(item && item.created_at),
     updatedAtText: formatUpdatedAt(item && item.updated_at),
   };

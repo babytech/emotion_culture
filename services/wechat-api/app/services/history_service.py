@@ -35,6 +35,11 @@ from app.schemas.retention import (
     WeeklyTriggerStat,
 )
 from app.schemas.settings import UserSettingsResponse
+from app.services.retention_cleanup_service import (
+    cleanup_retention_bucket,
+    default_retention_dict as build_default_retention_dict,
+    parse_iso_day as parse_retention_iso_day,
+)
 
 
 _STORE_LOCK = threading.RLock()
@@ -149,11 +154,7 @@ def _default_settings_dict() -> dict[str, Any]:
 
 
 def _default_retention_dict() -> dict[str, Any]:
-    return {
-        "checkins": {},
-        "weekly_reports": {},
-        "favorites": [],
-    }
+    return build_default_retention_dict()
 
 
 def _ensure_user_bucket(payload: dict[str, Any], user_id: str) -> dict[str, Any]:
@@ -238,13 +239,7 @@ def _to_iso_day(value: datetime) -> str:
 
 
 def _parse_iso_day(raw: str) -> Optional[date]:
-    text = (raw or "").strip()
-    if not text:
-        return None
-    try:
-        return datetime.strptime(text, "%Y-%m-%d").date()
-    except ValueError:
-        return None
+    return parse_retention_iso_day(raw)
 
 
 def _normalize_input_modes(values: Any) -> list[str]:
@@ -264,95 +259,12 @@ def _normalize_input_modes(values: Any) -> list[str]:
 
 
 def _cleanup_retention_data(bucket: dict[str, Any]) -> bool:
-    retention = bucket.get("retention")
-    if not isinstance(retention, dict):
-        bucket["retention"] = _default_retention_dict()
-        return True
-
-    changed = False
-    cutoff_day = (datetime.now(timezone.utc) - timedelta(days=_retention_days())).date()
-
-    checkins = retention.get("checkins")
-    if not isinstance(checkins, dict):
-        retention["checkins"] = {}
-        checkins = retention["checkins"]
-        changed = True
-
-    cleaned_checkins: dict[str, dict[str, Any]] = {}
-    for day_key, payload in checkins.items():
-        parsed_day = _parse_iso_day(day_key)
-        if not parsed_day or parsed_day < cutoff_day:
-            changed = True
-            continue
-        if not isinstance(payload, dict):
-            changed = True
-            continue
-        cleaned_checkins[day_key] = payload
-
-    if cleaned_checkins != checkins:
-        retention["checkins"] = cleaned_checkins
-        changed = True
-
-    weekly_reports = retention.get("weekly_reports")
-    if not isinstance(weekly_reports, dict):
-        retention["weekly_reports"] = {}
-        weekly_reports = retention["weekly_reports"]
-        changed = True
-
-    cleaned_reports: dict[str, dict[str, Any]] = {}
-    for week_key, report in weekly_reports.items():
-        if not isinstance(week_key, str) or not isinstance(report, dict):
-            changed = True
-            continue
-        cleaned_reports[week_key] = report
-
-    max_items = _weekly_report_cache_max_items()
-    if len(cleaned_reports) > max_items:
-        sorted_items = sorted(
-            cleaned_reports.items(),
-            key=lambda pair: str(pair[1].get("generated_at") or ""),
-            reverse=True,
-        )
-        cleaned_reports = dict(sorted_items[:max_items])
-        changed = True
-
-    if cleaned_reports != weekly_reports:
-        retention["weekly_reports"] = cleaned_reports
-        changed = True
-
-    favorites = retention.get("favorites")
-    if not isinstance(favorites, list):
-        retention["favorites"] = []
-        favorites = retention["favorites"]
-        changed = True
-
-    cleaned_favorites: list[dict[str, Any]] = []
-    for item in favorites:
-        if not isinstance(item, dict):
-            changed = True
-            continue
-        favorite_id = (item.get("favorite_id") or "").strip()
-        favorite_type = (item.get("favorite_type") or "").strip()
-        target_id = (item.get("target_id") or "").strip()
-        title = (item.get("title") or "").strip()
-        if not (favorite_id and favorite_type and target_id and title):
-            changed = True
-            continue
-        cleaned_favorites.append(item)
-
-    if len(cleaned_favorites) > _favorites_max_items():
-        cleaned_favorites.sort(
-            key=lambda row: str(row.get("updated_at") or row.get("created_at") or ""),
-            reverse=True,
-        )
-        cleaned_favorites = cleaned_favorites[: _favorites_max_items()]
-        changed = True
-
-    if cleaned_favorites != favorites:
-        retention["favorites"] = cleaned_favorites
-        changed = True
-
-    return changed
+    return cleanup_retention_bucket(
+        bucket=bucket,
+        retention_days=_retention_days(),
+        weekly_report_cache_max_items=_weekly_report_cache_max_items(),
+        favorites_max_items=_favorites_max_items(),
+    )
 
 
 def _upsert_daily_checkin(bucket: dict[str, Any], response: AnalyzeResponse) -> None:
@@ -580,6 +492,10 @@ def _get_settings_response(settings: dict[str, Any]) -> UserSettingsResponse:
     )
 
 
+def _is_retention_write_enabled(settings: dict[str, Any]) -> bool:
+    return bool(settings.get("save_history", True))
+
+
 def record_analysis_summary(user_id: str, response: AnalyzeResponse) -> Optional[HistorySummary]:
     normalized_user_id = _normalize_user_id(user_id)
     with _STORE_LOCK:
@@ -590,7 +506,7 @@ def record_analysis_summary(user_id: str, response: AnalyzeResponse) -> Optional
             changed = True
 
         settings = bucket.get("settings", _default_settings_dict())
-        if not bool(settings.get("save_history", True)):
+        if not _is_retention_write_enabled(settings):
             if changed:
                 _save_store(payload)
             return None
@@ -774,6 +690,68 @@ def clear_history_summaries(user_id: str) -> int:
         return deleted
 
 
+def delete_weekly_report_snapshot(user_id: str, week_start: Optional[str] = None) -> int:
+    normalized_user_id = _normalize_user_id(user_id)
+    week_key = _week_key(_parse_week_start(week_start))
+
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        retention = bucket.get("retention")
+        if not isinstance(retention, dict):
+            retention = _default_retention_dict()
+            bucket["retention"] = retention
+            changed = True
+        weekly_reports = retention.get("weekly_reports")
+        if not isinstance(weekly_reports, dict):
+            weekly_reports = {}
+            retention["weekly_reports"] = weekly_reports
+            changed = True
+
+        deleted = 1 if week_key in weekly_reports else 0
+        weekly_reports.pop(week_key, None)
+        if deleted > 0:
+            changed = True
+
+        if changed:
+            _save_store(payload)
+        return deleted
+
+
+def clear_weekly_report_snapshots(user_id: str) -> int:
+    normalized_user_id = _normalize_user_id(user_id)
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        retention = bucket.get("retention")
+        if not isinstance(retention, dict):
+            retention = _default_retention_dict()
+            bucket["retention"] = retention
+            changed = True
+        weekly_reports = retention.get("weekly_reports")
+        if not isinstance(weekly_reports, dict):
+            weekly_reports = {}
+            retention["weekly_reports"] = weekly_reports
+            changed = True
+
+        deleted = len(weekly_reports)
+        if deleted > 0:
+            weekly_reports.clear()
+            changed = True
+
+        if changed:
+            _save_store(payload)
+        return deleted
+
+
 def get_user_settings(user_id: str) -> UserSettingsResponse:
     normalized_user_id = _normalize_user_id(user_id)
     with _STORE_LOCK:
@@ -911,6 +889,8 @@ def get_weekly_report(user_id: str, week_start: Optional[str] = None) -> WeeklyR
         changed = _cleanup_user_history(bucket)
         if _cleanup_retention_data(bucket):
             changed = True
+        settings = bucket.get("settings", _default_settings_dict())
+        retention_write_enabled = _is_retention_write_enabled(settings)
 
         retention = bucket.get("retention", {})
         if isinstance(retention, dict):
@@ -1015,7 +995,7 @@ def get_weekly_report(user_id: str, week_start: Optional[str] = None) -> WeeklyR
             ),
         )
 
-        if isinstance(retention, dict):
+        if retention_write_enabled and isinstance(retention, dict):
             weekly_cache = retention.get("weekly_reports")
             if not isinstance(weekly_cache, dict):
                 weekly_cache = {}
@@ -1122,6 +1102,11 @@ def upsert_favorite(user_id: str, payload_input: FavoriteUpsertRequest) -> Favor
         changed = _cleanup_user_history(bucket)
         if _cleanup_retention_data(bucket):
             changed = True
+        settings = bucket.get("settings", _default_settings_dict())
+        if not _is_retention_write_enabled(settings):
+            if changed:
+                _save_store(payload)
+            raise ValueError("[RETENTION_WRITE_DISABLED] 留存写入已关闭，暂不支持新增收藏。")
 
         favorites = _favorites_list(bucket)
         created = True

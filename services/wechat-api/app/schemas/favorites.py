@@ -16,10 +16,8 @@ class FavoriteItem(BaseModel):
     title: str
     subtitle: Optional[str] = None
     content_summary: Optional[str] = None
-    request_id: Optional[str] = None
     created_at: str
     updated_at: str
-    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class FavoriteListResponse(BaseModel):

@@ -10,6 +10,9 @@ This folder contains phase-2 backend scaffolding for the WeChat mini program.
 - `/api/send-email` email endpoint
 - `/api/retention/calendar` retention calendar endpoint
 - `/api/retention/weekly-report` retention weekly report endpoint
+- `/api/retention/write-settings` retention write switch endpoint
+- `/api/retention/weekly-report(s)` retention weekly snapshot delete endpoint
+- `/api/retention/favorites` retention favorites clear endpoint
 - `/api/favorites*` favorites endpoints
 - `/api/stt/tencent` built-in Tencent STT gateway endpoint
 - Request/response schemas

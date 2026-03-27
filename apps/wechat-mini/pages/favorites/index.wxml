@@ -33,7 +33,6 @@
         <view class="item-title">{{item.title}}</view>
         <view wx:if="{{item.subtitle}}" class="item-sub text-muted">{{item.subtitle}}</view>
         <view wx:if="{{item.contentSummary}}" class="item-summary">{{item.contentSummary}}</view>
-        <view wx:if="{{item.requestId}}" class="item-meta text-muted">来源请求：{{item.requestId}}</view>
         <button class="btn mini-btn" data-id="{{item.favoriteId}}" bindtap="handleDeleteFavorite">取消收藏</button>
       </view>
     </view>

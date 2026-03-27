@@ -10,6 +10,7 @@ from app.api.email import router as email_router
 from app.api.favorites import router as favorites_router
 from app.api.health import router as health_router
 from app.api.history import router as history_router
+from app.api.retention import router as retention_router
 from app.api.report import router as report_router
 from app.api.settings import router as settings_router
 from app.api.stt import router as stt_router
@@ -38,6 +39,7 @@ app.include_router(analyze_router, prefix="/api", tags=["analyze"])
 app.include_router(email_router, prefix="/api", tags=["email"])
 app.include_router(favorites_router, prefix="/api", tags=["favorites"])
 app.include_router(history_router, prefix="/api", tags=["history"])
+app.include_router(retention_router, prefix="/api", tags=["retention-manage"])
 app.include_router(report_router, prefix="/api", tags=["retention"])
 app.include_router(settings_router, prefix="/api", tags=["settings"])
 app.include_router(stt_router, prefix="/api", tags=["stt"])

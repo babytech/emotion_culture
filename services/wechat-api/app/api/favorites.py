@@ -65,7 +65,13 @@ def favorite_status(
 def upsert_favorite(payload: FavoriteUpsertRequest, request: Request) -> FavoriteUpsertResponse:
     _ensure_favorites_enabled()
     user_id = resolve_user_id(request=request)
-    return add_or_update_user_favorite(user_id=user_id, payload=payload)
+    try:
+        return add_or_update_user_favorite(user_id=user_id, payload=payload)
+    except ValueError as exc:
+        message = str(exc)
+        if "[RETENTION_WRITE_DISABLED]" in message:
+            raise HTTPException(status_code=409, detail=message) from exc
+        raise HTTPException(status_code=400, detail=message) from exc
 
 
 @router.delete("/favorites/{favorite_id}", response_model=FavoriteDeleteResponse)

@@ -368,10 +368,29 @@ Response example:
 - `generated`: computed on this request
 - `cache`: loaded from per-user weekly report cache
 
+Privacy boundary for retention statistics:
+
+- `calendar.items[].analyzed_at` and `weekly_report.daily_digests[].analyzed_at` are returned as `null` to avoid exporting precise behavior timestamps.
+- Retention APIs only expose aggregate/digest fields and do not include internal request ids.
+
 Feature-flag guard:
 
 - If `RETENTION_SERVICE_ENABLED=off`, retention APIs return `503` with `[RETENTION_SERVICE_DISABLED]`.
 - If `RETENTION_WEEKLY_REPORT_ENABLED=off`, weekly report API returns `503` with `[RETENTION_WEEKLY_REPORT_DISABLED]`.
+
+Retention management extensions:
+
+- `GET /api/retention/write-settings`
+  - returns `{ "write_enabled": true|false, "updated_at": "..." }`
+- `PUT /api/retention/write-settings`
+  - request body: `{ "write_enabled": true|false }`
+  - controls whether new retention writes are allowed for the current user
+- `DELETE /api/retention/weekly-report?week_start=YYYY-MM-DD`
+  - deletes one weekly report snapshot cache for current user
+- `DELETE /api/retention/weekly-reports`
+  - clears all weekly report snapshots for current user
+- `DELETE /api/retention/favorites?favorite_type=poem|guochao`
+  - clears favorites for current user (all types when omitted)
 
 ## 7) Favorites APIs (phase-2 base)
 
@@ -391,10 +410,8 @@ Response:
       "title": "千山鸟飞绝，万径人踪灭。",
       "subtitle": "柳宗元",
       "content_summary": "综合文本、图像信号...",
-      "request_id": "ana_2f3c0cfa5c53",
       "created_at": "2026-03-27T12:10:00Z",
-      "updated_at": "2026-03-27T12:10:00Z",
-      "metadata": {}
+      "updated_at": "2026-03-27T12:10:00Z"
     }
   ],
   "total": 1
@@ -423,6 +440,8 @@ Response:
   "metadata": {}
 }
 ```
+
+`request_id` / `metadata` 仅作为写入侧上下文，出于隐私边界不会在收藏查询接口中回传。
 
 Response:
 
@@ -467,6 +486,7 @@ Feature-flag guard:
 
 - `200`: success
 - `400`: bad request / missing env / invalid file id / resolver failure
+- `409`: retention write disabled for current user (for example favorites upsert)
 - `422`: schema validation error
 - `500`: internal server error
 - `503`: feature disabled by admin config (retention/week report/favorites)
@@ -487,6 +507,10 @@ Voice quality reject details (`400`, from BE-011):
 - `provider_unconfigured`: endpoint not configured
 - `request_failed`: STT HTTP request failed
 - `runtime_error`: unexpected STT runtime error
+
+Retention write guard details (`409`):
+
+- `[RETENTION_WRITE_DISABLED]`: current user has disabled retention write; reads/deletes are still allowed.
 
 Email error codes (`/api/send-email` response fields):
 

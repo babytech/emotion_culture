@@ -227,6 +227,23 @@ function getRetentionWeeklyReport(weekStart) {
   return callViaContainer(`/api/retention/weekly-report${query}`, "GET");
 }
 
+function deleteRetentionWeeklyReport(weekStart) {
+  const query = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : "";
+  return callViaContainer(`/api/retention/weekly-report${query}`, "DELETE");
+}
+
+function clearRetentionWeeklyReports() {
+  return callViaContainer("/api/retention/weekly-reports", "DELETE");
+}
+
+function getRetentionWriteSettings() {
+  return callViaContainer("/api/retention/write-settings", "GET");
+}
+
+function updateRetentionWriteSettings(payload) {
+  return callViaContainer("/api/retention/write-settings", "PUT", payload || {});
+}
+
 function listFavorites(options = {}) {
   const limit = Math.max(1, Math.min(Number(options.limit) || 20, 100));
   const offset = Math.max(0, Number(options.offset) || 0);
@@ -272,15 +289,19 @@ module.exports = {
   clearFavorites,
   deleteHistoryItem,
   deleteFavoriteItem,
+  deleteRetentionWeeklyReport,
+  clearRetentionWeeklyReports,
   getFavoriteStatus,
   getHistoryDetail,
   getRetentionCalendar,
   getRetentionWeeklyReport,
+  getRetentionWriteSettings,
   getSettings,
   listHistory,
   listFavorites,
   normalizeAssetUrl,
   sendEmail,
   upsertFavorite,
+  updateRetentionWriteSettings,
   updateSettings,
 };
