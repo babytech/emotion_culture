@@ -2,6 +2,10 @@
   "pages": [
     "pages/index/index",
     "pages/result/result",
+    "pages/calendar/index",
+    "pages/report/index",
+    "pages/favorites/index",
+    "pages/share/index",
     "pages/history/index",
     "pages/history/detail",
     "pages/settings/index"

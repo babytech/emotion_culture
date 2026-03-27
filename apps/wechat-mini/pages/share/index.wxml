@@ -1,0 +1,45 @@
+<view class="container page-root">
+  <view wx:if="{{!hasData}}" class="error card">
+    <view>{{errorMsg}}</view>
+    <button class="btn btn-secondary back-btn" bindtap="goBack">返回</button>
+  </view>
+
+  <block wx:if="{{hasData}}">
+    <view class="card header">
+      <view class="title">分享卡片导出</view>
+      <view class="sub text-muted">生成基础分享图，可保存到相册后转发给家人或朋友。</view>
+      <view class="meta">主情绪：{{payload.emotionLabel}}</view>
+      <view class="meta">当前连续打卡：{{payload.currentStreak}} 天</view>
+      <view class="meta">本月打卡：{{payload.monthCheckinDays}} 天</view>
+      <view wx:if="{{generatedAtText}}" class="meta text-muted">生成时间：{{generatedAtText}}</view>
+    </view>
+
+    <view class="card canvas-wrap">
+      <canvas
+        canvas-id="shareCardCanvas"
+        class="share-canvas"
+        style="width: {{canvasWidth}}rpx; height: {{canvasHeight}}rpx;"
+      />
+    </view>
+
+    <view wx:if="{{imageTempPath}}" class="card preview-wrap">
+      <view class="preview-title">已生成图片预览</view>
+      <image class="preview-image" mode="widthFix" src="{{imageTempPath}}" />
+    </view>
+
+    <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
+    <view wx:if="{{saveStatus}}" class="status card">{{saveStatus}}</view>
+
+    <button
+      class="btn btn-primary action-btn"
+      loading="{{isGenerating}}"
+      disabled="{{isGenerating}}"
+      bindtap="generateCard"
+    >
+      生成分享卡片
+    </button>
+    <button class="btn btn-secondary action-btn" bindtap="saveCardToAlbum">保存到相册</button>
+    <button class="btn btn-secondary action-btn" bindtap="previewGeneratedCard">预览生成图片</button>
+    <button class="btn btn-secondary action-btn" open-type="share">转发小程序</button>
+  </block>
+</view>

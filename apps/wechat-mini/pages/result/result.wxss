@@ -134,6 +134,35 @@
   color: #3f2f22;
 }
 
+.checkin-wrap {
+  margin-top: 8rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  align-items: center;
+}
+
+.checkin-chip {
+  border-radius: 999rpx;
+  padding: 8rpx 14rpx;
+  font-size: 24rpx;
+}
+
+.checkin-chip.ok {
+  background: #e8f7ee;
+  color: #0f6c4d;
+}
+
+.checkin-chip.miss {
+  background: #f4efe6;
+  color: #7e6d58;
+}
+
+.checkin-meta {
+  font-size: 24rpx;
+  color: #6d5844;
+}
+
 .speech-transcript {
   margin-top: 6rpx;
   line-height: 1.7;
@@ -213,6 +242,22 @@
   line-height: 1.8;
   white-space: pre-wrap;
   font-size: 29rpx;
+}
+
+.favorite-actions {
+  margin-top: 14rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  flex-wrap: wrap;
+}
+
+.favorite-badge {
+  font-size: 23rpx;
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  background: #e8f7ee;
+  color: #0f6c4d;
 }
 
 .user-actions {
@@ -306,4 +351,11 @@
 .email-status {
   margin-top: 12rpx;
   font-size: 26rpx;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
 }

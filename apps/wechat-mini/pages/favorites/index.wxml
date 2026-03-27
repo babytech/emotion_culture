@@ -1,0 +1,59 @@
+<view class="container page-root">
+  <view class="card header">
+    <view class="title">我的收藏</view>
+    <view class="sub text-muted">回看你收藏过的诗词与国潮慰藉内容。</view>
+    <view class="tabs">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="value"
+        class="{{item.className}}"
+        data-type="{{item.value}}"
+        bindtap="handleTabChange"
+      >
+        {{item.label}}
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
+  <view wx:if="{{isLoading}}" class="loading card">正在加载收藏内容...</view>
+
+  <view wx:elif="{{!items.length}}" class="empty card">
+    <view class="empty-title">暂无收藏</view>
+    <view class="text-muted">{{emptyText}}</view>
+  </view>
+
+  <block wx:else>
+    <view class="list-wrap">
+      <view wx:for="{{items}}" wx:key="favoriteId" class="card item">
+        <view class="item-head">
+          <view class="{{item.typeClassName}}">{{item.typeLabel}}</view>
+          <view class="item-time text-muted">{{item.updatedAtText}}</view>
+        </view>
+        <view class="item-title">{{item.title}}</view>
+        <view wx:if="{{item.subtitle}}" class="item-sub text-muted">{{item.subtitle}}</view>
+        <view wx:if="{{item.contentSummary}}" class="item-summary">{{item.contentSummary}}</view>
+        <view wx:if="{{item.requestId}}" class="item-meta text-muted">来源请求：{{item.requestId}}</view>
+        <button class="btn mini-btn" data-id="{{item.favoriteId}}" bindtap="handleDeleteFavorite">取消收藏</button>
+      </view>
+    </view>
+  </block>
+
+  <button
+    class="btn btn-secondary action-btn"
+    loading="{{isClearing}}"
+    disabled="{{isClearing}}"
+    bindtap="handleClearCurrentType"
+  >
+    清空当前筛选收藏
+  </button>
+  <button
+    wx:if="{{hasMore}}"
+    class="btn btn-secondary action-btn"
+    loading="{{isLoadingMore}}"
+    disabled="{{isLoadingMore}}"
+    bindtap="loadMore"
+  >
+    加载更多
+  </button>
+</view>

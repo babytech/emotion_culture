@@ -133,4 +133,8 @@ Page({
   goHistory() {
     wx.navigateTo({ url: "/pages/history/index" });
   },
+
+  goFavorites() {
+    wx.navigateTo({ url: "/pages/favorites/index" });
+  },
 });

@@ -20,6 +20,7 @@
     </view>
     <button class="btn clear-btn" bindtap="handleClearHistory">清空全部历史</button>
     <button class="btn btn-secondary history-btn" bindtap="goHistory">查看历史记录</button>
+    <button class="btn btn-secondary history-btn" bindtap="goFavorites">查看我的收藏</button>
   </view>
 
   <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>

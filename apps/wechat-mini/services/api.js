@@ -217,14 +217,70 @@ function updateSettings(payload) {
   return callViaContainer("/api/settings", "PUT", payload || {});
 }
 
+function getRetentionCalendar(month) {
+  const query = month ? `?month=${encodeURIComponent(month)}` : "";
+  return callViaContainer(`/api/retention/calendar${query}`, "GET");
+}
+
+function getRetentionWeeklyReport(weekStart) {
+  const query = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : "";
+  return callViaContainer(`/api/retention/weekly-report${query}`, "GET");
+}
+
+function listFavorites(options = {}) {
+  const limit = Math.max(1, Math.min(Number(options.limit) || 20, 100));
+  const offset = Math.max(0, Number(options.offset) || 0);
+  const type = (options.favoriteType || options.favorite_type || "").trim();
+  const parts = [`limit=${limit}`, `offset=${offset}`];
+  if (type) {
+    parts.push(`favorite_type=${encodeURIComponent(type)}`);
+  }
+  return callViaContainer(`/api/favorites?${parts.join("&")}`, "GET");
+}
+
+function getFavoriteStatus(options = {}) {
+  const type = (options.favoriteType || options.favorite_type || "").trim();
+  const targetId = (options.targetId || options.target_id || "").trim();
+  if (!type || !targetId) {
+    return Promise.reject(new Error("favoriteType and targetId are required"));
+  }
+  return callViaContainer(
+    `/api/favorites/status?favorite_type=${encodeURIComponent(type)}&target_id=${encodeURIComponent(targetId)}`,
+    "GET"
+  );
+}
+
+function upsertFavorite(payload) {
+  return callViaContainer("/api/favorites", "POST", payload || {});
+}
+
+function deleteFavoriteItem(favoriteId) {
+  if (!favoriteId) {
+    return Promise.reject(new Error("favoriteId is required"));
+  }
+  return callViaContainer(`/api/favorites/${encodeURIComponent(favoriteId)}`, "DELETE");
+}
+
+function clearFavorites(favoriteType) {
+  const query = favoriteType ? `?favorite_type=${encodeURIComponent(favoriteType)}` : "";
+  return callViaContainer(`/api/favorites${query}`, "DELETE");
+}
+
 module.exports = {
   analyze,
   clearHistory,
+  clearFavorites,
   deleteHistoryItem,
+  deleteFavoriteItem,
+  getFavoriteStatus,
   getHistoryDetail,
+  getRetentionCalendar,
+  getRetentionWeeklyReport,
   getSettings,
   listHistory,
+  listFavorites,
   normalizeAssetUrl,
   sendEmail,
+  upsertFavorite,
   updateSettings,
 };

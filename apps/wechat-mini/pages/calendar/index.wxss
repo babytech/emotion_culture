@@ -1,0 +1,175 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.header {
+  padding: 24rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+}
+
+.stats {
+  margin-top: 16rpx;
+  display: flex;
+  gap: 12rpx;
+}
+
+.stat-item {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 250, 241, 0.85);
+  border-radius: 14rpx;
+  border: 2rpx solid rgba(161, 38, 27, 0.12);
+  padding: 12rpx 10rpx;
+}
+
+.stat-value {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #5f3a1f;
+}
+
+.stat-label {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+}
+
+.today-tag {
+  margin-top: 12rpx;
+  display: inline-flex;
+  width: fit-content;
+  padding: 8rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+}
+
+.today-ok {
+  background: #e8f7ee;
+  color: #0f6c4d;
+}
+
+.today-miss {
+  background: #f4efe6;
+  color: #7e6d58;
+}
+
+.toolbar {
+  padding: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.mini-btn {
+  min-height: 66rpx;
+  line-height: 66rpx;
+  padding: 0 18rpx !important;
+  font-size: 24rpx !important;
+}
+
+.month-text {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #5f3a1f;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
+}
+
+.loading,
+.empty {
+  padding: 24rpx;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+
+.calendar {
+  padding: 18rpx;
+}
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8rpx;
+  margin-bottom: 10rpx;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 24rpx;
+  color: #7f6c58;
+  font-weight: 600;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8rpx;
+}
+
+.day-cell {
+  min-height: 96rpx;
+  border-radius: 14rpx;
+  border: 2rpx solid rgba(161, 38, 27, 0.1);
+  padding: 8rpx 6rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.checked {
+  background: #fff3e0;
+  border-color: rgba(216, 162, 77, 0.55);
+}
+
+.unchecked {
+  background: #f9f5ed;
+}
+
+.day-num {
+  font-size: 25rpx;
+  font-weight: 700;
+  color: #614c3a;
+}
+
+.emotion {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+  color: #7b3f24;
+}
+
+.count {
+  margin-top: 2rpx;
+  font-size: 20rpx;
+  color: #92735a;
+}
+
+.result-btn {
+  width: 100%;
+  min-height: 90rpx;
+  line-height: 90rpx;
+  padding: 0 !important;
+  font-size: 36rpx;
+  text-align: center;
+  font-weight: 700;
+}

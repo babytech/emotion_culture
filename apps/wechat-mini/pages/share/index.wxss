@@ -1,0 +1,82 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.header {
+  padding: 24rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+}
+
+.meta {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #4a382a;
+}
+
+.canvas-wrap {
+  padding: 18rpx;
+}
+
+.share-canvas {
+  width: 100%;
+  border-radius: 16rpx;
+  border: 2rpx solid rgba(161, 38, 27, 0.14);
+  background: #f7f1e8;
+}
+
+.preview-wrap {
+  padding: 18rpx;
+}
+
+.preview-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  margin-bottom: 10rpx;
+}
+
+.preview-image {
+  width: 100%;
+  border-radius: 14rpx;
+  background: #f5efe4;
+}
+
+.action-btn {
+  width: 100%;
+  min-height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 !important;
+  font-size: 30rpx;
+  text-align: center;
+  font-weight: 700;
+}
+
+.status {
+  padding: 20rpx;
+  color: #0f6c4d;
+  background: #e8f7ee;
+  border-color: rgba(15, 108, 77, 0.2);
+  font-size: 25rpx;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
+}
+
+.back-btn {
+  margin-top: 16rpx;
+}

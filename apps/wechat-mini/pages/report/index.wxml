@@ -1,0 +1,93 @@
+<view class="container page-root">
+  <view class="header card">
+    <view class="title">周报复盘</view>
+    <view class="sub text-muted">回看本周情绪波动与建议重点。</view>
+    <view class="week-range">{{weekLabel}}</view>
+    <view class="stats">
+      <view class="stat-item">
+        <view class="stat-value">{{totalCheckinDays}}</view>
+        <view class="stat-label text-muted">本周打卡天数</view>
+      </view>
+      <view class="stat-item">
+        <view class="stat-value">{{currentStreak}}</view>
+        <view class="stat-label text-muted">当前连续天数</view>
+      </view>
+      <view class="stat-item">
+        <view class="stat-value">{{checkedTodayText}}</view>
+        <view class="stat-label text-muted">今日已打卡</view>
+      </view>
+    </view>
+    <view wx:if="{{source}}" class="source text-muted">数据来源：{{source}}</view>
+  </view>
+
+  <view class="toolbar card">
+    <button class="btn btn-secondary mini-btn" bindtap="goPrevWeek" disabled="{{isLoading}}">上一周</button>
+    <button class="btn btn-secondary mini-btn" bindtap="goNextWeek" disabled="{{isLoading}}">下一周</button>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
+  <view wx:if="{{isLoading}}" class="loading card">正在生成周报...</view>
+
+  <block wx:else>
+    <view class="section card">
+      <view class="section-title">本周洞察</view>
+      <view class="insight">{{insightText}}</view>
+    </view>
+
+    <view class="section card">
+      <view class="section-title">主情绪分布</view>
+      <view wx:if="{{dominantEmotions.length}}" class="chip-wrap">
+        <view wx:for="{{dominantEmotions}}" wx:key="index" class="chip">
+          {{item.displayLabel}}（{{item.days}}天）
+        </view>
+      </view>
+      <view wx:else class="text-muted">暂无情绪分布数据</view>
+    </view>
+
+    <view class="section card">
+      <view class="section-title">高频触发因素</view>
+      <view wx:if="{{topTriggerTags.length}}" class="chip-wrap">
+        <view wx:for="{{topTriggerTags}}" wx:key="index" class="chip">
+          {{item.tag}}（{{item.count}}）
+        </view>
+      </view>
+      <view wx:else class="text-muted">暂无触发因素数据</view>
+    </view>
+
+    <view class="section card">
+      <view class="section-title">建议回顾</view>
+      <view wx:if="{{suggestionHighlights.length}}" class="suggestion-list">
+        <view wx:for="{{suggestionHighlights}}" wx:key="index" class="suggestion-item">
+          {{index + 1}}. {{item}}
+        </view>
+      </view>
+      <view wx:else class="text-muted">暂无建议回顾数据</view>
+    </view>
+
+    <view class="section card">
+      <view class="section-title">每日摘要</view>
+      <view wx:if="{{dailyDigests.length}}" class="digest-list">
+        <view wx:for="{{dailyDigests}}" wx:key="date" class="digest-item">
+          <view class="digest-head">
+            <view class="digest-date">{{item.displayDate}}</view>
+            <view class="digest-tag {{item.statusClass}}">
+              {{item.statusText}}
+            </view>
+          </view>
+          <view wx:if="{{item.hasCheckin}}" class="digest-line">
+            主情绪：{{item.emotionDisplay}}
+          </view>
+          <view wx:if="{{item.hasCheckin && item.hasTriggerTags}}" class="digest-line text-muted">
+            触发因素：{{item.triggerTagsText}}
+          </view>
+          <view wx:if="{{item.hasCheckin && item.hasSuggestionSummary}}" class="digest-line text-muted">
+            建议：{{item.suggestionSummary}}
+          </view>
+        </view>
+      </view>
+      <view wx:else class="text-muted">暂无每日摘要数据</view>
+    </view>
+  </block>
+
+  <button class="btn result-btn" bindtap="goCalendar">查看情绪日历</button>
+</view>

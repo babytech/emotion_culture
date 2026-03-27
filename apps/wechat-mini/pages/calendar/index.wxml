@@ -1,0 +1,52 @@
+<view class="container page-root">
+  <view class="header card">
+    <view class="title">情绪日历</view>
+    <view class="sub text-muted">按月查看你的情绪记录与打卡状态。</view>
+    <view class="stats">
+      <view class="stat-item">
+        <view class="stat-value">{{checkedDays}}</view>
+        <view class="stat-label text-muted">本月打卡天数</view>
+      </view>
+      <view class="stat-item">
+        <view class="stat-value">{{currentStreak}}</view>
+        <view class="stat-label text-muted">当前连续天数</view>
+      </view>
+      <view class="stat-item">
+        <view class="stat-value">{{longestStreak}}</view>
+        <view class="stat-label text-muted">最长连续天数</view>
+      </view>
+    </view>
+    <view class="today-tag {{checkedTodayClass}}">
+      {{checkedTodayText}}
+    </view>
+  </view>
+
+  <view class="toolbar card">
+    <button class="btn btn-secondary mini-btn" bindtap="goPrevMonth" disabled="{{isLoading}}">上个月</button>
+    <view class="month-text">{{currentMonthLabel}}</view>
+    <button class="btn btn-secondary mini-btn" bindtap="goNextMonth" disabled="{{isLoading}}">下个月</button>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
+  <view wx:if="{{isLoading}}" class="loading card">正在加载日历...</view>
+
+  <view wx:elif="{{!items.length}}" class="empty card">
+    <view class="empty-title">本月暂无记录</view>
+    <view class="text-muted">完成一次分析后，会在这里显示当天状态。</view>
+  </view>
+
+  <view wx:else class="calendar card">
+    <view class="weekday-row">
+      <view wx:for="{{weekdays}}" wx:key="*this" class="weekday">{{item}}</view>
+    </view>
+    <view class="grid">
+      <view wx:for="{{items}}" wx:key="date" class="day-cell {{item.statusClass}}">
+        <view class="day-num">{{item.day}}</view>
+        <view wx:if="{{item.hasCheckin && item.emotionShort}}" class="emotion">{{item.emotionShort}}</view>
+        <view wx:if="{{item.hasCheckin && item.analysesCount > 1}}" class="count">x{{item.analysesCount}}</view>
+      </view>
+    </view>
+  </view>
+
+  <button class="btn result-btn" bindtap="goReport">查看周报</button>
+</view>

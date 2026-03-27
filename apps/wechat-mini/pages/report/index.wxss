@@ -1,0 +1,179 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.header {
+  padding: 24rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+}
+
+.week-range {
+  margin-top: 10rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #5f3a1f;
+}
+
+.stats {
+  margin-top: 14rpx;
+  display: flex;
+  gap: 12rpx;
+}
+
+.stat-item {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 250, 241, 0.85);
+  border-radius: 14rpx;
+  border: 2rpx solid rgba(161, 38, 27, 0.12);
+  padding: 10rpx;
+}
+
+.stat-value {
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #5f3a1f;
+}
+
+.stat-label {
+  margin-top: 4rpx;
+  font-size: 22rpx;
+}
+
+.source {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+}
+
+.toolbar {
+  padding: 16rpx;
+  display: flex;
+  gap: 12rpx;
+}
+
+.mini-btn {
+  flex: 1;
+  min-height: 66rpx;
+  line-height: 66rpx;
+  padding: 0 18rpx !important;
+  font-size: 24rpx !important;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
+}
+
+.loading {
+  padding: 24rpx;
+}
+
+.section {
+  padding: 22rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  margin-bottom: 10rpx;
+}
+
+.insight {
+  line-height: 1.7;
+  font-size: 28rpx;
+  color: #3f2f22;
+}
+
+.chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.chip {
+  padding: 8rpx 14rpx;
+  border-radius: 999rpx;
+  font-size: 24rpx;
+  background: #f2e3cc;
+  color: #7a4f2c;
+}
+
+.suggestion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.suggestion-item {
+  font-size: 27rpx;
+  line-height: 1.6;
+}
+
+.digest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+}
+
+.digest-item {
+  padding: 14rpx;
+  border-radius: 14rpx;
+  border: 2rpx solid rgba(161, 38, 27, 0.12);
+  background: #fffdf8;
+}
+
+.digest-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.digest-date {
+  font-size: 26rpx;
+  font-weight: 700;
+}
+
+.digest-tag {
+  font-size: 22rpx;
+  border-radius: 999rpx;
+  padding: 6rpx 12rpx;
+}
+
+.digest-tag.ok {
+  background: #e8f7ee;
+  color: #0f6c4d;
+}
+
+.digest-tag.miss {
+  background: #f4efe6;
+  color: #7e6d58;
+}
+
+.digest-line {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
+
+.result-btn {
+  width: 100%;
+  min-height: 90rpx;
+  line-height: 90rpx;
+  padding: 0 !important;
+  font-size: 36rpx;
+  text-align: center;
+  font-weight: 700;
+}

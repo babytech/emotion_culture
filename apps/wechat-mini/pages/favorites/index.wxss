@@ -1,0 +1,142 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.header {
+  padding: 24rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+}
+
+.tabs {
+  margin-top: 16rpx;
+  display: flex;
+  gap: 10rpx;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  border-radius: 999rpx;
+  border: 2rpx solid rgba(161, 38, 27, 0.18);
+  background: #f8f2e7;
+  color: #6d5844;
+  font-size: 24rpx;
+  padding: 12rpx 8rpx;
+}
+
+.tab-active {
+  background: linear-gradient(135deg, #f7e2bf, #eec27a);
+  color: #603f24;
+  border-color: rgba(216, 162, 77, 0.55);
+  font-weight: 700;
+}
+
+.loading,
+.empty {
+  padding: 24rpx;
+}
+
+.empty-title {
+  font-size: 32rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+
+.list-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.item {
+  padding: 22rpx;
+}
+
+.item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.type-badge {
+  border-radius: 999rpx;
+  padding: 6rpx 12rpx;
+  font-size: 22rpx;
+  background: #efe7da;
+  color: #614f3d;
+}
+
+.type-poem {
+  background: #f4e5cf;
+  color: #835628;
+}
+
+.type-guochao {
+  background: #e8f7ee;
+  color: #0f6c4d;
+}
+
+.item-time {
+  font-size: 22rpx;
+}
+
+.item-title {
+  margin-top: 10rpx;
+  font-size: 30rpx;
+  line-height: 1.55;
+  color: #3f2f22;
+}
+
+.item-sub {
+  margin-top: 6rpx;
+  font-size: 24rpx;
+}
+
+.item-summary {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  line-height: 1.65;
+  color: #4b392a;
+}
+
+.item-meta {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+}
+
+.mini-btn {
+  margin-top: 14rpx;
+  min-height: 66rpx;
+  line-height: 66rpx;
+  padding: 0 24rpx !important;
+  font-size: 24rpx !important;
+}
+
+.action-btn {
+  width: 100%;
+  min-height: 86rpx;
+  line-height: 86rpx;
+  padding: 0 !important;
+  font-size: 30rpx;
+  text-align: center;
+  font-weight: 700;
+}
+
+.error {
+  padding: 20rpx;
+  border-color: rgba(180, 33, 33, 0.35);
+  color: #8f1f1f;
+  background: #fff0ef;
+}

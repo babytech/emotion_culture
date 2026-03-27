@@ -1,7 +1,17 @@
-const { normalizeAssetUrl, sendEmail } = require("../../services/api");
+const {
+  deleteFavoriteItem,
+  getFavoriteStatus,
+  getRetentionCalendar,
+  normalizeAssetUrl,
+  sendEmail,
+  upsertFavorite,
+} = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
 
 const DEFAULT_DAILY_SUGGESTION = "今天先做一件你能马上完成的小行动，逐步稳住状态。";
+const FAVORITE_TYPE_POEM = "poem";
+const FAVORITE_TYPE_GUOCHAO = "guochao";
+const SHARE_PAYLOAD_STORAGE_KEY = "ec_share_payload";
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -214,6 +224,74 @@ function clearRequestUserImageRefs(req) {
   req.user_image_temp_path = "";
 }
 
+function normalizeMonthValue(value) {
+  const dateObj = value ? new Date(value) : new Date();
+  const safeDate = Number.isNaN(dateObj.getTime()) ? new Date() : dateObj;
+  const yyyy = safeDate.getFullYear();
+  const mm = String(safeDate.getMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}`;
+}
+
+function stableHash(input) {
+  const text = safeText(input);
+  let hash = 5381;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 33) ^ text.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function clampText(value, maxLen) {
+  const text = safeText(value);
+  if (!text) return "";
+  if (!maxLen || text.length <= maxLen) return text;
+  return text.slice(0, maxLen);
+}
+
+function buildFavoriteTargetId(type, parts) {
+  const normalizedType = safeText(type) || "item";
+  const raw = Array.isArray(parts) ? parts.map(safeText).join("|") : safeText(parts);
+  const hash = stableHash(raw || `${normalizedType}_${Date.now()}`);
+  return `${normalizedType}_${hash.slice(0, 12)}`;
+}
+
+function parseFavoriteFlag(result) {
+  if (!result || typeof result !== "object") return false;
+  if (result.is_favorited === true) return true;
+  if (result.isFavorite === true) return true;
+  if (result.is_favorite === true) return true;
+  return false;
+}
+
+function extractErrorMessage(err, fallback) {
+  return ((err && err.message) || fallback || "").trim();
+}
+
+function isFavoriteDisabledError(message) {
+  return typeof message === "string" && message.includes("RETENTION_FAVORITES_DISABLED");
+}
+
+function buildSharePayloadFromData(data) {
+  const triggerTags = Array.isArray(data && data.triggerTags) ? data.triggerTags : [];
+  return {
+    requestId: safeText(data && data.requestId),
+    emotionLabel: safeText(data && data.emotionLabel),
+    emotionCode: safeText(data && data.emotionCode),
+    emotionOverview: clampText(data && data.emotionOverview, 220),
+    dailySuggestion: clampText(data && data.dailySuggestion, 180),
+    poet: safeText(data && data.poet),
+    poemText: clampText(data && data.poemText, 220),
+    interpretation: clampText(data && data.interpretation, 180),
+    guochaoName: safeText(data && data.guochaoName),
+    comfort: clampText(data && data.comfort, 220),
+    triggerTags: triggerTags.slice(0, 5),
+    checkedTodayText: safeText(data && data.checkedTodayText),
+    currentStreak: Number(data && data.currentStreak) || 0,
+    monthCheckinDays: Number(data && data.monthCheckinDays) || 0,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 Page({
   data: {
     hasData: false,
@@ -246,6 +324,27 @@ Page({
     bottomPaddingPx: 0,
     isSendingEmail: false,
     emailStatus: "",
+    retentionLoading: false,
+    retentionErrorMsg: "",
+    checkedToday: false,
+    checkedTodayText: "今日未打卡",
+    checkedTodayClass: "miss",
+    currentStreak: 0,
+    longestStreak: 0,
+    monthCheckinDays: 0,
+    favoriteErrorMsg: "",
+    poemFavoriteTargetId: "",
+    poemFavoriteId: "",
+    poemFavorited: false,
+    poemFavoriteLoading: false,
+    poemFavoriteButtonText: "收藏诗词",
+    poemFavoriteBadgeText: "",
+    guochaoFavoriteTargetId: "",
+    guochaoFavoriteId: "",
+    guochaoFavorited: false,
+    guochaoFavoriteLoading: false,
+    guochaoFavoriteButtonText: "收藏国潮",
+    guochaoFavoriteBadgeText: "",
   },
 
   onLoad() {
@@ -262,6 +361,16 @@ Page({
     const request = pickRequest(context);
     const userImagePreviewUrl = pickUserImageUrl(request) || pickUserImageTempPath(request);
     const viewModel = buildResultViewModel(response);
+    const poemFavoriteTargetId = buildFavoriteTargetId(FAVORITE_TYPE_POEM, [
+      viewModel.poet,
+      viewModel.poemText,
+      viewModel.interpretation,
+    ]);
+    const guochaoFavoriteTargetId = buildFavoriteTargetId(FAVORITE_TYPE_GUOCHAO, [
+      viewModel.guochaoName,
+      viewModel.comfort,
+      viewModel.dailySuggestion,
+    ]);
 
     this.setData({
       hasData: true,
@@ -287,7 +396,22 @@ Page({
       userImageVisible: !!userImagePreviewUrl,
       userImageFailed: false,
       userImageRemoved: false,
+      favoriteErrorMsg: "",
+      poemFavoriteTargetId,
+      poemFavoriteId: "",
+      poemFavorited: false,
+      poemFavoriteLoading: false,
+      poemFavoriteButtonText: "收藏诗词",
+      poemFavoriteBadgeText: "",
+      guochaoFavoriteTargetId,
+      guochaoFavoriteId: "",
+      guochaoFavorited: false,
+      guochaoFavoriteLoading: false,
+      guochaoFavoriteButtonText: "收藏国潮",
+      guochaoFavoriteBadgeText: "",
     });
+    this.refreshRetentionSnapshot();
+    this.refreshFavoriteStatus();
 
     if (wx.onKeyboardHeightChange) {
       this._keyboardHandler = (res) => {
@@ -304,6 +428,192 @@ Page({
       };
       wx.onKeyboardHeightChange(this._keyboardHandler);
     }
+  },
+
+  async refreshRetentionSnapshot() {
+    const context = this._analysisContext || {};
+    const response = pickResponse(context);
+    const systemFields = pickSystemFields(response);
+    const analyzedAt = safeText(systemFields.analyzed_at);
+    const month = normalizeMonthValue(analyzedAt);
+
+    this.setData({
+      retentionLoading: true,
+      retentionErrorMsg: "",
+    });
+
+    try {
+      const retention = await getRetentionCalendar(month);
+      const checkedToday = !!(retention && retention.checked_today);
+      this.setData({
+        checkedToday,
+        checkedTodayText: checkedToday ? "今日已打卡" : "今日未打卡",
+        checkedTodayClass: checkedToday ? "ok" : "miss",
+        currentStreak: Number(retention && retention.current_streak) || 0,
+        longestStreak: Number(retention && retention.longest_streak) || 0,
+        monthCheckinDays: Number(retention && retention.checked_days) || 0,
+      });
+    } catch (err) {
+      this.setData({
+        retentionErrorMsg: (err && err.message) || "打卡状态刷新失败",
+      });
+    } finally {
+      this.setData({ retentionLoading: false });
+    }
+  },
+
+  syncFavoriteButtonTexts() {
+    this.setData({
+      poemFavoriteButtonText: this.data.poemFavorited ? "取消收藏诗词" : "收藏诗词",
+      poemFavoriteBadgeText: this.data.poemFavorited ? "已收藏" : "",
+      guochaoFavoriteButtonText: this.data.guochaoFavorited ? "取消收藏国潮" : "收藏国潮",
+      guochaoFavoriteBadgeText: this.data.guochaoFavorited ? "已收藏" : "",
+    });
+  },
+
+  async refreshFavoriteStatus() {
+    const poemTargetId = safeText(this.data.poemFavoriteTargetId);
+    const guochaoTargetId = safeText(this.data.guochaoFavoriteTargetId);
+    if (!poemTargetId && !guochaoTargetId) return;
+
+    this.setData({
+      favoriteErrorMsg: "",
+      poemFavoriteLoading: !!poemTargetId,
+      guochaoFavoriteLoading: !!guochaoTargetId,
+    });
+
+    const updates = {};
+    try {
+      const tasks = [];
+      if (poemTargetId) {
+        tasks.push(
+          getFavoriteStatus({ favoriteType: FAVORITE_TYPE_POEM, targetId: poemTargetId }).then((res) => ({
+            type: FAVORITE_TYPE_POEM,
+            res,
+          }))
+        );
+      }
+      if (guochaoTargetId) {
+        tasks.push(
+          getFavoriteStatus({ favoriteType: FAVORITE_TYPE_GUOCHAO, targetId: guochaoTargetId }).then((res) => ({
+            type: FAVORITE_TYPE_GUOCHAO,
+            res,
+          }))
+        );
+      }
+
+      const statusItems = await Promise.all(tasks);
+      statusItems.forEach((item) => {
+        const favorited = parseFavoriteFlag(item.res);
+        const favoriteId = safeText(item && item.res && item.res.item && item.res.item.favorite_id);
+        if (item.type === FAVORITE_TYPE_POEM) {
+          updates.poemFavorited = favorited;
+          updates.poemFavoriteId = favoriteId;
+        } else if (item.type === FAVORITE_TYPE_GUOCHAO) {
+          updates.guochaoFavorited = favorited;
+          updates.guochaoFavoriteId = favoriteId;
+        }
+      });
+    } catch (err) {
+      const message = extractErrorMessage(err, "收藏状态加载失败");
+      updates.favoriteErrorMsg = isFavoriteDisabledError(message)
+        ? "收藏功能未开启，当前仅可浏览结果。"
+        : message;
+    } finally {
+      updates.poemFavoriteLoading = false;
+      updates.guochaoFavoriteLoading = false;
+      this.setData(updates, () => this.syncFavoriteButtonTexts());
+    }
+  },
+
+  buildFavoritePayload(type) {
+    const isPoem = type === FAVORITE_TYPE_POEM;
+    if (isPoem) {
+      return {
+        favorite_type: FAVORITE_TYPE_POEM,
+        target_id: this.data.poemFavoriteTargetId,
+        title: clampText(this.data.poemText || "诗词回应", 500),
+        subtitle: clampText(this.data.poet || "诗词回应", 200),
+        content_summary: clampText(this.data.interpretation || this.data.emotionOverview || "", 800),
+        request_id: this.data.requestId || undefined,
+        metadata: {
+          emotion_code: this.data.emotionCode || "",
+          emotion_label: this.data.emotionLabel || "",
+        },
+      };
+    }
+    return {
+      favorite_type: FAVORITE_TYPE_GUOCHAO,
+      target_id: this.data.guochaoFavoriteTargetId,
+      title: clampText(this.data.guochaoName || "国潮伙伴慰藉", 500),
+      subtitle: clampText(this.data.emotionLabel || "情绪陪伴", 200),
+      content_summary: clampText(this.data.comfort || this.data.dailySuggestion || "", 800),
+      request_id: this.data.requestId || undefined,
+      metadata: {
+        emotion_code: this.data.emotionCode || "",
+        emotion_label: this.data.emotionLabel || "",
+      },
+    };
+  },
+
+  async toggleFavorite(type) {
+    const isPoem = type === FAVORITE_TYPE_POEM;
+    const loadingKey = isPoem ? "poemFavoriteLoading" : "guochaoFavoriteLoading";
+    const favoritedKey = isPoem ? "poemFavorited" : "guochaoFavorited";
+    const favoriteIdKey = isPoem ? "poemFavoriteId" : "guochaoFavoriteId";
+    const targetIdKey = isPoem ? "poemFavoriteTargetId" : "guochaoFavoriteTargetId";
+
+    if (this.data[loadingKey]) return;
+    const targetId = safeText(this.data[targetIdKey]);
+    if (!targetId) return;
+
+    this.setData({
+      [loadingKey]: true,
+      favoriteErrorMsg: "",
+    });
+
+    try {
+      if (this.data[favoritedKey]) {
+        let favoriteId = safeText(this.data[favoriteIdKey]);
+        if (!favoriteId) {
+          const statusRes = await getFavoriteStatus({ favoriteType: type, targetId });
+          favoriteId = safeText(statusRes && statusRes.item && statusRes.item.favorite_id);
+        }
+        if (favoriteId) {
+          await deleteFavoriteItem(favoriteId);
+        }
+        this.setData({
+          [favoritedKey]: false,
+          [favoriteIdKey]: "",
+        });
+        wx.showToast({ title: "已取消收藏", icon: "none" });
+      } else {
+        const payload = this.buildFavoritePayload(type);
+        const result = await upsertFavorite(payload);
+        const favoriteId = safeText(result && result.item && result.item.favorite_id);
+        this.setData({
+          [favoritedKey]: true,
+          [favoriteIdKey]: favoriteId,
+        });
+        wx.showToast({ title: "已加入收藏", icon: "none" });
+      }
+    } catch (err) {
+      const message = extractErrorMessage(err, "收藏操作失败");
+      this.setData({
+        favoriteErrorMsg: isFavoriteDisabledError(message) ? "收藏功能未开启，请联系管理员。" : message,
+      });
+      wx.showToast({ title: "操作失败", icon: "none" });
+    } finally {
+      this.setData({ [loadingKey]: false }, () => this.syncFavoriteButtonTexts());
+    }
+  },
+
+  togglePoemFavorite() {
+    this.toggleFavorite(FAVORITE_TYPE_POEM);
+  },
+
+  toggleGuochaoFavorite() {
+    this.toggleFavorite(FAVORITE_TYPE_GUOCHAO);
   },
 
   onUnload() {
@@ -547,5 +857,27 @@ Page({
 
   goHistory() {
     wx.navigateTo({ url: "/pages/history/index" });
+  },
+
+  goCalendar() {
+    wx.navigateTo({ url: "/pages/calendar/index" });
+  },
+
+  goReport() {
+    wx.navigateTo({ url: "/pages/report/index" });
+  },
+
+  goFavorites() {
+    wx.navigateTo({ url: "/pages/favorites/index" });
+  },
+
+  goShareCard() {
+    const payload = buildSharePayloadFromData(this.data);
+    try {
+      wx.setStorageSync(SHARE_PAYLOAD_STORAGE_KEY, payload);
+    } catch (err) {
+      // ignore
+    }
+    wx.navigateTo({ url: "/pages/share/index" });
   },
 });

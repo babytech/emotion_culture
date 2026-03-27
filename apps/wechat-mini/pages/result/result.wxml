@@ -51,6 +51,18 @@
       <view class="emotion-subtitle">今日建议</view>
       <view class="suggestion">{{dailySuggestion}}</view>
 
+      <view class="emotion-subtitle">连续打卡</view>
+      <view wx:if="{{retentionLoading}}" class="speech-transcript muted">正在刷新打卡状态...</view>
+      <view wx:elif="{{retentionErrorMsg}}" class="speech-transcript muted">{{retentionErrorMsg}}</view>
+      <view wx:else class="checkin-wrap">
+        <view class="checkin-chip {{checkedTodayClass}}">
+          {{checkedTodayText}}
+        </view>
+        <view class="checkin-meta">当前连续 {{currentStreak}} 天</view>
+        <view class="checkin-meta">本月已打卡 {{monthCheckinDays}} 天</view>
+        <view class="checkin-meta">最长连续 {{longestStreak}} 天</view>
+      </view>
+
       <view wx:if="{{requestId}}" class="request-id text-muted">
         请求编号：{{requestId}}
       </view>
@@ -73,6 +85,17 @@
       </view>
       <view class="poem-text">{{poemText}}</view>
       <view class="interpretation text-muted">{{interpretation}}</view>
+      <view class="favorite-actions">
+        <button
+          class="btn btn-secondary mini-action-btn"
+          loading="{{poemFavoriteLoading}}"
+          disabled="{{poemFavoriteLoading}}"
+          bindtap="togglePoemFavorite"
+        >
+          {{poemFavoriteButtonText}}
+        </button>
+        <view wx:if="{{poemFavoriteBadgeText}}" class="favorite-badge">{{poemFavoriteBadgeText}}</view>
+      </view>
     </view>
 
     <view class="section card">
@@ -91,7 +114,20 @@
         国潮图片暂不可用
       </view>
       <view class="comfort">{{comfort}}</view>
+      <view class="favorite-actions">
+        <button
+          class="btn btn-secondary mini-action-btn"
+          loading="{{guochaoFavoriteLoading}}"
+          disabled="{{guochaoFavoriteLoading}}"
+          bindtap="toggleGuochaoFavorite"
+        >
+          {{guochaoFavoriteButtonText}}
+        </button>
+        <view wx:if="{{guochaoFavoriteBadgeText}}" class="favorite-badge">{{guochaoFavoriteBadgeText}}</view>
+      </view>
     </view>
+
+    <view wx:if="{{favoriteErrorMsg}}" class="error card">{{favoriteErrorMsg}}</view>
 
     <view wx:if="{{userImagePreviewUrl || userImageRemoved}}" class="section card">
       <view class="section-head">
@@ -149,6 +185,10 @@
       </view>
     </view>
 
+    <button class="btn btn-secondary result-bottom-btn" bindtap="goCalendar">查看情绪日历</button>
+    <button class="btn btn-secondary result-bottom-btn" bindtap="goReport">查看周报复盘</button>
+    <button class="btn btn-secondary result-bottom-btn" bindtap="goFavorites">查看我的收藏</button>
+    <button class="btn btn-secondary result-bottom-btn" bindtap="goShareCard">导出分享卡片</button>
     <button class="btn btn-secondary result-bottom-btn" bindtap="goHistory">查看历史记录</button>
     <button class="btn result-bottom-btn" bindtap="backHome">返回继续分析</button>
   </block>
