@@ -14,6 +14,7 @@ import librosa
 import numpy as np
 import requests
 
+from app.core.feature_flags import is_asr_service_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -24,17 +25,6 @@ class SpeechTranscription:
     provider: Optional[str] = None
     status: str = "unavailable"
     error: Optional[str] = None
-
-
-def _env_bool_like(name: str, default: bool) -> bool:
-    raw = os.getenv(name, "").strip().lower()
-    if not raw:
-        return default
-    if raw in {"1", "true", "yes", "on", "enabled"}:
-        return True
-    if raw in {"0", "false", "no", "off", "disabled"}:
-        return False
-    return default
 
 
 def _env_int(name: str, default: int) -> int:
@@ -318,7 +308,7 @@ def transcribe_speech_to_text(audio_path: str) -> SpeechTranscription:
         )
 
     provider = os.getenv("SPEECH_STT_PROVIDER", "auto").strip().lower() or "auto"
-    asr_enabled = _env_bool_like("SPEECH_ASR_SERVICE", True)
+    asr_enabled = is_asr_service_enabled()
 
     if not asr_enabled:
         return SpeechTranscription(

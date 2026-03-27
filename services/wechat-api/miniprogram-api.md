@@ -299,7 +299,151 @@ Delete one history summary record for current user.
 
 Clear all history summary records for current user.
 
-## 6) Settings APIs
+## 6) Retention APIs (phase-2 base)
+
+`GET /api/retention/calendar?month=2026-03`
+
+- `month` optional, format `YYYY-MM`
+- if omitted, backend returns current month
+
+Response example:
+
+```json
+{
+  "month": "2026-03",
+  "month_start": "2026-03-01",
+  "month_end": "2026-03-31",
+  "total_days": 31,
+  "checked_days": 8,
+  "checked_today": true,
+  "current_streak": 3,
+  "longest_streak": 5,
+  "items": [
+    {
+      "date": "2026-03-27",
+      "has_checkin": true,
+      "analyzed_at": "2026-03-27T11:20:35Z",
+      "primary_emotion": { "code": "sad", "label": "悲伤" },
+      "analyses_count": 2,
+      "input_modes": ["text", "voice"]
+    }
+  ]
+}
+```
+
+`GET /api/retention/weekly-report?week_start=2026-03-23`
+
+- `week_start` optional, format `YYYY-MM-DD`
+- backend will normalize to Monday of that week
+- if omitted, backend returns current week report
+
+Response example:
+
+```json
+{
+  "week_start": "2026-03-23",
+  "week_end": "2026-03-29",
+  "generated_at": "2026-03-27T12:00:00Z",
+  "total_checkin_days": 4,
+  "checked_today": true,
+  "current_streak": 3,
+  "dominant_emotions": [
+    { "code": "sad", "label": "悲伤", "days": 2 },
+    { "code": "neutral", "label": "平静", "days": 2 }
+  ],
+  "top_trigger_tags": [
+    { "tag": "学业压力", "count": 3 }
+  ],
+  "suggestion_highlights": [
+    "给自己 10 分钟安静时间..."
+  ],
+  "daily_digests": [],
+  "insight": "本周你有 4 天完成记录，主情绪偏向「悲伤」，高频触发因素是「学业压力」。",
+  "source": "generated"
+}
+```
+
+`source` may be:
+
+- `generated`: computed on this request
+- `cache`: loaded from per-user weekly report cache
+
+Feature-flag guard:
+
+- If `RETENTION_SERVICE_ENABLED=off`, retention APIs return `503` with `[RETENTION_SERVICE_DISABLED]`.
+- If `RETENTION_WEEKLY_REPORT_ENABLED=off`, weekly report API returns `503` with `[RETENTION_WEEKLY_REPORT_DISABLED]`.
+
+## 7) Favorites APIs (phase-2 base)
+
+`GET /api/favorites?favorite_type=poem&limit=20&offset=0`
+
+- `favorite_type` optional: `poem | guochao`
+
+Response:
+
+```json
+{
+  "items": [
+    {
+      "favorite_id": "fav_abc123",
+      "favorite_type": "poem",
+      "target_id": "poem_8f65f3de1a3b",
+      "title": "千山鸟飞绝，万径人踪灭。",
+      "subtitle": "柳宗元",
+      "content_summary": "综合文本、图像信号...",
+      "request_id": "ana_2f3c0cfa5c53",
+      "created_at": "2026-03-27T12:10:00Z",
+      "updated_at": "2026-03-27T12:10:00Z",
+      "metadata": {}
+    }
+  ],
+  "total": 1
+}
+```
+
+`GET /api/favorites/status?favorite_type=poem&target_id=poem_8f65f3de1a3b`
+
+```json
+{
+  "is_favorited": true,
+  "item": { "...": "..." }
+}
+```
+
+`POST /api/favorites`
+
+```json
+{
+  "favorite_type": "poem",
+  "target_id": "poem_8f65f3de1a3b",
+  "title": "千山鸟飞绝，万径人踪灭。",
+  "subtitle": "柳宗元",
+  "content_summary": "综合文本、图像信号...",
+  "request_id": "ana_2f3c0cfa5c53",
+  "metadata": {}
+}
+```
+
+Response:
+
+```json
+{
+  "success": true,
+  "created": true,
+  "item": { "...": "..." },
+  "message": "已加入收藏。"
+}
+```
+
+`DELETE /api/favorites/{favorite_id}`
+
+`DELETE /api/favorites?favorite_type=poem`
+
+Feature-flag guard:
+
+- If `RETENTION_FAVORITES_ENABLED=off`, favorites APIs return `503` with `[RETENTION_FAVORITES_DISABLED]`.
+
+## 8) Settings APIs
 
 `GET /api/settings`
 
@@ -319,12 +463,13 @@ Clear all history summary records for current user.
 }
 ```
 
-## 7) Error codes
+## 9) Error codes
 
 - `200`: success
 - `400`: bad request / missing env / invalid file id / resolver failure
 - `422`: schema validation error
 - `500`: internal server error
+- `503`: feature disabled by admin config (retention/week report/favorites)
 
 Voice quality reject details (`400`, from BE-011):
 
@@ -359,14 +504,14 @@ Face quality reject details (`400`, from BE-012):
 - `[FACE_TOO_DARK]`: low-light image
 - `[FACE_TOO_BLUR]`: blurred image
 
-## 8) Frontend integration flow (recommended)
+## 10) Frontend integration flow (recommended)
 
 1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID` and `tempFileURL`.
 2. Call `/api/analyze` with `text + image/audio` via `wx.cloud.callContainer`.
 3. Render `result_card` as primary UI payload.
 4. If user sends email, call `/api/send-email` via `wx.cloud.callContainer`.
 
-## 9) Minimal mini program request snippet
+## 11) Minimal mini program request snippet
 
 ```js
 wx.cloud.callContainer({

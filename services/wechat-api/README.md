@@ -8,6 +8,9 @@ This folder contains phase-2 backend scaffolding for the WeChat mini program.
 - `/api/health` health check
 - `/api/analyze` analysis endpoint
 - `/api/send-email` email endpoint
+- `/api/retention/calendar` retention calendar endpoint
+- `/api/retention/weekly-report` retention weekly report endpoint
+- `/api/favorites*` favorites endpoints
 - `/api/stt/tencent` built-in Tencent STT gateway endpoint
 - Request/response schemas
 - Service layer split (`analysis`, `email`, `storage`)
@@ -137,6 +140,11 @@ Optional:
 - `TENCENT_ASR_MAX_AUDIO_BYTES` (default `3145728`)
 - `TENCENT_STT_GATEWAY_TOKEN` (required before mini program production launch; used to protect `/api/stt/tencent` from abuse)
 - `VOICE_REQUIRE_TRANSCRIPT` (`0` | `1`, default `0`; transcript strictness gate, NOT ASR on/off switch)
+- `RETENTION_SERVICE_ENABLED` (`on` | `off`, default `on`; phase-2 retention feature family switch)
+- `RETENTION_WEEKLY_REPORT_ENABLED` (`on` | `off`, default `on`; weekly report switch, depends on retention switch)
+- `RETENTION_FAVORITES_ENABLED` (`on` | `off`, default `on`; favorites switch, depends on retention switch)
+- `FAVORITES_MAX_ITEMS` (default `500`, max favorites per user)
+- `WEEKLY_REPORT_CACHE_MAX_ITEMS` (default `32`, max cached weekly report snapshots per user)
 - `FACE_MIN_CANDIDATE_AREA_RATIO` (default `0.01`, tiny box filter for initial face candidates)
 - `FACE_DEDUPE_IOU_THRESHOLD` (default `0.3`, merge duplicated overlapping face boxes)
 - `FACE_MIN_PRESENCE_EYE_COUNT` (default `1`, minimum eyes for considering a face as valid)
@@ -172,6 +180,13 @@ ASR switch vs strictness:
 - Use `SPEECH_ASR_SERVICE=on/off` to control whether backend calls STT service.
 - Keep `SPEECH_STT_ENDPOINT` stable in env and switch by `SPEECH_ASR_SERVICE` to reduce misconfiguration risk.
 - `VOICE_REQUIRE_TRANSCRIPT` only controls strictness when transcript is empty; it does not enable/disable ASR by itself.
+
+Retention switch semantics:
+
+- Use `RETENTION_SERVICE_ENABLED=on/off` to control phase-2 retention APIs (`/api/retention/*` + `/api/favorites*`).
+- Use `RETENTION_WEEKLY_REPORT_ENABLED` to control weekly report endpoint independently.
+- Use `RETENTION_FAVORITES_ENABLED` to control favorites endpoints independently.
+- These switches are explicit feature flags; do not infer feature enablement from unrelated config values.
 
 Disable ASR but keep endpoint unchanged (admin switch example):
 
