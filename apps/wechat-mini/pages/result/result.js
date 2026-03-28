@@ -287,13 +287,6 @@ function clampText(value, maxLen) {
   return text.slice(0, maxLen);
 }
 
-function buildLocalAssetImageUrl(folder, name) {
-  const folderName = safeText(folder);
-  const fileName = safeText(name);
-  if (!folderName || !fileName) return "";
-  return `/assets/${folderName}/${fileName}.png`;
-}
-
 function buildFavoriteTargetId(type, parts) {
   const normalizedType = safeText(type) || "item";
   const raw = Array.isArray(parts) ? parts.map(safeText).join("|") : safeText(parts);
@@ -363,8 +356,6 @@ Page({
     speechTranscriptHint: "",
     poetImageUrl: "",
     guochaoImageUrl: "",
-    poetImageFallbackUrl: "",
-    guochaoImageFallbackUrl: "",
     poetImageFailed: false,
     guochaoImageFailed: false,
     poetImageLoading: false,
@@ -430,8 +421,6 @@ Page({
 
     const poetImageUrl = normalizeAssetUrl(response.poet_image_url || "");
     const guochaoImageUrl = normalizeAssetUrl(response.guochao_image_url || "");
-    const poetImageFallbackUrl = buildLocalAssetImageUrl("tangsong", viewModel.poet);
-    const guochaoImageFallbackUrl = buildLocalAssetImageUrl("guochao", viewModel.guochaoName);
 
     this.setData({
       hasData: true,
@@ -452,12 +441,10 @@ Page({
       speechTranscriptHint: viewModel.speechTranscriptHint,
       poetImageUrl,
       guochaoImageUrl,
-      poetImageFallbackUrl,
-      guochaoImageFallbackUrl,
       poetImageFailed: false,
       guochaoImageFailed: false,
-      poetImageLoading: !!(poetImageUrl || poetImageFallbackUrl),
-      guochaoImageLoading: !!(guochaoImageUrl || guochaoImageFallbackUrl),
+      poetImageLoading: !!poetImageUrl,
+      guochaoImageLoading: !!guochaoImageUrl,
       userImagePreviewUrl,
       userImageVisible: !!userImagePreviewUrl,
       userImageFailed: false,
@@ -546,49 +533,13 @@ Page({
     });
   },
 
-  async applyLocalImageFallback(fieldPrefix) {
-    const urlKey = `${fieldPrefix}ImageUrl`;
-    const failedKey = `${fieldPrefix}ImageFailed`;
-    const loadingKey = `${fieldPrefix}ImageLoading`;
-    const fallbackKey = `${fieldPrefix}ImageFallbackUrl`;
-    const fallbackUrl = safeText(this.data[fallbackKey]);
-    if (!fallbackUrl) {
-      this.setData({
-        [failedKey]: true,
-        [loadingKey]: false,
-      });
-      return false;
-    }
-
-    try {
-      const info = await this.withTimeout(
-        this.fetchImageInfo(fallbackUrl),
-        Math.max(2000, RESULT_IMAGE_PREFETCH_TIMEOUT_MS / 2),
-        "local image prefetch timeout"
-      );
-      const resolvedUrl = safeText(info && info.path) || fallbackUrl;
-      this.setData({
-        [urlKey]: resolvedUrl,
-        [failedKey]: false,
-        [loadingKey]: false,
-      });
-      return true;
-    } catch (err) {
-      this.setData({
-        [failedKey]: true,
-        [loadingKey]: false,
-      });
-      return false;
-    }
-  },
-
   async prefetchImageWithRetry(fieldPrefix) {
     const urlKey = `${fieldPrefix}ImageUrl`;
     const failedKey = `${fieldPrefix}ImageFailed`;
     const loadingKey = `${fieldPrefix}ImageLoading`;
     const originalUrl = safeText(this.data[urlKey]);
     if (!originalUrl) {
-      await this.applyLocalImageFallback(fieldPrefix);
+      this.setData({ [loadingKey]: false, [failedKey]: true });
       return;
     }
 
@@ -609,7 +560,10 @@ Page({
         return;
       } catch (err) {
         if (attempt >= RESULT_IMAGE_RETRY_LIMIT) {
-          await this.applyLocalImageFallback(fieldPrefix);
+          this.setData({
+            [failedKey]: true,
+            [loadingKey]: false,
+          });
           return;
         }
       }
