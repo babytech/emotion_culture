@@ -1,4 +1,4 @@
-const { analyze } = require("../../services/api");
+const { analyze, createAnalyzeTask, getAnalyzeTask } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
 
 const recorder = wx.getRecorderManager();
@@ -15,6 +15,37 @@ const SUBMIT_STAGE = {
   RENDERING: "rendering",
   FAILED: "failed",
 };
+const ANALYZE_POLL_DEFAULT_INTERVAL_MS = 1200;
+const ANALYZE_POLL_TIMEOUT_MS = 90000;
+const ANALYZE_POLL_TRANSIENT_RETRY_LIMIT = 4;
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function normalizeTaskStatus(value) {
+  return ((value || "").trim() || "queued").toLowerCase();
+}
+
+function buildTaskStageText(task) {
+  const status = normalizeTaskStatus(task && task.status);
+  const statusMessage = ((task && task.status_message) || "").trim();
+  if (status === "queued") {
+    return statusMessage || "分析排队中：正在等待服务处理...";
+  }
+  if (status === "running") {
+    return statusMessage || "分析中：正在生成情绪结果...";
+  }
+  if (status === "succeeded") {
+    return "结果生成中：正在打开结果页...";
+  }
+  if (status === "failed") {
+    return statusMessage || "分析失败";
+  }
+  return "分析中：正在处理...";
+}
 
 function getFileExtension(path) {
   const value = (path || "").trim();
@@ -392,6 +423,58 @@ Page({
     wx.navigateTo({ url: "/pages/settings/index" });
   },
 
+  async pollAnalyzeTaskResult(taskId, options = {}) {
+    const pollStart = Date.now();
+    const timeoutMs = Math.max(10000, Number(options.timeoutMs) || ANALYZE_POLL_TIMEOUT_MS);
+    let pollIntervalMs = Math.max(300, Number(options.pollIntervalMs) || ANALYZE_POLL_DEFAULT_INTERVAL_MS);
+    let transientErrorCount = 0;
+
+    while (Date.now() - pollStart < timeoutMs) {
+      try {
+        const task = await getAnalyzeTask(taskId);
+        transientErrorCount = 0;
+        pollIntervalMs = Math.max(
+          300,
+          Number(task && task.poll_after_ms) || Number(options.pollIntervalMs) || ANALYZE_POLL_DEFAULT_INTERVAL_MS
+        );
+        const stageText = buildTaskStageText(task);
+        this.setData({
+          submitStage: SUBMIT_STAGE.ANALYZING,
+          submitStatusText: stageText,
+          submitButtonText: "分析中...",
+          errorMsg: "",
+        });
+
+        const status = normalizeTaskStatus(task && task.status);
+        if (status === "succeeded") {
+          if (task && task.result) {
+            return task.result;
+          }
+          throw new Error("分析任务已完成，但未返回结果。");
+        }
+        if (status === "failed") {
+          const detail = ((task && task.error_detail) || "").trim();
+          throw new Error(detail || "分析失败，请稍后重试。");
+        }
+      } catch (err) {
+        transientErrorCount += 1;
+        if (transientErrorCount > ANALYZE_POLL_TRANSIENT_RETRY_LIMIT) {
+          throw err;
+        }
+        this.setData({
+          submitStage: SUBMIT_STAGE.ANALYZING,
+          submitStatusText: "结果查询中断，正在自动重试...",
+          submitButtonText: "分析中...",
+          errorMsg: "",
+        });
+      }
+
+      await sleep(pollIntervalMs);
+    }
+
+    throw new Error("分析任务仍在处理中，请稍后重试或到历史记录页查看结果。");
+  },
+
   async submitAnalyze() {
     const text = (this.data.text || "").trim();
     const imageTempPath = this.data.imageTempPath;
@@ -527,8 +610,40 @@ Page({
       let analyzeUsedAudio = !!(audioTempUrl || audioFileId);
       let effectivePayload = buildAnalyzePayload(analyzeUsedAudio);
       let result = null;
+      const runAnalyzeOnce = async (payloadForAnalyze) => {
+        let asyncCreate = null;
+        try {
+          asyncCreate = await createAnalyzeTask(payloadForAnalyze);
+        } catch (err) {
+          const rawMessage = ((err && err.message) || "").toLowerCase();
+          const asyncApiUnavailable =
+            rawMessage.includes("404") || rawMessage.includes("not found") || rawMessage.includes("501");
+          if (!asyncApiUnavailable) {
+            throw err;
+          }
+          // Backward compatibility: old backend without async endpoint.
+          return analyze(payloadForAnalyze);
+        }
+
+        const taskId = ((asyncCreate && asyncCreate.task_id) || "").trim();
+        if (!taskId) {
+          return analyze(payloadForAnalyze);
+        }
+
+        this.setData({
+          submitStage: SUBMIT_STAGE.ANALYZING,
+          submitStatusText: buildTaskStageText(asyncCreate),
+          submitButtonText: "分析中...",
+          errorMsg: "",
+        });
+        return this.pollAnalyzeTaskResult(taskId, {
+          pollIntervalMs: Number(asyncCreate && asyncCreate.poll_after_ms) || ANALYZE_POLL_DEFAULT_INTERVAL_MS,
+          timeoutMs: ANALYZE_POLL_TIMEOUT_MS,
+        });
+      };
+
       try {
-        result = await analyze(effectivePayload);
+        result = await runAnalyzeOnce(effectivePayload);
       } catch (err) {
         const message = ((err && err.message) || "").trim();
         const voiceReject = message.includes("[VOICE_");
@@ -545,7 +660,7 @@ Page({
           submitButtonText: "分析中...",
           errorMsg: "",
         });
-        result = await analyze(effectivePayload);
+        result = await runAnalyzeOnce(effectivePayload);
       }
 
       this.setData({

@@ -180,3 +180,31 @@ class AnalyzeResponse(BaseModel):
     poet_image_url: Optional[str] = None
     guochao: GuochaoResult
     guochao_image_url: Optional[str] = None
+
+
+class AnalyzeTaskStatus(str, Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class AnalyzeAsyncCreateResponse(BaseModel):
+    task_id: str
+    status: AnalyzeTaskStatus = AnalyzeTaskStatus.QUEUED
+    accepted_at: str
+    poll_after_ms: int = 1200
+    status_message: Optional[str] = None
+
+
+class AnalyzeAsyncStatusResponse(BaseModel):
+    task_id: str
+    status: AnalyzeTaskStatus
+    accepted_at: str
+    started_at: Optional[str] = None
+    finished_at: Optional[str] = None
+    poll_after_ms: int = 1200
+    status_message: Optional[str] = None
+    retryable: bool = False
+    error_detail: Optional[str] = None
+    result: Optional[AnalyzeResponse] = None

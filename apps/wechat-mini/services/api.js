@@ -178,6 +178,36 @@ function analyze(payload) {
   });
 }
 
+function createAnalyzeTask(payload) {
+  const data = payload && typeof payload === "object" ? { ...payload } : {};
+  const existingClient = data.client && typeof data.client === "object" ? data.client : {};
+  data.client = {
+    ...existingClient,
+    platform: existingClient.platform || "mp-weixin",
+    version: existingClient.version || "0.1.0",
+  };
+  if (!data.client.user_id && shouldUseClientUserIdFallback()) {
+    data.client.user_id = getOrCreateClientUserId();
+  }
+  return callViaContainer("/api/analyze/async", "POST", data, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 350,
+  });
+}
+
+function getAnalyzeTask(taskId) {
+  const value = (taskId || "").trim();
+  if (!value) {
+    return Promise.reject(new Error("taskId is required"));
+  }
+  return callViaContainer(`/api/analyze/async/${encodeURIComponent(value)}`, "GET", undefined, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 250,
+  });
+}
+
 function sendEmail(payload) {
   return callViaContainer("/api/send-email", "POST", payload, {
     retryOnInvalidHost: true,
@@ -285,12 +315,14 @@ function clearFavorites(favoriteType) {
 
 module.exports = {
   analyze,
+  createAnalyzeTask,
   clearHistory,
   clearFavorites,
   deleteHistoryItem,
   deleteFavoriteItem,
   deleteRetentionWeeklyReport,
   clearRetentionWeeklyReports,
+  getAnalyzeTask,
   getFavoriteStatus,
   getHistoryDetail,
   getRetentionCalendar,

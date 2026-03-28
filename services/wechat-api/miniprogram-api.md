@@ -173,6 +173,89 @@ Notes:
 - `system_fields` contains internal metadata for history/trend/observability (BE-003).
 - `emotion/poem/guochao` are legacy-compatible fields for existing clients.
 
+### 2.1) Async analyze (recommended for real-device stability)
+
+To avoid frontend timeout on heavy inputs (`text + selfie + voice + ASR`), use async flow:
+
+1. `POST /api/analyze/async` to create task
+2. poll `GET /api/analyze/async/{task_id}`
+3. when `status=succeeded`, read `result` and open result page
+
+#### Create task
+
+`POST /api/analyze/async`
+
+Request body is the same as `POST /api/analyze`.
+
+Response example:
+
+```json
+{
+  "task_id": "atk_5fce3b81d0a1",
+  "status": "queued",
+  "accepted_at": "2026-03-28T01:00:00Z",
+  "poll_after_ms": 1200,
+  "status_message": "排队中"
+}
+```
+
+#### Query task status
+
+`GET /api/analyze/async/{task_id}`
+
+Response when running:
+
+```json
+{
+  "task_id": "atk_5fce3b81d0a1",
+  "status": "running",
+  "accepted_at": "2026-03-28T01:00:00Z",
+  "started_at": "2026-03-28T01:00:01Z",
+  "finished_at": null,
+  "poll_after_ms": 1200,
+  "status_message": "分析中",
+  "retryable": false,
+  "error_detail": null,
+  "result": null
+}
+```
+
+Response when succeeded:
+
+```json
+{
+  "task_id": "atk_5fce3b81d0a1",
+  "status": "succeeded",
+  "accepted_at": "2026-03-28T01:00:00Z",
+  "started_at": "2026-03-28T01:00:01Z",
+  "finished_at": "2026-03-28T01:00:08Z",
+  "poll_after_ms": 1200,
+  "status_message": "分析完成",
+  "retryable": false,
+  "error_detail": null,
+  "result": {
+    "...": "same payload as POST /api/analyze response"
+  }
+}
+```
+
+Response when failed:
+
+```json
+{
+  "task_id": "atk_5fce3b81d0a1",
+  "status": "failed",
+  "accepted_at": "2026-03-28T01:00:00Z",
+  "started_at": "2026-03-28T01:00:01Z",
+  "finished_at": "2026-03-28T01:00:05Z",
+  "poll_after_ms": 1200,
+  "status_message": "分析失败",
+  "retryable": false,
+  "error_detail": "[VOICE_TRANSCRIPT_EMPTY] ...",
+  "result": null
+}
+```
+
 ## 3) Send analysis email
 
 `POST /api/send-email`

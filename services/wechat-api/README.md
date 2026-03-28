@@ -7,6 +7,8 @@ This folder contains phase-2 backend scaffolding for the WeChat mini program.
 - FastAPI app entrypoint
 - `/api/health` health check
 - `/api/analyze` analysis endpoint
+- `/api/analyze/async` async analyze create endpoint
+- `/api/analyze/async/{task_id}` async analyze status endpoint
 - `/api/send-email` email endpoint
 - `/api/retention/calendar` retention calendar endpoint
 - `/api/retention/weekly-report` retention weekly report endpoint
@@ -232,7 +234,7 @@ SPEECH_STT_RESPONSE_PATHS=result.text,data.transcript
 ### 4) Post-deploy checks
 
 1. Open `GET /api/health`, expect `{"ok": true}`.
-2. Call `POST /api/analyze` from mini program, expect HTTP 200.
+2. Call `POST /api/analyze` or async flow (`POST /api/analyze/async` -> `GET /api/analyze/async/{task_id}`), expect HTTP 200.
 3. Call `POST /api/send-email`, expect HTTP 200 with `success=true`.
 
 ### 5) Mini program config after backend deploy

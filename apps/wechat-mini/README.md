@@ -30,6 +30,8 @@ This is the mini program frontend for `services/wechat-api`.
 Required backend endpoints:
 
 - `POST /api/analyze`
+- `POST /api/analyze/async`
+- `GET /api/analyze/async/{task_id}`
 - `POST /api/send-email`
 - `GET /api/history`
 - `GET /api/history/{history_id}`
