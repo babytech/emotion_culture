@@ -284,6 +284,12 @@ function sendEmail(payload) {
   return callViaContainer("/api/send-email", "POST", payload, {
     retryOnInvalidHost: true,
     fallbackPaths: ["/api/send_email"],
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 450,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 1,
+    transientHttpRetryDelayMs: 700,
   });
 }
 

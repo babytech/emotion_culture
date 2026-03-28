@@ -406,6 +406,8 @@ def resolve_input_file(
     file_url: Optional[str],
     file_id: Optional[str],
     field_name: str,
+    *,
+    prefer_file_id: bool = True,
 ) -> ResolvedInputFile:
     if local_path:
         return ResolvedInputFile(
@@ -415,9 +417,9 @@ def resolve_input_file(
 
     normalized_file_id = (file_id or "").strip()
     preferred_file_id_error: Optional[Exception] = None
-    # When both temp URL and cloud:// file_id are provided, prefer cloud file_id first.
-    # In practice this is more stable than directly downloading a temp URL in container runtime.
-    if normalized_file_id.startswith("cloud://"):
+    # By default, cloud file_id is preferred when both temp URL and file_id are provided.
+    # Callers can set prefer_file_id=False to prioritize temp URL and keep cloud:// as fallback.
+    if prefer_file_id and normalized_file_id.startswith("cloud://"):
         try:
             temp_path = resolve_file_id_to_temp_path(normalized_file_id, field_name)
             return ResolvedInputFile(path=temp_path, cleanup_path=temp_path)
