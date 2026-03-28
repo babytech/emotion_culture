@@ -299,43 +299,84 @@ def _validate_face_quality(image: np.ndarray) -> None:
     face_profile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_profileface.xml")
     eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
 
-    raw_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6, minSize=(40, 40))
-    if len(raw_faces) == 0:
-        raw_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(30, 30))
-    if len(raw_faces) == 0:
-        raw_faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(24, 24))
-    if len(raw_faces) == 0:
-        raw_faces = face_alt_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(30, 30))
-    if len(raw_faces) == 0:
-        raw_faces = face_alt2_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-    if len(raw_faces) == 0:
-        profile_faces = face_profile_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.08,
-            minNeighbors=3,
-            minSize=(24, 24),
-        )
-        flipped_gray = cv2.flip(gray, 1)
-        profile_faces_flipped = face_profile_cascade.detectMultiScale(
-            flipped_gray,
-            scaleFactor=1.08,
-            minNeighbors=3,
-            minSize=(24, 24),
-        )
-        mapped_flipped_faces: list[tuple[int, int, int, int]] = []
-        image_width = gray.shape[1]
-        for (fx, fy, fw, fh) in profile_faces_flipped:
-            mapped_flipped_faces.append((int(image_width - (fx + fw)), int(fy), int(fw), int(fh)))
-        merged_profile_faces = list(profile_faces) + mapped_flipped_faces
-        raw_faces = np.array(merged_profile_faces, dtype=np.int32) if merged_profile_faces else np.array([])
-
     image_area = float(gray.shape[0] * gray.shape[1])
     min_candidate_ratio = _env_float("FACE_MIN_CANDIDATE_AREA_RATIO", 0.01)
+    image_height, image_width = gray.shape[:2]
+
+    def _append_candidate_faces(
+        candidates: list[tuple[int, int, int, int]],
+        detected_faces: np.ndarray | list[tuple[int, int, int, int]],
+    ) -> None:
+        if detected_faces is None:
+            return
+        for (x, y, w, h) in detected_faces:
+            x = int(x)
+            y = int(y)
+            w = int(w)
+            h = int(h)
+            if w <= 0 or h <= 0:
+                continue
+            if x >= image_width or y >= image_height:
+                continue
+            if x < 0:
+                w += x
+                x = 0
+            if y < 0:
+                h += y
+                y = 0
+            if w <= 0 or h <= 0:
+                continue
+            if x + w > image_width:
+                w = image_width - x
+            if y + h > image_height:
+                h = image_height - y
+            if w <= 0 or h <= 0:
+                continue
+            area_ratio = (w * h) / image_area if image_area > 0 else 0.0
+            if area_ratio >= min_candidate_ratio:
+                candidates.append((x, y, w, h))
+
     candidate_faces: list[tuple[int, int, int, int]] = []
-    for (x, y, w, h) in raw_faces:
-        area_ratio = (w * h) / image_area if image_area > 0 else 0.0
-        if area_ratio >= min_candidate_ratio:
-            candidate_faces.append((int(x), int(y), int(w), int(h)))
+    _append_candidate_faces(
+        candidate_faces,
+        face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6, minSize=(40, 40)),
+    )
+    _append_candidate_faces(
+        candidate_faces,
+        face_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(30, 30)),
+    )
+    _append_candidate_faces(
+        candidate_faces,
+        face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(24, 24)),
+    )
+    _append_candidate_faces(
+        candidate_faces,
+        face_alt_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(30, 30)),
+    )
+    _append_candidate_faces(
+        candidate_faces,
+        face_alt2_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)),
+    )
+
+    profile_faces = face_profile_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.08,
+        minNeighbors=3,
+        minSize=(24, 24),
+    )
+    _append_candidate_faces(candidate_faces, profile_faces)
+
+    flipped_gray = cv2.flip(gray, 1)
+    profile_faces_flipped = face_profile_cascade.detectMultiScale(
+        flipped_gray,
+        scaleFactor=1.08,
+        minNeighbors=3,
+        minSize=(24, 24),
+    )
+    mapped_flipped_faces: list[tuple[int, int, int, int]] = []
+    for (fx, fy, fw, fh) in profile_faces_flipped:
+        mapped_flipped_faces.append((int(image_width - (int(fx) + int(fw))), int(fy), int(fw), int(fh)))
+    _append_candidate_faces(candidate_faces, mapped_flipped_faces)
 
     dedupe_iou = _env_float("FACE_DEDUPE_IOU_THRESHOLD", 0.3)
     faces = _dedupe_overlapped_faces(candidate_faces, dedupe_iou)
