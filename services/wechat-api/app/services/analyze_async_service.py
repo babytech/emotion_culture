@@ -59,6 +59,15 @@ def _parse_iso_datetime(raw: str) -> Optional[datetime]:
     return parsed.astimezone(timezone.utc)
 
 
+def _duration_ms(start_raw: str, end_raw: Optional[str] = None) -> Optional[int]:
+    start_at = _parse_iso_datetime(start_raw)
+    if not start_at:
+        return None
+    end_at = _parse_iso_datetime(end_raw or "") or datetime.now(timezone.utc)
+    duration = int((end_at - start_at).total_seconds() * 1000)
+    return max(0, duration)
+
+
 def _poll_after_ms() -> int:
     return _env_int("ANALYZE_ASYNC_POLL_AFTER_MS", _DEFAULT_POLL_AFTER_MS)
 
@@ -148,16 +157,33 @@ def _cleanup_finished_tasks_locked(now_ts: float) -> None:
 
 
 def _task_snapshot(task: dict[str, Any]) -> dict[str, Any]:
+    accepted_at = str(task.get("accepted_at") or "")
+    started_at = str(task.get("started_at") or "")
+    finished_at = str(task.get("finished_at") or "")
+    status = str(task.get("status") or "")
+
+    queue_wait_ms = None
+    if started_at:
+        queue_wait_ms = _duration_ms(accepted_at, started_at)
+    elif status == "queued":
+        queue_wait_ms = _duration_ms(accepted_at)
+
+    run_elapsed_ms = _duration_ms(started_at, finished_at if finished_at else None) if started_at else None
+    total_elapsed_ms = _duration_ms(accepted_at, finished_at if finished_at else None)
+
     snapshot = {
         "task_id": task.get("task_id"),
-        "status": task.get("status"),
-        "accepted_at": task.get("accepted_at"),
-        "started_at": task.get("started_at"),
-        "finished_at": task.get("finished_at"),
+        "status": status,
+        "accepted_at": accepted_at,
+        "started_at": started_at or None,
+        "finished_at": finished_at or None,
         "poll_after_ms": task.get("poll_after_ms", _poll_after_ms()),
         "retryable": bool(task.get("retryable", False)),
         "error_detail": task.get("error_detail"),
         "status_message": task.get("status_message") or "",
+        "queue_wait_ms": queue_wait_ms,
+        "run_elapsed_ms": run_elapsed_ms,
+        "total_elapsed_ms": total_elapsed_ms,
     }
     if task.get("status") == "succeeded" and isinstance(task.get("result"), dict):
         snapshot["result"] = task["result"]
@@ -188,6 +214,15 @@ def _run_task(task_id: str) -> None:
             current["result"] = response.model_dump(mode="json")
             current["error_detail"] = None
             current.pop("payload", None)
+            snapshot = _task_snapshot(current)
+            logger.info(
+                "async analyze succeeded: task_id=%s user_id=%s queue_wait_ms=%s run_elapsed_ms=%s total_elapsed_ms=%s",
+                task_id,
+                user_id,
+                snapshot.get("queue_wait_ms"),
+                snapshot.get("run_elapsed_ms"),
+                snapshot.get("total_elapsed_ms"),
+            )
     except Exception as exc:  # pragma: no cover
         detail, retryable = _classify_failure(exc)
         with _LOCK:
@@ -201,6 +236,15 @@ def _run_task(task_id: str) -> None:
             current["error_detail"] = detail
             current.pop("result", None)
             current.pop("payload", None)
+            snapshot = _task_snapshot(current)
+            logger.warning(
+                "async analyze failed: task_id=%s queue_wait_ms=%s run_elapsed_ms=%s total_elapsed_ms=%s detail=%s",
+                task_id,
+                snapshot.get("queue_wait_ms"),
+                snapshot.get("run_elapsed_ms"),
+                snapshot.get("total_elapsed_ms"),
+                detail,
+            )
 
 
 def create_analyze_task(payload: AnalyzeRequest, user_id: str) -> dict[str, Any]:

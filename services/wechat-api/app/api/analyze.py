@@ -76,5 +76,8 @@ def get_async_analyze(task_id: str, request: Request) -> AnalyzeAsyncStatusRespo
         status_message=str(task.get("status_message") or "") or None,
         retryable=bool(task.get("retryable", False)),
         error_detail=str(task.get("error_detail") or "") or None,
+        queue_wait_ms=int(task.get("queue_wait_ms")) if task.get("queue_wait_ms") is not None else None,
+        run_elapsed_ms=int(task.get("run_elapsed_ms")) if task.get("run_elapsed_ms") is not None else None,
+        total_elapsed_ms=int(task.get("total_elapsed_ms")) if task.get("total_elapsed_ms") is not None else None,
         result=result,
     )

@@ -166,6 +166,7 @@ class SystemFields(BaseModel):
     speech_transcript_provider: Optional[str] = None
     speech_transcript_status: Optional[str] = None
     speech_transcript_error: Optional[str] = None
+    processing_metrics_ms: dict[str, int] = Field(default_factory=dict)
 
 
 class AnalyzeResponse(BaseModel):
@@ -207,4 +208,7 @@ class AnalyzeAsyncStatusResponse(BaseModel):
     status_message: Optional[str] = None
     retryable: bool = False
     error_detail: Optional[str] = None
+    queue_wait_ms: Optional[int] = None
+    run_elapsed_ms: Optional[int] = None
+    total_elapsed_ms: Optional[int] = None
     result: Optional[AnalyzeResponse] = None

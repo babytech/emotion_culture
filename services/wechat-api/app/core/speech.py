@@ -38,6 +38,17 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        value = float(raw)
+        return value if value > 0 else default
+    except ValueError:
+        return default
+
+
 def _env_json_dict(name: str) -> dict[str, Any]:
     raw = os.getenv(name, "").strip()
     if not raw:
@@ -396,24 +407,37 @@ def extract_audio_features(audio_path):
         提取的特征字典
     """
     try:
-        y, sr = librosa.load(audio_path, sr=None)
-
-        energy = np.sum(y**2) / len(y)
-
-        f0, voiced_flag, _voiced_probs = librosa.pyin(
-            y,
-            fmin=librosa.note_to_hz("C2"),
-            fmax=librosa.note_to_hz("C7"),
-            sr=sr,
+        target_sr = _env_int("SPEECH_FEATURE_SAMPLE_RATE", 16000)
+        max_duration = _env_float("SPEECH_FEATURE_MAX_DURATION_SEC", 12.0)
+        y, sr = librosa.load(
+            audio_path,
+            sr=target_sr,
+            mono=True,
+            duration=max_duration,
         )
-        pitch_mean = 0.0
-        if voiced_flag.any():
-            valid_pitches = f0[voiced_flag]
-            if len(valid_pitches) > 0:
-                pitch_mean = np.mean(valid_pitches)
+        if y is None or len(y) == 0:
+            return None
 
-        zero_crossing_rate = np.mean(librosa.feature.zero_crossing_rate(y))
-        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+        energy = np.sum(y**2) / max(len(y), 1)
+
+        pitch_mean = 0.0
+        try:
+            f0 = librosa.yin(
+                y,
+                fmin=librosa.note_to_hz("C2"),
+                fmax=librosa.note_to_hz("C7"),
+                sr=sr,
+                frame_length=1024,
+                hop_length=256,
+            )
+            valid_pitches = f0[np.isfinite(f0)]
+            if valid_pitches.size > 0:
+                pitch_mean = float(np.mean(valid_pitches))
+        except Exception:
+            pitch_mean = 0.0
+
+        zero_crossing_rate = np.mean(librosa.feature.zero_crossing_rate(y, frame_length=1024, hop_length=256))
+        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13, n_fft=1024, hop_length=256)
         mfcc_mean = np.mean(mfccs, axis=1)
         duration = librosa.get_duration(y=y, sr=sr)
 

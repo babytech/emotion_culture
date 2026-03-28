@@ -133,7 +133,17 @@ Response example:
     "speech_transcript": "今天有点难过",
     "speech_transcript_provider": "http",
     "speech_transcript_status": "ok",
-    "speech_transcript_error": null
+    "speech_transcript_error": null,
+    "processing_metrics_ms": {
+      "resolve_media_ms": 183,
+      "asr_transcribe_ms": 1480,
+      "voice_quality_check_ms": 5,
+      "voice_emotion_ms": 322,
+      "text_emotion_ms": 1,
+      "face_emotion_ms": 97,
+      "fusion_render_ms": 4,
+      "total_ms": 2095
+    }
   },
 
   "emotion": {
@@ -216,9 +226,19 @@ Response when running:
   "status_message": "分析中",
   "retryable": false,
   "error_detail": null,
+  "queue_wait_ms": 142,
+  "run_elapsed_ms": 18320,
+  "total_elapsed_ms": 18462,
   "result": null
 }
 ```
+
+Timing fields note:
+
+- `system_fields.processing_metrics_ms`: backend stage timing breakdown (ms) for completed analysis.
+- `queue_wait_ms`: time from task accepted to task started.
+- `run_elapsed_ms`: time spent in running stage.
+- `total_elapsed_ms`: total time from accepted to current/finished status.
 
 Response when succeeded:
 

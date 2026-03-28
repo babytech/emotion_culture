@@ -66,6 +66,9 @@
       <view wx:if="{{requestId}}" class="request-id text-muted">
         请求编号：{{requestId}}
       </view>
+      <view wx:if="{{processingSummary}}" class="request-id text-muted">
+        {{processingSummary}}
+      </view>
     </view>
 
     <view class="section card">

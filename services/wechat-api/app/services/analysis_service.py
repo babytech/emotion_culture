@@ -5,6 +5,7 @@ import random
 import re
 import uuid
 from datetime import datetime, timezone
+from time import perf_counter
 from typing import Optional
 
 import cv2
@@ -543,12 +544,20 @@ def _iso_now_utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def _elapsed_ms(start_ts: float) -> int:
+    return max(0, int((perf_counter() - start_ts) * 1000))
+
+
 def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
+    total_started = perf_counter()
+    resolve_started = perf_counter()
     resolved = resolve_media_paths(payload)
+    processing_metrics_ms: dict[str, int] = {"resolve_media_ms": _elapsed_ms(resolve_started)}
     input_modes = payload.normalized_input_modes()
 
     try:
         analysis_text = (payload.text or "").strip() or None
+        request_id = f"ana_{uuid.uuid4().hex[:12]}"
 
         speech_transcript = None
         speech_transcript_provider = None
@@ -556,11 +565,15 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
         speech_transcript_error = None
         speech_emotion = None
         if resolved.audio_path:
+            stt_started = perf_counter()
             transcription = transcribe_speech_to_text(resolved.audio_path)
+            processing_metrics_ms["asr_transcribe_ms"] = _elapsed_ms(stt_started)
             speech_transcript = transcription.text
             speech_transcript_provider = transcription.provider
             speech_transcript_status = transcription.status
             speech_transcript_error = transcription.error
+
+            voice_quality_started = perf_counter()
             try:
                 _validate_voice_quality(
                     audio_path=resolved.audio_path,
@@ -568,8 +581,13 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
                     speech_transcript_status=speech_transcript_status,
                     speech_transcript_error=speech_transcript_error,
                 )
+                processing_metrics_ms["voice_quality_check_ms"] = _elapsed_ms(voice_quality_started)
+
+                speech_emotion_started = perf_counter()
                 speech_emotion = analyze_speech_emotion(resolved.audio_path)
+                processing_metrics_ms["voice_emotion_ms"] = _elapsed_ms(speech_emotion_started)
             except VoiceQualityRejectError as exc:
+                processing_metrics_ms["voice_quality_check_ms"] = _elapsed_ms(voice_quality_started)
                 # 文本已存在时，语音信号降级为可选输入，避免整单失败。
                 if analysis_text:
                     logger.warning(
@@ -588,13 +606,19 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
         if not analysis_text and speech_transcript:
             analysis_text = speech_transcript
 
+        text_started = perf_counter()
         text_emotion = analyze_text_sentiment(analysis_text) if analysis_text else None
+        processing_metrics_ms["text_emotion_ms"] = _elapsed_ms(text_started)
+
         face_emotion = None
         if resolved.image_path:
+            face_started = perf_counter()
             image_np = _load_image_numpy(resolved.image_path)
             _validate_face_quality(image_np)
             face_emotion = detect_face_emotion(image_np)
+            processing_metrics_ms["face_emotion_ms"] = _elapsed_ms(face_started)
 
+        fusion_started = perf_counter()
         chosen_emotion, weights = _select_emotion(
             text_input=analysis_text,
             text_emotion=text_emotion,
@@ -631,10 +655,19 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
             guochao_comfort=comfort,
             daily_suggestion=_pick_daily_suggestion(chosen_emotion),
         )
+        processing_metrics_ms["fusion_render_ms"] = _elapsed_ms(fusion_started)
 
-        request_id = f"ana_{uuid.uuid4().hex[:12]}"
         poem_id = _short_hash(f"{poet}|{poem_text}", "poem")
         guochao_id = _short_hash(character_name, "gc")
+        processing_metrics_ms["total_ms"] = _elapsed_ms(total_started)
+
+        logger.info(
+            "analysis completed: request_id=%s input_modes=%s transcript_status=%s metrics_ms=%s",
+            request_id,
+            [mode.value for mode in input_modes],
+            speech_transcript_status,
+            processing_metrics_ms,
+        )
 
         return AnalyzeResponse(
             request_id=request_id,
@@ -657,6 +690,7 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
                 speech_transcript_provider=speech_transcript_provider,
                 speech_transcript_status=speech_transcript_status,
                 speech_transcript_error=speech_transcript_error,
+                processing_metrics_ms=processing_metrics_ms,
             ),
             emotion=EmotionResult(
                 code=chosen_emotion,
@@ -680,5 +714,14 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
             ),
             guochao_image_url=f"/assets/guochao/{character_name}.png",
         )
+    except Exception as exc:
+        processing_metrics_ms["total_ms"] = _elapsed_ms(total_started)
+        logger.warning(
+            "analysis failed: input_modes=%s metrics_ms=%s error=%s",
+            [mode.value for mode in input_modes],
+            processing_metrics_ms,
+            exc,
+        )
+        raise
     finally:
         cleanup_temp_files(resolved.cleanup_paths)

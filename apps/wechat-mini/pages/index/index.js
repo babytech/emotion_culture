@@ -16,8 +16,8 @@ const SUBMIT_STAGE = {
   FAILED: "failed",
 };
 const ANALYZE_POLL_DEFAULT_INTERVAL_MS = 1200;
-const ANALYZE_POLL_TIMEOUT_MS = 90000;
-const ANALYZE_POLL_TRANSIENT_RETRY_LIMIT = 4;
+const ANALYZE_POLL_TIMEOUT_MS = 240000;
+const ANALYZE_POLL_TRANSIENT_RETRY_LIMIT = 12;
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -125,6 +125,10 @@ function buildRecoverableAnalyzeError(err) {
   const message = ((err && err.message) || "分析失败，请稍后重试。").trim();
   if (!message) {
     return "分析失败，请重试。你之前填写的内容已保留。";
+  }
+
+  if (message.includes("分析任务仍在处理中")) {
+    return "分析任务仍在云端处理中，可稍后再次点击“提交分析”继续查询，无需重新上传自拍或录音。";
   }
 
   const lowerMsg = message.toLowerCase();
@@ -472,7 +476,7 @@ Page({
       await sleep(pollIntervalMs);
     }
 
-    throw new Error("分析任务仍在处理中，请稍后重试或到历史记录页查看结果。");
+    throw new Error("分析任务仍在处理中，请稍后再次点击“提交分析”继续查询，或到历史记录页查看结果。");
   },
 
   async submitAnalyze() {
@@ -710,15 +714,19 @@ Page({
         url: "/pages/result/result",
       });
     } catch (err) {
+      const rawMessage = ((err && err.message) || "").trim();
+      const isPendingProcessing = rawMessage.includes("分析任务仍在处理中");
       const errorMsg = buildRecoverableAnalyzeError(err);
       this.setData({
-        submitStage: SUBMIT_STAGE.FAILED,
-        submitStatusText: "分析失败：可直接重试，原输入已保留。",
+        submitStage: isPendingProcessing ? SUBMIT_STAGE.ANALYZING : SUBMIT_STAGE.FAILED,
+        submitStatusText: isPendingProcessing
+          ? "分析任务仍在处理，点击“提交分析”可继续查询结果。"
+          : "分析失败：可直接重试，原输入已保留。",
         submitButtonText: "提交分析",
         errorMsg,
       });
       wx.showToast({
-        title: "分析失败，可重试",
+        title: isPendingProcessing ? "任务处理中" : "分析失败，可重试",
         icon: "none",
       });
     } finally {

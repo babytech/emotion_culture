@@ -203,7 +203,7 @@ function getAnalyzeTask(taskId) {
   }
   return callViaContainer(`/api/analyze/async/${encodeURIComponent(value)}`, "GET", undefined, {
     retryOnTimeout: true,
-    timeoutRetryCount: 1,
+    timeoutRetryCount: 2,
     timeoutRetryDelayMs: 250,
   });
 }

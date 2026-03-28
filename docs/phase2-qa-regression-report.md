@@ -1,8 +1,8 @@
 # 第二阶段 QA 回归报告
 
-- 执行时间(UTC): `2026-03-28T02:33:09Z`
+- 执行时间(UTC): `2026-03-28T12:10:04Z`
 - 代码仓库: `/Users/babytech/github/emotion_culture`
-- 历史存储隔离路径: `/var/folders/bz/0pr9vt717cx_1q06t_g5_v5c0000gn/T/phase2_qa_kz8_9q3b/history_store.json`
+- 历史存储隔离路径: `/var/folders/bz/0pr9vt717cx_1q06t_g5_v5c0000gn/T/phase2_qa_a8verpxm/history_store.json`
 - 总体结果: **PASS** (`20/20` 已执行通过，`20/20` 已执行)
 
 ## 分任务汇总
@@ -18,31 +18,31 @@
 
 | 用例ID | QA | 用例 | 结果 | 耗时(ms) | 说明 |
 |---|---|---|---|---:|---|
-| QA-201-1 | QA-201 | 小程序日历链路通过 | PASS | 11.2 | PASS |
-| QA-201-2 | QA-201 | 小程序连续打卡链路通过 | PASS | 5.4 | PASS |
-| QA-201-3 | QA-201 | 小程序周报链路通过 | PASS | 8.7 | PASS |
-| QA-201-4 | QA-201 | 小程序收藏链路通过 | PASS | 7.1 | PASS |
-| QA-202-1 | QA-202 | 后端日历聚合口径一致 | PASS | 5.8 | PASS |
-| QA-202-2 | QA-202 | 后端周报聚合口径一致 | PASS | 7.3 | PASS |
-| QA-202-3 | QA-202 | 收藏接口权限与越权保护 | PASS | 9.2 | PASS |
-| QA-202-4 | QA-202 | 配置守卫语义一致 | PASS | 7.5 | PASS |
-| QA-202-5 | QA-202 | 原始媒体边界未被扩大 | PASS | 5.0 | PASS |
-| QA-203-1 | QA-203 | PC 趋势摘要回看可用 | PASS | 1054.9 | PASS |
-| QA-203-2 | QA-203 | PC 周报回看可用 | PASS | 18.7 | PASS |
-| QA-203-3 | QA-203 | PC 收藏回看可用 | PASS | 16.3 | PASS |
-| QA-204-1 | QA-204 | 日历聚合接口耗时达标 | PASS | 14.6 | PASS |
-| QA-204-2 | QA-204 | 周报聚合接口耗时达标 | PASS | 18.1 | PASS |
-| QA-204-3 | QA-204 | 收藏写接口耗时达标 | PASS | 18.5 | PASS |
-| QA-204-4 | QA-204 | 留存接口失败不阻塞主分析 | PASS | 7.7 | PASS |
-| QA-204-5 | QA-204 | 留存页面首屏加载耗时达标 | PASS | 16.1 | PASS |
-| QA-204-6 | QA-204 | 原始媒体短期保留策略有效 | PASS | 0.6 | PASS |
+| QA-201-1 | QA-201 | 小程序日历链路通过 | PASS | 15.8 | PASS |
+| QA-201-2 | QA-201 | 小程序连续打卡链路通过 | PASS | 7.0 | PASS |
+| QA-201-3 | QA-201 | 小程序周报链路通过 | PASS | 10.6 | PASS |
+| QA-201-4 | QA-201 | 小程序收藏链路通过 | PASS | 8.2 | PASS |
+| QA-202-1 | QA-202 | 后端日历聚合口径一致 | PASS | 7.9 | PASS |
+| QA-202-2 | QA-202 | 后端周报聚合口径一致 | PASS | 8.2 | PASS |
+| QA-202-3 | QA-202 | 收藏接口权限与越权保护 | PASS | 10.3 | PASS |
+| QA-202-4 | QA-202 | 配置守卫语义一致 | PASS | 8.0 | PASS |
+| QA-202-5 | QA-202 | 原始媒体边界未被扩大 | PASS | 6.4 | PASS |
+| QA-203-1 | QA-203 | PC 趋势摘要回看可用 | PASS | 1172.7 | PASS |
+| QA-203-2 | QA-203 | PC 周报回看可用 | PASS | 21.8 | PASS |
+| QA-203-3 | QA-203 | PC 收藏回看可用 | PASS | 19.6 | PASS |
+| QA-204-1 | QA-204 | 日历聚合接口耗时达标 | PASS | 18.0 | PASS |
+| QA-204-2 | QA-204 | 周报聚合接口耗时达标 | PASS | 21.7 | PASS |
+| QA-204-3 | QA-204 | 收藏写接口耗时达标 | PASS | 21.2 | PASS |
+| QA-204-4 | QA-204 | 留存接口失败不阻塞主分析 | PASS | 10.4 | PASS |
+| QA-204-5 | QA-204 | 留存页面首屏加载耗时达标 | PASS | 22.0 | PASS |
+| QA-204-6 | QA-204 | 原始媒体短期保留策略有效 | PASS | 0.9 | PASS |
 | QA-204-7 | QA-204 | 录音附件发送能力与 ASR 开关无关 | PASS | 0.2 | PASS |
-| QA-204-8 | QA-204 | 失败提示明确且可重试 | PASS | 1.7 | PASS |
+| QA-204-8 | QA-204 | 失败提示明确且可重试 | PASS | 1.9 | PASS |
 
 ## 稳定性指标
 
-- `calendar_latency_max_s`: `0.0019`
-- `weekly_report_latency_max_s`: `0.0031`
-- `favorite_write_latency_max_s`: `0.0029`
-- `retention_page_first_screen_max_s`: `0.0029`
+- `calendar_latency_max_s`: `0.0027`
+- `weekly_report_latency_max_s`: `0.0041`
+- `favorite_write_latency_max_s`: `0.0042`
+- `retention_page_first_screen_max_s`: `0.0035`
 - `retention_fallback_ratio`: `1.0000`

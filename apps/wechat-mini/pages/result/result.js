@@ -82,6 +82,40 @@ function buildSpeechTranscriptHint(systemFields) {
   return `语音转写状态：${status}`;
 }
 
+function pickProcessingMetrics(systemFields) {
+  const raw = systemFields && systemFields.processing_metrics_ms;
+  if (!raw || typeof raw !== "object") return {};
+  const normalized = {};
+  Object.keys(raw).forEach((key) => {
+    const value = Number(raw[key]);
+    if (Number.isFinite(value) && value >= 0) {
+      normalized[key] = Math.round(value);
+    }
+  });
+  return normalized;
+}
+
+function buildProcessingSummary(metrics) {
+  if (!metrics || typeof metrics !== "object") return "";
+  const total = Number(metrics.total_ms);
+  if (!Number.isFinite(total) || total <= 0) return "";
+
+  const parts = [];
+  if (Number(metrics.resolve_media_ms) > 0) {
+    parts.push(`下载${Math.round(metrics.resolve_media_ms)}ms`);
+  }
+  if (Number(metrics.asr_transcribe_ms) > 0) {
+    parts.push(`转写${Math.round(metrics.asr_transcribe_ms)}ms`);
+  }
+  if (Number(metrics.face_emotion_ms) > 0) {
+    parts.push(`人脸${Math.round(metrics.face_emotion_ms)}ms`);
+  }
+  if (Number(metrics.voice_emotion_ms) > 0) {
+    parts.push(`语音情绪${Math.round(metrics.voice_emotion_ms)}ms`);
+  }
+  return parts.length ? `服务耗时：总 ${Math.round(total)}ms（${parts.join("，")}）` : `服务耗时：总 ${Math.round(total)}ms`;
+}
+
 function normalizeEmotionItem(item, fallbackCode) {
   const code = safeText((item && item.code) || fallbackCode);
   const label = safeText(item && item.label) || code || "未识别";
@@ -134,6 +168,7 @@ function buildResultViewModel(response) {
   const legacyPoem = (response && response.poem) || {};
   const legacyGuochao = (response && response.guochao) || {};
   const speechTranscript = safeText(systemFields.speech_transcript);
+  const processingMetrics = pickProcessingMetrics(systemFields);
 
   const primary = normalizeEmotionItem(resultCard.primary_emotion || legacyEmotion, legacyEmotion.code);
   const secondary = normalizeSecondaryEmotions(resultCard.secondary_emotions);
@@ -155,6 +190,8 @@ function buildResultViewModel(response) {
     comfort: safeText(resultCard.guochao_comfort) || safeText(legacyGuochao.comfort) || "暂未生成国潮慰藉内容。",
     speechTranscript,
     speechTranscriptHint: speechTranscript ? "" : buildSpeechTranscriptHint(systemFields),
+    processingMetrics,
+    processingSummary: buildProcessingSummary(processingMetrics),
   };
 }
 
@@ -296,6 +333,7 @@ Page({
   data: {
     hasData: false,
     requestId: "",
+    processingSummary: "",
     emotionCode: "",
     emotionLabel: "",
     secondaryEmotions: [],
@@ -375,6 +413,7 @@ Page({
     this.setData({
       hasData: true,
       requestId: viewModel.requestId,
+      processingSummary: viewModel.processingSummary,
       emotionCode: viewModel.emotionCode,
       emotionLabel: viewModel.emotionLabel,
       secondaryEmotions: viewModel.secondaryEmotions,
