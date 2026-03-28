@@ -35,6 +35,10 @@ class AnalyzeRequest(BaseModel):
         default_factory=list,
         description="Input modes used for this request, e.g. text/voice/selfie/pc_camera",
     )
+    request_token: Optional[str] = Field(
+        default=None,
+        description="Client generated idempotency token for async task creation",
+    )
     text: Optional[str] = Field(default=None, max_length=4000)
     image: Optional[MediaInput] = None
     audio: Optional[MediaInput] = None
@@ -194,7 +198,7 @@ class AnalyzeAsyncCreateResponse(BaseModel):
     task_id: str
     status: AnalyzeTaskStatus = AnalyzeTaskStatus.QUEUED
     accepted_at: str
-    poll_after_ms: int = 1200
+    poll_after_ms: int = 2500
     status_message: Optional[str] = None
 
 
@@ -204,7 +208,7 @@ class AnalyzeAsyncStatusResponse(BaseModel):
     accepted_at: str
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
-    poll_after_ms: int = 1200
+    poll_after_ms: int = 2500
     status_message: Optional[str] = None
     retryable: bool = False
     error_detail: Optional[str] = None

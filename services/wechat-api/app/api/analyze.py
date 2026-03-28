@@ -52,7 +52,7 @@ def create_async_analyze(payload: AnalyzeRequest, request: Request) -> AnalyzeAs
         task_id=str(task.get("task_id") or ""),
         status=str(task.get("status") or "queued"),
         accepted_at=str(task.get("accepted_at") or ""),
-        poll_after_ms=int(task.get("poll_after_ms") or 1200),
+        poll_after_ms=int(task.get("poll_after_ms") or 2500),
         status_message=str(task.get("status_message") or "") or None,
     )
 
@@ -72,7 +72,7 @@ def get_async_analyze(task_id: str, request: Request) -> AnalyzeAsyncStatusRespo
         accepted_at=str(task.get("accepted_at") or ""),
         started_at=str(task.get("started_at") or "") or None,
         finished_at=str(task.get("finished_at") or "") or None,
-        poll_after_ms=int(task.get("poll_after_ms") or 1200),
+        poll_after_ms=int(task.get("poll_after_ms") or 2500),
         status_message=str(task.get("status_message") or "") or None,
         retryable=bool(task.get("retryable", False)),
         error_detail=str(task.get("error_detail") or "") or None,

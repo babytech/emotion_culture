@@ -46,6 +46,7 @@ Response:
 ### Request body fields (normalized)
 
 - `input_modes` optional array: `text | voice | selfie | pc_camera`
+- `request_token` optional string: client-generated idempotency token for async create retries
 - `text` optional string
 - `image` optional object
   - `url` optional string (`https://...`)
@@ -204,7 +205,7 @@ Response example:
   "task_id": "atk_5fce3b81d0a1",
   "status": "queued",
   "accepted_at": "2026-03-28T01:00:00Z",
-  "poll_after_ms": 1200,
+  "poll_after_ms": 2500,
   "status_message": "排队中"
 }
 ```
@@ -222,7 +223,7 @@ Response when running:
   "accepted_at": "2026-03-28T01:00:00Z",
   "started_at": "2026-03-28T01:00:01Z",
   "finished_at": null,
-  "poll_after_ms": 1200,
+  "poll_after_ms": 2500,
   "status_message": "分析中",
   "retryable": false,
   "error_detail": null,

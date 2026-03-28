@@ -21,9 +21,10 @@ logger = logging.getLogger(__name__)
 
 _LOCK = threading.RLock()
 _TASKS: dict[str, dict[str, Any]] = {}
+_TASK_TOKEN_INDEX: dict[str, str] = {}
 _EXECUTOR: Optional[ThreadPoolExecutor] = None
 
-_DEFAULT_POLL_AFTER_MS = 1200
+_DEFAULT_POLL_AFTER_MS = 2500
 _DEFAULT_TASK_TTL_SECONDS = 1800
 _DEFAULT_MAX_TASKS = 1000
 _DEFAULT_WORKERS = 4
@@ -140,7 +141,10 @@ def _cleanup_finished_tasks_locked(now_ts: float) -> None:
         if now_ts - finished_at.timestamp() > ttl_seconds:
             removable.append(task_id)
     for task_id in removable:
-        _TASKS.pop(task_id, None)
+        task = _TASKS.pop(task_id, None)
+        token_key = str(task.get("task_token_key") or "").strip() if isinstance(task, dict) else ""
+        if token_key:
+            _TASK_TOKEN_INDEX.pop(token_key, None)
 
     max_items = _task_max_items()
     if len(_TASKS) <= max_items:
@@ -153,7 +157,10 @@ def _cleanup_finished_tasks_locked(now_ts: float) -> None:
     for task_id, _task in sorted(_TASKS.items(), key=_accepted_sort_key)[: max(0, len(_TASKS) - max_items)]:
         if _TASKS.get(task_id, {}).get("status") in {"queued", "running"}:
             continue
-        _TASKS.pop(task_id, None)
+        removed = _TASKS.pop(task_id, None)
+        token_key = str(removed.get("task_token_key") or "").strip() if isinstance(removed, dict) else ""
+        if token_key:
+            _TASK_TOKEN_INDEX.pop(token_key, None)
 
 
 def _task_snapshot(task: dict[str, Any]) -> dict[str, Any]:
@@ -248,10 +255,23 @@ def _run_task(task_id: str) -> None:
 
 
 def create_analyze_task(payload: AnalyzeRequest, user_id: str) -> dict[str, Any]:
+    token = (payload.request_token or "").strip()
+    token_key = f"{str(user_id or '').strip()}::{token}" if token else ""
+
+    with _LOCK:
+        _cleanup_finished_tasks_locked(time.time())
+        if token_key:
+            existing_task_id = _TASK_TOKEN_INDEX.get(token_key)
+            if existing_task_id:
+                existing_task = _TASKS.get(existing_task_id)
+                if existing_task:
+                    return _task_snapshot(existing_task)
+
     task_id = f"atk_{uuid.uuid4().hex[:12]}"
     task = {
         "task_id": task_id,
         "user_id": user_id,
+        "task_token_key": token_key or None,
         "status": "queued",
         "status_message": "排队中",
         "accepted_at": _iso_now_utc(),
@@ -263,8 +283,15 @@ def create_analyze_task(payload: AnalyzeRequest, user_id: str) -> dict[str, Any]
         "payload": payload.model_dump(mode="python"),
     }
     with _LOCK:
-        _cleanup_finished_tasks_locked(time.time())
+        if token_key:
+            existing_task_id = _TASK_TOKEN_INDEX.get(token_key)
+            if existing_task_id:
+                existing_task = _TASKS.get(existing_task_id)
+                if existing_task:
+                    return _task_snapshot(existing_task)
         _TASKS[task_id] = task
+        if token_key:
+            _TASK_TOKEN_INDEX[token_key] = task_id
 
     _executor().submit(_run_task, task_id)
     return _task_snapshot(task)

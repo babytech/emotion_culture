@@ -15,14 +15,21 @@ const SUBMIT_STAGE = {
   RENDERING: "rendering",
   FAILED: "failed",
 };
-const ANALYZE_POLL_DEFAULT_INTERVAL_MS = 1200;
+const ANALYZE_POLL_DEFAULT_INTERVAL_MS = 2500;
 const ANALYZE_POLL_TIMEOUT_MS = 240000;
 const ANALYZE_POLL_TRANSIENT_RETRY_LIMIT = 12;
+const PENDING_TASK_STORAGE_KEY = "ec_pending_analyze_task";
 
 function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function createAnalyzeRequestToken() {
+  const stamp = Date.now().toString(36);
+  const rand = Math.random().toString(16).slice(2, 10);
+  return `rtk_${stamp}_${rand}`;
 }
 
 function normalizeTaskStatus(value) {
@@ -197,6 +204,12 @@ Page({
     submitButtonText: "提交分析",
     errorMsg: "",
     isDevtools: false,
+    pendingTaskId: "",
+    pendingTaskToken: "",
+    uploadedImageFileId: "",
+    uploadedImageTempUrl: "",
+    uploadedAudioFileId: "",
+    uploadedAudioTempUrl: "",
   },
 
   onLoad() {
@@ -208,6 +221,7 @@ Page({
       isDevtools = false;
     }
     this.setData({ isDevtools });
+    this.restorePendingTaskState();
     this.bindRecorderEvents();
   },
 
@@ -227,6 +241,7 @@ Page({
     this._recorderBound = true;
 
     recorder.onStart(() => {
+      this.resetPendingSubmissionState();
       this.setData({
         isRecording: true,
         recordSeconds: 0,
@@ -240,6 +255,7 @@ Page({
 
     recorder.onStop((res) => {
       this.stopRecordTimer();
+      this.resetPendingSubmissionState();
       this.setData({
         isRecording: false,
         audioTempPath: res.tempFilePath || "",
@@ -276,7 +292,64 @@ Page({
     }
   },
 
+  restorePendingTaskState() {
+    try {
+      const cached = wx.getStorageSync(PENDING_TASK_STORAGE_KEY);
+      if (!cached || typeof cached !== "object") return;
+      const taskId = ((cached && cached.taskId) || "").trim();
+      const taskToken = ((cached && cached.taskToken) || "").trim();
+      if (!taskId) return;
+      this.setData({
+        pendingTaskId: taskId,
+        pendingTaskToken: taskToken,
+      });
+    } catch (err) {
+      // ignore
+    }
+  },
+
+  persistPendingTaskState(taskId, taskToken) {
+    const normalizedTaskId = (taskId || "").trim();
+    const normalizedTaskToken = (taskToken || "").trim();
+    if (!normalizedTaskId) {
+      this.setData({
+        pendingTaskId: "",
+        pendingTaskToken: "",
+      });
+      try {
+        wx.removeStorageSync(PENDING_TASK_STORAGE_KEY);
+      } catch (err) {
+        // ignore
+      }
+      return;
+    }
+
+    this.setData({
+      pendingTaskId: normalizedTaskId,
+      pendingTaskToken: normalizedTaskToken,
+    });
+    try {
+      wx.setStorageSync(PENDING_TASK_STORAGE_KEY, {
+        taskId: normalizedTaskId,
+        taskToken: normalizedTaskToken,
+      });
+    } catch (err) {
+      // ignore
+    }
+  },
+
+  resetPendingSubmissionState() {
+    this.persistPendingTaskState("", "");
+    this.setData({
+      uploadedImageFileId: "",
+      uploadedImageTempUrl: "",
+      uploadedAudioFileId: "",
+      uploadedAudioTempUrl: "",
+    });
+  },
+
   handleTextInput(event) {
+    this.resetPendingSubmissionState();
     this.setData({
       text: event.detail.value,
       submitStage: SUBMIT_STAGE.IDLE,
@@ -328,6 +401,7 @@ Page({
       return;
     }
 
+    this.resetPendingSubmissionState();
     this.setData({
       imageTempPath: "",
       pendingSelfiePath: tempPath,
@@ -340,6 +414,7 @@ Page({
 
   confirmSelfie() {
     if (!this.data.pendingSelfiePath) return;
+    this.resetPendingSubmissionState();
     this.setData({
       imageTempPath: this.data.pendingSelfiePath,
       pendingSelfiePath: "",
@@ -351,6 +426,7 @@ Page({
   },
 
   async retakeSelfie() {
+    this.resetPendingSubmissionState();
     this.setData({
       imageTempPath: "",
       pendingSelfiePath: "",
@@ -363,6 +439,7 @@ Page({
   },
 
   cancelPendingSelfie() {
+    this.resetPendingSubmissionState();
     this.setData({
       pendingSelfiePath: "",
       submitStage: SUBMIT_STAGE.IDLE,
@@ -373,6 +450,7 @@ Page({
   },
 
   clearImage() {
+    this.resetPendingSubmissionState();
     this.setData({
       imageTempPath: "",
       pendingSelfiePath: "",
@@ -386,6 +464,7 @@ Page({
   startRecord() {
     if (this.data.isRecording) return;
 
+    this.resetPendingSubmissionState();
     this.setData({
       submitStage: SUBMIT_STAGE.IDLE,
       submitStatusText: "",
@@ -409,6 +488,7 @@ Page({
   },
 
   clearAudio() {
+    this.resetPendingSubmissionState();
     this.setData({
       audioTempPath: "",
       recordSeconds: 0,
@@ -458,9 +538,23 @@ Page({
         }
         if (status === "failed") {
           const detail = ((task && task.error_detail) || "").trim();
-          throw new Error(detail || "分析失败，请稍后重试。");
+          const failedError = new Error(detail || "分析失败，请稍后重试。");
+          failedError.nonRetryable = true;
+          throw failedError;
         }
       } catch (err) {
+        const message = ((err && err.message) || "").trim();
+        const lowerMessage = message.toLowerCase();
+        const nonRetryable =
+          !!(err && err.nonRetryable) ||
+          message.includes("analyze task not found") ||
+          message.includes("taskId is required") ||
+          lowerMessage.includes("[voice_") ||
+          lowerMessage.includes("[face_");
+        if (nonRetryable) {
+          throw err;
+        }
+
         transientErrorCount += 1;
         if (transientErrorCount > ANALYZE_POLL_TRANSIENT_RETRY_LIMIT) {
           throw err;
@@ -495,8 +589,96 @@ Page({
       return;
     }
 
+    const buildRequestSnapshot = (options = {}) => {
+      const includeAudio = !!options.includeAudio;
+      const imageFileId = (options.imageFileId || "").trim();
+      const imageTempUrl = (options.imageTempUrl || "").trim();
+      const audioFileId = (options.audioFileId || "").trim();
+      const audioTempUrl = (options.audioTempUrl || "").trim();
+      const modes = [];
+      if (text) modes.push("text");
+      if (imageFileId || imageTempUrl) modes.push("selfie");
+      if (includeAudio && (audioFileId || audioTempUrl)) modes.push("voice");
+
+      return {
+        text,
+        input_modes: modes,
+        image:
+          imageFileId || imageTempUrl
+            ? { url: imageTempUrl || undefined, file_id: imageFileId || undefined }
+            : undefined,
+        audio:
+          includeAudio && (audioFileId || audioTempUrl)
+            ? { url: audioTempUrl || undefined, file_id: audioFileId || undefined }
+            : undefined,
+        imageFileId,
+        imageTempUrl,
+        audioFileId: includeAudio ? audioFileId : "",
+        audioTempUrl: includeAudio ? audioTempUrl : "",
+        imageTempPath,
+        audioTempPath: includeAudio ? audioTempPath : "",
+        uploadedAudioFileId: audioFileId,
+        uploadedAudioTempUrl: audioTempUrl,
+        uploadedAudioTempPath: audioTempPath,
+        image_url: imageTempUrl,
+        image_file_id: imageFileId,
+        audio_url: includeAudio ? audioTempUrl : "",
+        audio_file_id: includeAudio ? audioFileId : "",
+        image_temp_path: imageTempPath,
+        audio_temp_path: includeAudio ? audioTempPath : "",
+        uploaded_audio_file_id: audioFileId,
+        uploaded_audio_url: audioTempUrl,
+        uploaded_audio_temp_path: audioTempPath,
+      };
+    };
+
+    const buildAnalyzePayload = (options = {}) => {
+      const includeAudio = !!options.includeAudio;
+      const imageFileId = (options.imageFileId || "").trim();
+      const imageTempUrl = (options.imageTempUrl || "").trim();
+      const audioFileId = (options.audioFileId || "").trim();
+      const audioTempUrl = (options.audioTempUrl || "").trim();
+      const requestToken = (options.requestToken || "").trim();
+      const effectiveInputModes = [];
+      if (text) effectiveInputModes.push("text");
+      if (imageTempUrl || imageFileId) effectiveInputModes.push("selfie");
+      if (includeAudio && (audioTempUrl || audioFileId)) effectiveInputModes.push("voice");
+
+      const imagePayload =
+        imageFileId || imageTempUrl
+          ? {
+              file_id: imageFileId || undefined,
+              url: imageTempUrl || undefined,
+            }
+          : undefined;
+      const audioPayload =
+        includeAudio && (audioFileId || audioTempUrl)
+          ? {
+              file_id: audioFileId || undefined,
+              url: audioTempUrl || undefined,
+            }
+          : undefined;
+
+      return {
+        input_modes: effectiveInputModes,
+        request_token: requestToken || undefined,
+        text: text || undefined,
+        image: imagePayload,
+        audio: audioPayload,
+        image_url: imageTempUrl || undefined,
+        image_file_id: imageFileId || undefined,
+        audio_url: includeAudio ? audioTempUrl || undefined : undefined,
+        audio_file_id: includeAudio ? audioFileId || undefined : undefined,
+        client: {
+          platform: "mp-weixin",
+          version: "0.1.0",
+        },
+      };
+    };
+
     const audioValidation = await validateAudioBeforeUpload(audioTempPath, this.data.recordSeconds);
     if (!audioValidation.ok) {
+      this.resetPendingSubmissionState();
       const guidance = `${audioValidation.message} 可重新录音，或清除语音后改用文字输入。`;
       this.setData({
         submitStage: SUBMIT_STAGE.FAILED,
@@ -511,109 +693,34 @@ Page({
       return;
     }
 
-    this.setData({
-      isSubmitting: true,
-      submitStage: SUBMIT_STAGE.UPLOADING,
-      submitStatusText: "上传中：正在准备输入内容...",
-      submitButtonText: "上传中...",
-      errorMsg: "",
-    });
-
     let submitSucceeded = false;
+    let shouldKeepPendingState = false;
     try {
-      let imageFileId = "";
-      let imageTempUrl = "";
-      let audioFileId = "";
-      let audioTempUrl = "";
-
-      const uploadLabel =
-        imageTempPath && audioTempPath
-          ? "上传中：正在上传自拍和语音..."
-          : imageTempPath
-            ? "上传中：正在上传自拍照片..."
-            : audioTempPath
-              ? "上传中：正在上传语音..."
-              : "上传中：正在准备输入内容...";
-      this.setData({
-        submitStage: SUBMIT_STAGE.UPLOADING,
-        submitStatusText: uploadLabel,
-      });
-      wx.showLoading({ title: "上传中..." });
-
-      const uploadTasks = [];
-      if (imageTempPath) {
-        uploadTasks.push(
-          (async () => {
-            const preparedImage = await prepareImageForUpload(imageTempPath);
-            const uploadedImage = await uploadTempFile(preparedImage.path, "images");
-            imageFileId = (uploadedImage && uploadedImage.fileID) || "";
-            imageTempUrl = (uploadedImage && uploadedImage.tempFileURL) || "";
-          })()
-        );
-      }
-
-      if (audioTempPath) {
-        uploadTasks.push(
-          (async () => {
-            const uploadedAudio = await uploadTempFile(audioTempPath, "audio");
-            audioFileId = (uploadedAudio && uploadedAudio.fileID) || "";
-            audioTempUrl = (uploadedAudio && uploadedAudio.tempFileURL) || "";
-          })()
-        );
-      }
-      if (uploadTasks.length > 0) {
-        await Promise.all(uploadTasks);
-      }
+      const pendingTaskId = (this.data.pendingTaskId || "").trim();
 
       this.setData({
-        submitStage: SUBMIT_STAGE.ANALYZING,
-        submitStatusText: "分析中：正在生成情绪结果...",
-        submitButtonText: "分析中...",
+        isSubmitting: true,
+        submitStage: pendingTaskId ? SUBMIT_STAGE.ANALYZING : SUBMIT_STAGE.UPLOADING,
+        submitStatusText: pendingTaskId ? "分析中：正在查询云端任务进度..." : "上传中：正在准备输入内容...",
+        submitButtonText: pendingTaskId ? "分析中..." : "上传中...",
+        errorMsg: "",
       });
-      wx.showLoading({ title: "分析中..." });
+      wx.showLoading({ title: pendingTaskId ? "分析中..." : "上传中..." });
 
-      const buildAnalyzePayload = (includeAudio) => {
-        const effectiveInputModes = [];
-        if (text) effectiveInputModes.push("text");
-        if (imageTempUrl || imageFileId) effectiveInputModes.push("selfie");
-        if (includeAudio && (audioTempUrl || audioFileId)) effectiveInputModes.push("voice");
-
-        const imagePayload =
-          imageFileId || imageTempUrl
-            ? {
-                file_id: imageFileId || undefined,
-                url: imageTempUrl || undefined,
-              }
-            : undefined;
-        const audioPayload =
-          includeAudio && (audioFileId || audioTempUrl)
-            ? {
-                file_id: audioFileId || undefined,
-                url: audioTempUrl || undefined,
-              }
-            : undefined;
-
-        return {
-          input_modes: effectiveInputModes,
-          text: text || undefined,
-          image: imagePayload,
-          audio: audioPayload,
-
-          // Legacy fields kept until all clients migrate.
-          image_url: imageTempUrl || undefined,
-          image_file_id: imageFileId || undefined,
-          audio_url: includeAudio ? audioTempUrl || undefined : undefined,
-          audio_file_id: includeAudio ? audioFileId || undefined : undefined,
-          client: {
-            platform: "mp-weixin",
-            version: "0.1.0",
-          },
-        };
-      };
-
-      let analyzeUsedAudio = !!(audioTempUrl || audioFileId);
-      let effectivePayload = buildAnalyzePayload(analyzeUsedAudio);
+      let imageFileId = (this.data.uploadedImageFileId || "").trim();
+      let imageTempUrl = (this.data.uploadedImageTempUrl || "").trim();
+      let audioFileId = (this.data.uploadedAudioFileId || "").trim();
+      let audioTempUrl = (this.data.uploadedAudioTempUrl || "").trim();
+      let analyzeUsedAudio = !!(audioTempUrl || audioFileId || audioTempPath);
+      let effectivePayload = buildAnalyzePayload({
+        includeAudio: analyzeUsedAudio,
+        imageFileId,
+        imageTempUrl,
+        audioFileId,
+        audioTempUrl,
+      });
       let result = null;
+
       const runAnalyzeOnce = async (payloadForAnalyze) => {
         let asyncCreate = null;
         try {
@@ -625,14 +732,17 @@ Page({
           if (!asyncApiUnavailable) {
             throw err;
           }
+          this.persistPendingTaskState("", "");
           // Backward compatibility: old backend without async endpoint.
           return analyze(payloadForAnalyze);
         }
 
         const taskId = ((asyncCreate && asyncCreate.task_id) || "").trim();
         if (!taskId) {
+          this.persistPendingTaskState("", "");
           return analyze(payloadForAnalyze);
         }
+        this.persistPendingTaskState(taskId, (payloadForAnalyze && payloadForAnalyze.request_token) || "");
 
         this.setData({
           submitStage: SUBMIT_STAGE.ANALYZING,
@@ -640,31 +750,120 @@ Page({
           submitButtonText: "分析中...",
           errorMsg: "",
         });
-        return this.pollAnalyzeTaskResult(taskId, {
-          pollIntervalMs: Number(asyncCreate && asyncCreate.poll_after_ms) || ANALYZE_POLL_DEFAULT_INTERVAL_MS,
-          timeoutMs: ANALYZE_POLL_TIMEOUT_MS,
-        });
-      };
-
-      try {
-        result = await runAnalyzeOnce(effectivePayload);
-      } catch (err) {
-        const message = ((err && err.message) || "").trim();
-        const voiceReject = message.includes("[VOICE_");
-        const canFallbackToTextOnly = analyzeUsedAudio && !!text && voiceReject;
-        if (!canFallbackToTextOnly) {
+        try {
+          const polledResult = await this.pollAnalyzeTaskResult(taskId, {
+            pollIntervalMs: Number(asyncCreate && asyncCreate.poll_after_ms) || ANALYZE_POLL_DEFAULT_INTERVAL_MS,
+            timeoutMs: ANALYZE_POLL_TIMEOUT_MS,
+          });
+          this.persistPendingTaskState("", "");
+          return polledResult;
+        } catch (err) {
+          const message = ((err && err.message) || "").trim();
+          const stillProcessing = message.includes("分析任务仍在处理中");
+          if (!stillProcessing) {
+            this.persistPendingTaskState("", "");
+          }
           throw err;
         }
+      };
 
-        analyzeUsedAudio = false;
-        effectivePayload = buildAnalyzePayload(false);
+      if (pendingTaskId) {
+        result = await this.pollAnalyzeTaskResult(pendingTaskId, {
+          pollIntervalMs: ANALYZE_POLL_DEFAULT_INTERVAL_MS,
+          timeoutMs: ANALYZE_POLL_TIMEOUT_MS,
+        });
+        this.persistPendingTaskState("", "");
+      } else {
+        const uploadLabel =
+          imageTempPath && audioTempPath
+            ? "上传中：正在上传自拍和语音..."
+            : imageTempPath
+              ? "上传中：正在上传自拍照片..."
+              : audioTempPath
+                ? "上传中：正在上传语音..."
+                : "上传中：正在准备输入内容...";
         this.setData({
+          submitStage: SUBMIT_STAGE.UPLOADING,
+          submitStatusText: uploadLabel,
+          submitButtonText: "上传中...",
+        });
+
+        const uploadTasks = [];
+        if (imageTempPath) {
+          uploadTasks.push(
+            (async () => {
+              const preparedImage = await prepareImageForUpload(imageTempPath);
+              const uploadedImage = await uploadTempFile(preparedImage.path, "images");
+              imageFileId = (uploadedImage && uploadedImage.fileID) || "";
+              imageTempUrl = (uploadedImage && uploadedImage.tempFileURL) || "";
+            })()
+          );
+        }
+
+        if (audioTempPath) {
+          uploadTasks.push(
+            (async () => {
+              const uploadedAudio = await uploadTempFile(audioTempPath, "audio");
+              audioFileId = (uploadedAudio && uploadedAudio.fileID) || "";
+              audioTempUrl = (uploadedAudio && uploadedAudio.tempFileURL) || "";
+            })()
+          );
+        }
+        if (uploadTasks.length > 0) {
+          await Promise.all(uploadTasks);
+        }
+
+        this.setData({
+          uploadedImageFileId: imageFileId,
+          uploadedImageTempUrl: imageTempUrl,
+          uploadedAudioFileId: audioFileId,
+          uploadedAudioTempUrl: audioTempUrl,
           submitStage: SUBMIT_STAGE.ANALYZING,
-          submitStatusText: "语音识别不稳定，已自动改用文字继续分析...",
+          submitStatusText: "分析中：正在生成情绪结果...",
           submitButtonText: "分析中...",
           errorMsg: "",
         });
-        result = await runAnalyzeOnce(effectivePayload);
+        wx.showLoading({ title: "分析中..." });
+
+        analyzeUsedAudio = !!(audioTempUrl || audioFileId || audioTempPath);
+        let requestToken = createAnalyzeRequestToken();
+        effectivePayload = buildAnalyzePayload({
+          includeAudio: analyzeUsedAudio,
+          imageFileId,
+          imageTempUrl,
+          audioFileId,
+          audioTempUrl,
+          requestToken,
+        });
+
+        try {
+          result = await runAnalyzeOnce(effectivePayload);
+        } catch (err) {
+          const message = ((err && err.message) || "").trim();
+          const voiceReject = message.includes("[VOICE_");
+          const canFallbackToTextOnly = analyzeUsedAudio && !!text && voiceReject;
+          if (!canFallbackToTextOnly) {
+            throw err;
+          }
+
+          analyzeUsedAudio = false;
+          requestToken = createAnalyzeRequestToken();
+          effectivePayload = buildAnalyzePayload({
+            includeAudio: false,
+            imageFileId,
+            imageTempUrl,
+            audioFileId,
+            audioTempUrl,
+            requestToken,
+          });
+          this.setData({
+            submitStage: SUBMIT_STAGE.ANALYZING,
+            submitStatusText: "语音识别不稳定，已自动改用文字继续分析...",
+            submitButtonText: "分析中...",
+            errorMsg: "",
+          });
+          result = await runAnalyzeOnce(effectivePayload);
+        }
       }
 
       this.setData({
@@ -676,39 +875,17 @@ Page({
 
       const app = getApp();
       app.globalData.latestAnalyzeContext = {
-        request: {
-          text,
-          input_modes: effectivePayload.input_modes || [],
-          image:
-            imageTempUrl || imageFileId
-              ? { url: imageTempUrl, file_id: imageFileId }
-              : undefined,
-          audio:
-            analyzeUsedAudio && (audioTempUrl || audioFileId)
-              ? { url: audioTempUrl, file_id: audioFileId }
-              : undefined,
+        request: buildRequestSnapshot({
+          includeAudio: analyzeUsedAudio,
           imageFileId,
           imageTempUrl,
-          audioFileId: analyzeUsedAudio ? audioFileId : "",
-          audioTempUrl: analyzeUsedAudio ? audioTempUrl : "",
-          imageTempPath,
-          audioTempPath: analyzeUsedAudio ? audioTempPath : "",
-          uploadedAudioFileId: audioFileId,
-          uploadedAudioTempUrl: audioTempUrl,
-          uploadedAudioTempPath: audioTempPath,
-          image_url: imageTempUrl,
-          image_file_id: imageFileId,
-          audio_url: analyzeUsedAudio ? audioTempUrl : "",
-          audio_file_id: analyzeUsedAudio ? audioFileId : "",
-          image_temp_path: imageTempPath,
-          audio_temp_path: analyzeUsedAudio ? audioTempPath : "",
-          uploaded_audio_file_id: audioFileId,
-          uploaded_audio_url: audioTempUrl,
-          uploaded_audio_temp_path: audioTempPath,
-        },
+          audioFileId,
+          audioTempUrl,
+        }),
         response: result,
       };
 
+      this.resetPendingSubmissionState();
       submitSucceeded = true;
       wx.navigateTo({
         url: "/pages/result/result",
@@ -716,6 +893,10 @@ Page({
     } catch (err) {
       const rawMessage = ((err && err.message) || "").trim();
       const isPendingProcessing = rawMessage.includes("分析任务仍在处理中");
+      shouldKeepPendingState = isPendingProcessing && !!(this.data.pendingTaskId || "").trim();
+      if (!shouldKeepPendingState) {
+        this.persistPendingTaskState("", "");
+      }
       const errorMsg = buildRecoverableAnalyzeError(err);
       this.setData({
         submitStage: isPendingProcessing ? SUBMIT_STAGE.ANALYZING : SUBMIT_STAGE.FAILED,
@@ -733,7 +914,11 @@ Page({
       wx.hideLoading();
       this.setData({
         isSubmitting: false,
-        submitStage: submitSucceeded ? SUBMIT_STAGE.IDLE : this.data.submitStage,
+        submitStage: submitSucceeded
+          ? SUBMIT_STAGE.IDLE
+          : shouldKeepPendingState
+            ? SUBMIT_STAGE.ANALYZING
+            : this.data.submitStage,
         submitStatusText: submitSucceeded ? "" : this.data.submitStatusText,
         submitButtonText: "提交分析",
       });
