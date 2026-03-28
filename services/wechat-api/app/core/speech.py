@@ -407,8 +407,9 @@ def extract_audio_features(audio_path):
         提取的特征字典
     """
     try:
+        # Keep this path lightweight: speech emotion is only an auxiliary signal.
         target_sr = _env_int("SPEECH_FEATURE_SAMPLE_RATE", 16000)
-        max_duration = _env_float("SPEECH_FEATURE_MAX_DURATION_SEC", 12.0)
+        max_duration = _env_float("SPEECH_FEATURE_MAX_DURATION_SEC", 6.0)
         y, sr = librosa.load(
             audio_path,
             sr=target_sr,
@@ -418,34 +419,34 @@ def extract_audio_features(audio_path):
         if y is None or len(y) == 0:
             return None
 
-        energy = np.sum(y**2) / max(len(y), 1)
+        frame_length = _env_int("SPEECH_FEATURE_FRAME_LENGTH", 512)
+        hop_length = _env_int("SPEECH_FEATURE_HOP_LENGTH", 256)
+        n_fft = _env_int("SPEECH_FEATURE_N_FFT", 512)
 
-        pitch_mean = 0.0
-        try:
-            f0 = librosa.yin(
-                y,
-                fmin=librosa.note_to_hz("C2"),
-                fmax=librosa.note_to_hz("C7"),
-                sr=sr,
-                frame_length=1024,
-                hop_length=256,
-            )
-            valid_pitches = f0[np.isfinite(f0)]
-            if valid_pitches.size > 0:
-                pitch_mean = float(np.mean(valid_pitches))
-        except Exception:
-            pitch_mean = 0.0
-
-        zero_crossing_rate = np.mean(librosa.feature.zero_crossing_rate(y, frame_length=1024, hop_length=256))
-        mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13, n_fft=1024, hop_length=256)
-        mfcc_mean = np.mean(mfccs, axis=1)
+        energy = float(np.mean(np.square(y)))
+        zero_crossing_rate = float(
+            np.mean(librosa.feature.zero_crossing_rate(y, frame_length=frame_length, hop_length=hop_length))
+        )
+        rms = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop_length)
+        rms_mean = float(np.mean(rms)) if rms is not None and rms.size > 0 else 0.0
+        spectral_centroid = librosa.feature.spectral_centroid(
+            y=y,
+            sr=sr,
+            n_fft=n_fft,
+            hop_length=hop_length,
+        )
+        pitch_proxy_hz = (
+            float(np.median(spectral_centroid))
+            if spectral_centroid is not None and spectral_centroid.size > 0
+            else 0.0
+        )
         duration = librosa.get_duration(y=y, sr=sr)
 
         features = {
             "energy": float(energy),
-            "pitch_mean": float(pitch_mean),
+            "pitch_proxy_hz": float(pitch_proxy_hz),
             "zero_crossing_rate": float(zero_crossing_rate),
-            "mfcc_mean": mfcc_mean.tolist(),
+            "rms_mean": float(rms_mean),
             "duration": float(duration),
         }
 
@@ -476,21 +477,22 @@ def analyze_speech_emotion(audio_path):
             return None
 
         energy = features["energy"]
-        pitch_mean = features["pitch_mean"]
+        pitch_proxy_hz = features["pitch_proxy_hz"]
         zero_crossing_rate = features["zero_crossing_rate"]
+        rms_mean = features.get("rms_mean", 0.0)
 
-        if energy > 0.05 and pitch_mean > 200 and zero_crossing_rate > 0.1:
-            if pitch_mean > 300:
+        if energy > 0.02 and rms_mean > 0.08 and pitch_proxy_hz > 1700 and zero_crossing_rate > 0.09:
+            if pitch_proxy_hz > 2200:
                 return "surprise"
             return "happy"
 
-        if energy > 0.05 and 150 < pitch_mean < 250 and zero_crossing_rate > 0.08:
+        if energy > 0.025 and 1200 < pitch_proxy_hz < 2200 and zero_crossing_rate > 0.075:
             return "angry"
 
-        if energy < 0.02 and pitch_mean < 200:
+        if energy < 0.008 and pitch_proxy_hz < 1300:
             return "sad"
 
-        if energy < 0.03 and 150 < pitch_mean < 250 and zero_crossing_rate < 0.06:
+        if energy < 0.012 and 900 < pitch_proxy_hz < 1700 and zero_crossing_rate < 0.05:
             return "fear"
 
         return "neutral"

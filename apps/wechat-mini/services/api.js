@@ -89,6 +89,21 @@ function isTimeoutLikeError(errMsg) {
   );
 }
 
+function extractHttpStatusCode(err) {
+  if (err && typeof err.statusCode === "number") {
+    return err.statusCode;
+  }
+  const message = (err && err.message) || "";
+  const match = message.match(/\bHTTP\s+(\d{3})\b/i);
+  if (!match) return 0;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function isTransientHttpStatus(statusCode) {
+  return statusCode === 429 || statusCode === 500 || statusCode === 502 || statusCode === 503 || statusCode === 504;
+}
+
 function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -126,7 +141,9 @@ function callContainerOnce(path, method, data, env) {
         const detail =
           (res.data && (res.data.detail || res.data.message || res.data.code)) ||
           `HTTP ${statusCode}`;
-        reject(new Error(detail));
+        const error = new Error(detail);
+        error.statusCode = statusCode;
+        reject(error);
       },
       fail(err) {
         const rawMsg = err && err.errMsg ? err.errMsg : "callContainer request failed";
@@ -142,6 +159,9 @@ async function callViaContainer(path, method, data, options = {}) {
   const retryOnTimeout = Boolean(options.retryOnTimeout);
   const timeoutRetryCount = Math.max(0, Number(options.timeoutRetryCount) || 0);
   const timeoutRetryDelayMs = Math.max(0, Number(options.timeoutRetryDelayMs) || 300);
+  const retryOnTransientHttp = Boolean(options.retryOnTransientHttp);
+  const transientHttpRetryCount = Math.max(0, Number(options.transientHttpRetryCount) || 0);
+  const transientHttpRetryDelayMs = Math.max(0, Number(options.transientHttpRetryDelayMs) || 500);
 
   const preferredEnv = config.containerEnv || config.cloudEnv;
   const envCandidates = [];
@@ -158,18 +178,31 @@ async function callViaContainer(path, method, data, options = {}) {
   for (const env of envCandidates) {
     for (const currentPath of pathCandidates) {
       let timeoutRetried = 0;
+      let transientHttpRetried = 0;
       while (true) {
         try {
           return await callContainerOnce(currentPath, method, data, env);
         } catch (err) {
           lastError = err;
           const message = (err && err.message) || "";
+          const statusCode = extractHttpStatusCode(err);
           const canRetryTimeout =
             retryOnTimeout && isTimeoutLikeError(message) && timeoutRetried < timeoutRetryCount;
+          const canRetryTransientHttp =
+            retryOnTransientHttp &&
+            isTransientHttpStatus(statusCode) &&
+            transientHttpRetried < transientHttpRetryCount;
 
           if (canRetryTimeout) {
             timeoutRetried += 1;
             await sleep(timeoutRetryDelayMs);
+            continue;
+          }
+
+          if (canRetryTransientHttp) {
+            transientHttpRetried += 1;
+            const backoff = transientHttpRetryDelayMs * transientHttpRetried;
+            await sleep(backoff);
             continue;
           }
 
@@ -205,6 +238,9 @@ function analyze(payload) {
     retryOnTimeout: true,
     timeoutRetryCount: 1,
     timeoutRetryDelayMs: 350,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 2,
+    transientHttpRetryDelayMs: 500,
   });
 }
 
@@ -223,6 +259,9 @@ function createAnalyzeTask(payload) {
     retryOnTimeout: true,
     timeoutRetryCount: 1,
     timeoutRetryDelayMs: 350,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 2,
+    transientHttpRetryDelayMs: 500,
   });
 }
 
@@ -235,6 +274,9 @@ function getAnalyzeTask(taskId) {
     retryOnTimeout: true,
     timeoutRetryCount: 2,
     timeoutRetryDelayMs: 250,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 3,
+    transientHttpRetryDelayMs: 450,
   });
 }
 
