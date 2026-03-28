@@ -13,7 +13,6 @@ const FAVORITE_TYPE_POEM = "poem";
 const FAVORITE_TYPE_GUOCHAO = "guochao";
 const SHARE_PAYLOAD_STORAGE_KEY = "ec_share_payload";
 const RESULT_IMAGE_RETRY_LIMIT = 2;
-const RESULT_IMAGE_PREFETCH_TIMEOUT_MS = 8000;
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -360,6 +359,8 @@ Page({
     guochaoImageFailed: false,
     poetImageLoading: false,
     guochaoImageLoading: false,
+    poetImageErrorRetries: 0,
+    guochaoImageErrorRetries: 0,
     userImagePreviewUrl: "",
     userImageVisible: false,
     userImageFailed: false,
@@ -445,6 +446,8 @@ Page({
       guochaoImageFailed: false,
       poetImageLoading: !!poetImageUrl,
       guochaoImageLoading: !!guochaoImageUrl,
+      poetImageErrorRetries: 0,
+      guochaoImageErrorRetries: 0,
       userImagePreviewUrl,
       userImageVisible: !!userImagePreviewUrl,
       userImageFailed: false,
@@ -465,7 +468,6 @@ Page({
     });
     this.refreshRetentionSnapshot();
     this.refreshFavoriteStatus();
-    this.prefetchResultImages();
 
     if (wx.onKeyboardHeightChange) {
       this._keyboardHandler = (res) => {
@@ -484,31 +486,6 @@ Page({
     }
   },
 
-  withTimeout(promise, timeoutMs, message) {
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      const timer = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        reject(new Error(message || "request timeout"));
-      }, Math.max(1000, Number(timeoutMs) || RESULT_IMAGE_PREFETCH_TIMEOUT_MS));
-
-      Promise.resolve(promise)
-        .then((value) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          resolve(value);
-        })
-        .catch((err) => {
-          if (settled) return;
-          settled = true;
-          clearTimeout(timer);
-          reject(err);
-        });
-    });
-  },
-
   appendImageRetryToken(url, retryIndex) {
     const raw = safeText(url);
     if (!raw) return "";
@@ -517,62 +494,37 @@ Page({
     return `${raw}${joiner}ec_retry=${stamp}`;
   },
 
-  fetchImageInfo(src) {
-    const url = safeText(src);
-    if (!url) return Promise.reject(new Error("empty image source"));
-    return new Promise((resolve, reject) => {
-      wx.getImageInfo({
-        src: url,
-        success(res) {
-          resolve(res);
-        },
-        fail(err) {
-          reject(err);
-        },
-      });
-    });
-  },
-
-  async prefetchImageWithRetry(fieldPrefix) {
+  retryImageByField(fieldPrefix, event) {
     const urlKey = `${fieldPrefix}ImageUrl`;
     const failedKey = `${fieldPrefix}ImageFailed`;
     const loadingKey = `${fieldPrefix}ImageLoading`;
-    const originalUrl = safeText(this.data[urlKey]);
-    if (!originalUrl) {
-      this.setData({ [loadingKey]: false, [failedKey]: true });
+    const retriesKey = `${fieldPrefix}ImageErrorRetries`;
+    const currentUrl = safeText(this.data[urlKey]);
+    const retries = Number(this.data[retriesKey]) || 0;
+
+    if (!currentUrl) {
+      this.setData({
+        [loadingKey]: false,
+        [failedKey]: true,
+      });
       return;
     }
 
-    for (let attempt = 0; attempt <= RESULT_IMAGE_RETRY_LIMIT; attempt += 1) {
-      const candidateUrl = attempt > 0 ? this.appendImageRetryToken(originalUrl, attempt) : originalUrl;
-      try {
-        const info = await this.withTimeout(
-          this.fetchImageInfo(candidateUrl),
-          RESULT_IMAGE_PREFETCH_TIMEOUT_MS + attempt * 1500,
-          "image prefetch timeout"
-        );
-        const resolvedUrl = safeText(info && info.path) || candidateUrl;
-        this.setData({
-          [urlKey]: resolvedUrl,
-          [failedKey]: false,
-          [loadingKey]: false,
-        });
-        return;
-      } catch (err) {
-        if (attempt >= RESULT_IMAGE_RETRY_LIMIT) {
-          this.setData({
-            [failedKey]: true,
-            [loadingKey]: false,
-          });
-          return;
-        }
-      }
+    if (retries < RESULT_IMAGE_RETRY_LIMIT) {
+      this.setData({
+        [urlKey]: this.appendImageRetryToken(currentUrl, retries + 1),
+        [retriesKey]: retries + 1,
+        [failedKey]: false,
+        [loadingKey]: true,
+      });
+      return;
     }
-  },
 
-  prefetchResultImages() {
-    this.prefetchImageWithRetry("poet");
-    this.prefetchImageWithRetry("guochao");
+    console.warn(`${fieldPrefix} image load failed`, (event && event.detail && event.detail.errMsg) || "");
+    this.setData({
+      [failedKey]: true,
+      [loadingKey]: false,
+    });
   },
 
   async refreshRetentionSnapshot() {
@@ -791,26 +743,28 @@ Page({
     });
   },
 
-  onPoetImageError() {
-    this.setData({
-      poetImageFailed: true,
-      poetImageLoading: false,
-    });
+  onPoetImageError(event) {
+    this.retryImageByField("poet", event);
   },
 
-  onGuochaoImageError() {
-    this.setData({
-      guochaoImageFailed: true,
-      guochaoImageLoading: false,
-    });
+  onGuochaoImageError(event) {
+    this.retryImageByField("guochao", event);
   },
 
   onPoetImageLoad() {
-    this.setData({ poetImageLoading: false });
+    this.setData({
+      poetImageLoading: false,
+      poetImageFailed: false,
+      poetImageErrorRetries: 0,
+    });
   },
 
   onGuochaoImageLoad() {
-    this.setData({ guochaoImageLoading: false });
+    this.setData({
+      guochaoImageLoading: false,
+      guochaoImageFailed: false,
+      guochaoImageErrorRetries: 0,
+    });
   },
 
   onUserImageError() {
