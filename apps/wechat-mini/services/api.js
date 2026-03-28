@@ -1,18 +1,48 @@
 const config = require("../config/index");
 const USER_ID_STORAGE_KEY = "ec_user_id";
 
+function encodeUrlPathSegments(pathname) {
+  if (!pathname) return pathname;
+  return pathname
+    .split("/")
+    .map((segment, index) => {
+      if (!segment) return index === 0 ? "" : segment;
+      try {
+        return encodeURIComponent(decodeURIComponent(segment));
+      } catch (err) {
+        return encodeURIComponent(segment);
+      }
+    })
+    .join("/");
+}
+
+function normalizeAndEncodeUrl(url) {
+  if (!url) return "";
+  const value = String(url).trim();
+  if (!value) return "";
+  try {
+    const parsed = new URL(value);
+    parsed.pathname = encodeUrlPathSegments(parsed.pathname);
+    return parsed.toString();
+  } catch (err) {
+    return value;
+  }
+}
+
 function normalizeAssetUrl(rawUrl) {
   if (!rawUrl) return "";
-  if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) {
-    return rawUrl;
+  const value = String(rawUrl).trim();
+  if (!value) return "";
+  if (value.startsWith("http://") || value.startsWith("https://")) {
+    return normalizeAndEncodeUrl(value);
   }
 
   const base = config.apiBaseUrl || "";
-  if (!base) return rawUrl;
+  if (!base) return value;
 
   const prefix = base.endsWith("/") ? base.slice(0, -1) : base;
-  const path = rawUrl.startsWith("/") ? rawUrl : `/${rawUrl}`;
-  return `${prefix}${path}`;
+  const path = value.startsWith("/") ? value : `/${value}`;
+  return normalizeAndEncodeUrl(`${prefix}${path}`);
 }
 
 function buildLocalUserId() {

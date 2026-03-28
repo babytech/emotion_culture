@@ -27,6 +27,13 @@
       <image class="preview-image" mode="widthFix" src="{{imageTempPath}}" />
     </view>
 
+    <view wx:if="{{imageTempPath && payload.userImageUrl}}" class="card preview-wrap">
+      <view class="preview-title">用户自拍预览</view>
+      <view class="selfie-box">
+        <image class="selfie-image" mode="aspectFit" src="{{payload.userImageUrl}}" />
+      </view>
+    </view>
+
     <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
     <view wx:if="{{saveStatus}}" class="status card">{{saveStatus}}</view>
 

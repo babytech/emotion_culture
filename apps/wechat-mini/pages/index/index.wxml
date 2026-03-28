@@ -23,6 +23,9 @@
     <view wx:if="{{isDevtools}}" class="section-tip text-muted">
       开发者工具中可能显示“选图片/文件”，请用真机调试验证前置摄像头。
     </view>
+    <view wx:if="{{isHarmonyOS}}" class="section-tip text-muted">
+      检测到 HarmonyOS 运行环境，已启用兼容策略（平台识别与安全区适配）。
+    </view>
     <view class="media-row">
       <button class="btn btn-secondary" bindtap="chooseSelfie">前置自拍</button>
       <button

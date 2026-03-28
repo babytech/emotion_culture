@@ -81,8 +81,10 @@
         class="result-image"
         mode="widthFix"
         src="{{poetImageUrl}}"
+        bindload="onPoetImageLoad"
         binderror="onPoetImageError"
       />
+      <view wx:if="{{poetImageLoading && !poetImageFailed}}" class="img-loading-tip">诗人图片加载中...</view>
       <view wx:if="{{!poetImageUrl || poetImageFailed}}" class="img-placeholder">
         诗人图片暂不可用
       </view>
@@ -111,8 +113,10 @@
         class="result-image"
         mode="widthFix"
         src="{{guochaoImageUrl}}"
+        bindload="onGuochaoImageLoad"
         binderror="onGuochaoImageError"
       />
+      <view wx:if="{{guochaoImageLoading && !guochaoImageFailed}}" class="img-loading-tip">国潮图片加载中...</view>
       <view wx:if="{{!guochaoImageUrl || guochaoImageFailed}}" class="img-placeholder">
         国潮图片暂不可用
       </view>

@@ -1,5 +1,6 @@
 const { analyze, createAnalyzeTask, getAnalyzeTask } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
+const { detectRuntimeEnv } = require("../../utils/runtime");
 
 const recorder = wx.getRecorderManager();
 const IMAGE_COMPRESS_SKIP_BYTES = 900 * 1024;
@@ -204,6 +205,7 @@ Page({
     submitButtonText: "提交分析",
     errorMsg: "",
     isDevtools: false,
+    isHarmonyOS: false,
     pendingTaskId: "",
     pendingTaskToken: "",
     uploadedImageFileId: "",
@@ -213,14 +215,29 @@ Page({
   },
 
   onLoad() {
-    let isDevtools = false;
+    let runtime = {
+      isDevtools: false,
+      isHarmonyOS: false,
+      clientPlatform: "mp-weixin",
+      platform: "",
+      system: "",
+    };
     try {
-      const sysInfo = wx.getSystemInfoSync();
-      isDevtools = !!sysInfo && sysInfo.platform === "devtools";
+      runtime = detectRuntimeEnv();
     } catch (err) {
-      isDevtools = false;
+      runtime = {
+        isDevtools: false,
+        isHarmonyOS: false,
+        clientPlatform: "mp-weixin",
+        platform: "",
+        system: "",
+      };
     }
-    this.setData({ isDevtools });
+    this.runtimeEnv = runtime;
+    this.setData({
+      isDevtools: !!runtime.isDevtools,
+      isHarmonyOS: !!runtime.isHarmonyOS,
+    });
     this.restorePendingTaskState();
     this.bindRecorderEvents();
   },
@@ -659,6 +676,7 @@ Page({
             }
           : undefined;
 
+      const runtimeEnv = this.runtimeEnv || detectRuntimeEnv();
       return {
         input_modes: effectiveInputModes,
         request_token: requestToken || undefined,
@@ -670,8 +688,10 @@ Page({
         audio_url: includeAudio ? audioTempUrl || undefined : undefined,
         audio_file_id: includeAudio ? audioFileId || undefined : undefined,
         client: {
-          platform: "mp-weixin",
+          platform: runtimeEnv.clientPlatform || "mp-weixin",
           version: "0.1.0",
+          runtime_platform: runtimeEnv.platform || "",
+          system: runtimeEnv.system || "",
         },
       };
     };

@@ -12,6 +12,8 @@ const DEFAULT_DAILY_SUGGESTION = "今天先做一件你能马上完成的小行�
 const FAVORITE_TYPE_POEM = "poem";
 const FAVORITE_TYPE_GUOCHAO = "guochao";
 const SHARE_PAYLOAD_STORAGE_KEY = "ec_share_payload";
+const RESULT_IMAGE_RETRY_LIMIT = 2;
+const RESULT_IMAGE_PREFETCH_TIMEOUT_MS = 8000;
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -310,6 +312,10 @@ function isFavoriteDisabledError(message) {
 
 function buildSharePayloadFromData(data) {
   const triggerTags = Array.isArray(data && data.triggerTags) ? data.triggerTags : [];
+  const userImageUrl =
+    data && data.userImageRemoved
+      ? ""
+      : safeText(data && data.userImagePreviewUrl);
   return {
     requestId: safeText(data && data.requestId),
     emotionLabel: safeText(data && data.emotionLabel),
@@ -322,6 +328,7 @@ function buildSharePayloadFromData(data) {
     guochaoName: safeText(data && data.guochaoName),
     comfort: clampText(data && data.comfort, 220),
     triggerTags: triggerTags.slice(0, 5),
+    userImageUrl,
     checkedTodayText: safeText(data && data.checkedTodayText),
     currentStreak: Number(data && data.currentStreak) || 0,
     monthCheckinDays: Number(data && data.monthCheckinDays) || 0,
@@ -351,6 +358,8 @@ Page({
     guochaoImageUrl: "",
     poetImageFailed: false,
     guochaoImageFailed: false,
+    poetImageLoading: false,
+    guochaoImageLoading: false,
     userImagePreviewUrl: "",
     userImageVisible: false,
     userImageFailed: false,
@@ -410,6 +419,9 @@ Page({
       viewModel.dailySuggestion,
     ]);
 
+    const poetImageUrl = normalizeAssetUrl(response.poet_image_url || "");
+    const guochaoImageUrl = normalizeAssetUrl(response.guochao_image_url || "");
+
     this.setData({
       hasData: true,
       requestId: viewModel.requestId,
@@ -427,10 +439,12 @@ Page({
       comfort: viewModel.comfort,
       speechTranscript: viewModel.speechTranscript,
       speechTranscriptHint: viewModel.speechTranscriptHint,
-      poetImageUrl: normalizeAssetUrl(response.poet_image_url || ""),
-      guochaoImageUrl: normalizeAssetUrl(response.guochao_image_url || ""),
+      poetImageUrl,
+      guochaoImageUrl,
       poetImageFailed: false,
       guochaoImageFailed: false,
+      poetImageLoading: !!poetImageUrl,
+      guochaoImageLoading: !!guochaoImageUrl,
       userImagePreviewUrl,
       userImageVisible: !!userImagePreviewUrl,
       userImageFailed: false,
@@ -451,6 +465,7 @@ Page({
     });
     this.refreshRetentionSnapshot();
     this.refreshFavoriteStatus();
+    this.prefetchResultImages();
 
     if (wx.onKeyboardHeightChange) {
       this._keyboardHandler = (res) => {
@@ -467,6 +482,97 @@ Page({
       };
       wx.onKeyboardHeightChange(this._keyboardHandler);
     }
+  },
+
+  withTimeout(promise, timeoutMs, message) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error(message || "request timeout"));
+      }, Math.max(1000, Number(timeoutMs) || RESULT_IMAGE_PREFETCH_TIMEOUT_MS));
+
+      Promise.resolve(promise)
+        .then((value) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          resolve(value);
+        })
+        .catch((err) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  },
+
+  appendImageRetryToken(url, retryIndex) {
+    const raw = safeText(url);
+    if (!raw) return "";
+    const stamp = `${Date.now()}_${retryIndex}`;
+    const joiner = raw.includes("?") ? "&" : "?";
+    return `${raw}${joiner}ec_retry=${stamp}`;
+  },
+
+  fetchImageInfo(src) {
+    const url = safeText(src);
+    if (!url) return Promise.reject(new Error("empty image source"));
+    return new Promise((resolve, reject) => {
+      wx.getImageInfo({
+        src: url,
+        success(res) {
+          resolve(res);
+        },
+        fail(err) {
+          reject(err);
+        },
+      });
+    });
+  },
+
+  async prefetchImageWithRetry(fieldPrefix) {
+    const urlKey = `${fieldPrefix}ImageUrl`;
+    const failedKey = `${fieldPrefix}ImageFailed`;
+    const loadingKey = `${fieldPrefix}ImageLoading`;
+    const originalUrl = safeText(this.data[urlKey]);
+    if (!originalUrl) {
+      this.setData({ [loadingKey]: false, [failedKey]: true });
+      return;
+    }
+
+    for (let attempt = 0; attempt <= RESULT_IMAGE_RETRY_LIMIT; attempt += 1) {
+      const candidateUrl = attempt > 0 ? this.appendImageRetryToken(originalUrl, attempt) : originalUrl;
+      try {
+        const info = await this.withTimeout(
+          this.fetchImageInfo(candidateUrl),
+          RESULT_IMAGE_PREFETCH_TIMEOUT_MS + attempt * 1500,
+          "image prefetch timeout"
+        );
+        const resolvedUrl = safeText(info && info.path) || candidateUrl;
+        this.setData({
+          [urlKey]: resolvedUrl,
+          [failedKey]: false,
+          [loadingKey]: false,
+        });
+        return;
+      } catch (err) {
+        if (attempt >= RESULT_IMAGE_RETRY_LIMIT) {
+          this.setData({
+            [failedKey]: true,
+            [loadingKey]: false,
+          });
+          return;
+        }
+      }
+    }
+  },
+
+  prefetchResultImages() {
+    this.prefetchImageWithRetry("poet");
+    this.prefetchImageWithRetry("guochao");
   },
 
   async refreshRetentionSnapshot() {
@@ -686,11 +792,25 @@ Page({
   },
 
   onPoetImageError() {
-    this.setData({ poetImageFailed: true });
+    this.setData({
+      poetImageFailed: true,
+      poetImageLoading: false,
+    });
   },
 
   onGuochaoImageError() {
-    this.setData({ guochaoImageFailed: true });
+    this.setData({
+      guochaoImageFailed: true,
+      guochaoImageLoading: false,
+    });
+  },
+
+  onPoetImageLoad() {
+    this.setData({ poetImageLoading: false });
+  },
+
+  onGuochaoImageLoad() {
+    this.setData({ guochaoImageLoading: false });
   },
 
   onUserImageError() {

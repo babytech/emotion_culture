@@ -19,6 +19,8 @@ page {
 
 .container {
   padding: 24rpx;
+  padding-bottom: calc(24rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
 }
 
 .card {

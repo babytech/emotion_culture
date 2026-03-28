@@ -1,6 +1,6 @@
 const SHARE_PAYLOAD_STORAGE_KEY = "ec_share_payload";
 const CANVAS_WIDTH = 720;
-const CANVAS_HEIGHT = 1160;
+const CANVAS_HEIGHT = 1600;
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -35,6 +35,7 @@ function buildPayloadFromContext() {
   const app = getApp();
   const context = (app && app.globalData && app.globalData.latestAnalyzeContext) || {};
   const response = (context && context.response) || {};
+  const request = (context && context.request) || {};
   if (!response) return null;
 
   const resultCard = response.result_card || {};
@@ -61,6 +62,9 @@ function buildPayloadFromContext() {
     guochaoName: safeText(guochao.name || "国潮伙伴"),
     comfort: clampText(guochaoComfort, 220),
     triggerTags: normalizeTriggerTags(resultCard.trigger_tags || []),
+    userImageUrl: safeText(
+      request.imageTempUrl || request.image_url || request.imageTempPath || request.image_temp_path || ""
+    ),
     checkedTodayText: "",
     currentStreak: 0,
     monthCheckinDays: 0,
@@ -89,6 +93,7 @@ function normalizePayload(raw) {
     guochaoName: safeText(raw.guochaoName || "国潮伙伴"),
     comfort,
     triggerTags: normalizeTriggerTags(raw.triggerTags),
+    userImageUrl: safeText(raw.userImageUrl),
     checkedTodayText: safeText(raw.checkedTodayText),
     currentStreak: Number(raw.currentStreak) || 0,
     monthCheckinDays: Number(raw.monthCheckinDays) || 0,
@@ -96,33 +101,53 @@ function normalizePayload(raw) {
   };
 }
 
-function wrapText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
+function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
   const content = safeText(text);
   if (!content) return y;
 
-  let line = "";
-  let drawY = y;
+  const paragraphs = content.replace(/\r\n/g, "\n").split("\n");
   let linesDrawn = 0;
-  for (let i = 0; i < content.length; i += 1) {
-    const char = content[i];
-    const testLine = `${line}${char}`;
-    const width = ctx.measureText(testLine).width;
-    if (width > maxWidth && line) {
+  let drawY = y;
+
+  for (let p = 0; p < paragraphs.length; p += 1) {
+    const paragraph = paragraphs[p];
+    if (!paragraph) {
+      if (maxLines > 0 && linesDrawn >= maxLines) {
+        return drawY;
+      }
+      drawY += lineHeight;
+      linesDrawn += 1;
+      continue;
+    }
+
+    let line = "";
+    for (let i = 0; i < paragraph.length; i += 1) {
+      const char = paragraph[i];
+      const testLine = `${line}${char}`;
+      const width = ctx.measureText(testLine).width;
+      if (width > maxWidth && line) {
+        ctx.fillText(line, x, drawY);
+        drawY += lineHeight;
+        linesDrawn += 1;
+        if (maxLines > 0 && linesDrawn >= maxLines) {
+          return drawY;
+        }
+        line = char;
+      } else {
+        line = testLine;
+      }
+    }
+
+    if (line) {
       ctx.fillText(line, x, drawY);
-      line = char;
       drawY += lineHeight;
       linesDrawn += 1;
       if (maxLines > 0 && linesDrawn >= maxLines) {
         return drawY;
       }
-    } else {
-      line = testLine;
     }
   }
-  if (line) {
-    ctx.fillText(line, x, drawY);
-    drawY += lineHeight;
-  }
+
   return drawY;
 }
 
@@ -130,7 +155,7 @@ function drawBlockTitle(ctx, title, y) {
   ctx.setFontSize(28);
   ctx.setFillStyle("#7a4f2c");
   ctx.fillText(title, 38, y);
-  return y + 22;
+  return y + 48;
 }
 
 Page({
@@ -173,80 +198,84 @@ Page({
     });
   },
 
-  drawShareCardCanvas() {
-    return new Promise((resolve) => {
-      const payload = this.data.payload || {};
-      const ctx = wx.createCanvasContext("shareCardCanvas", this);
-      const width = CANVAS_WIDTH;
-      const height = CANVAS_HEIGHT;
+  async drawShareCardCanvas() {
+    const payload = this.data.payload || {};
+    const ctx = wx.createCanvasContext("shareCardCanvas", this);
+    const width = CANVAS_WIDTH;
+    const height = CANVAS_HEIGHT;
+    ctx.setTextBaseline("top");
 
-      ctx.setFillStyle("#f7f1e8");
-      ctx.fillRect(0, 0, width, height);
+    ctx.setFillStyle("#f7f1e8");
+    ctx.fillRect(0, 0, width, height);
 
-      ctx.setFillStyle("#a1261b");
-      ctx.fillRect(0, 0, width, 120);
-      ctx.setFillStyle("#ffffff");
-      ctx.setFontSize(34);
-      ctx.fillText("情绪文化助手", 32, 72);
+    ctx.setFillStyle("#a1261b");
+    ctx.fillRect(0, 0, width, 120);
+    ctx.setFillStyle("#ffffff");
+    ctx.setFontSize(34);
+    ctx.fillText("情绪文化助手", 32, 72);
 
-      ctx.setFillStyle("#fffaf1");
-      ctx.fillRect(24, 140, width - 48, height - 180);
-      ctx.setStrokeStyle("rgba(161, 38, 27, 0.15)");
-      ctx.setLineWidth(2);
-      ctx.strokeRect(24, 140, width - 48, height - 180);
+    ctx.setFillStyle("#fffaf1");
+    ctx.fillRect(24, 140, width - 48, height - 180);
+    ctx.setStrokeStyle("rgba(161, 38, 27, 0.15)");
+    ctx.setLineWidth(2);
+    ctx.strokeRect(24, 140, width - 48, height - 180);
 
-      let y = 190;
-      ctx.setFontSize(24);
-      ctx.setFillStyle("#6f5a45");
-      const emotionCodeText = safeText(payload.emotionCode);
-      const codeText = emotionCodeText ? `（${emotionCodeText}）` : "";
-      ctx.fillText(`主情绪：${safeText(payload.emotionLabel)}${codeText}`, 38, y);
-      y += 42;
+    let y = 190;
+    ctx.setFontSize(24);
+    ctx.setFillStyle("#6f5a45");
+    const emotionCodeText = safeText(payload.emotionCode);
+    const codeText = emotionCodeText ? `（${emotionCodeText}）` : "";
+    ctx.fillText(`主情绪：${safeText(payload.emotionLabel)}${codeText}`, 38, y);
+    y += 40;
 
-      const triggerTags = normalizeTriggerTags(payload.triggerTags);
-      if (triggerTags.length) {
-        ctx.setFontSize(22);
-        ctx.setFillStyle("#7f6c58");
-        ctx.fillText(`触发标签：${triggerTags.join("、")}`, 38, y);
-        y += 36;
-      }
-
-      y = drawBlockTitle(ctx, "情绪概述", y + 14);
-      ctx.setFontSize(24);
-      ctx.setFillStyle("#3f2f22");
-      y = wrapText(ctx, payload.emotionOverview || "暂无情绪概述。", 38, y + 16, width - 84, 34, 4);
-
-      y = drawBlockTitle(ctx, "诗词回应", y + 16);
+    const triggerTags = normalizeTriggerTags(payload.triggerTags);
+    if (triggerTags.length) {
       ctx.setFontSize(22);
       ctx.setFillStyle("#7f6c58");
-      ctx.fillText(safeText(payload.poet) || "诗词回应", 38, y + 14);
-      y += 38;
-      ctx.setFontSize(24);
-      ctx.setFillStyle("#3f2f22");
-      y = wrapText(ctx, payload.poemText || "暂无诗词内容。", 38, y + 12, width - 84, 34, 4);
+      ctx.fillText(`触发标签：${triggerTags.join("、")}`, 38, y);
+      y += 34;
+    }
 
-      y = drawBlockTitle(ctx, "国潮慰藉", y + 10);
-      ctx.setFontSize(22);
-      ctx.setFillStyle("#7f6c58");
-      ctx.fillText(safeText(payload.guochaoName) || "国潮伙伴", 38, y + 14);
-      y += 38;
-      ctx.setFontSize(24);
-      ctx.setFillStyle("#3f2f22");
-      y = wrapText(ctx, payload.comfort || "暂无慰藉内容。", 38, y + 12, width - 84, 34, 4);
+    y = drawBlockTitle(ctx, "情绪概述", y + 12);
+    ctx.setFontSize(24);
+    ctx.setFillStyle("#3f2f22");
+    y = drawWrappedText(ctx, payload.emotionOverview || "暂无情绪概述。", 38, y, width - 84, 38, 6);
+    y += 8;
 
-      y = drawBlockTitle(ctx, "今日建议", y + 10);
-      ctx.setFontSize(24);
-      ctx.setFillStyle("#3f2f22");
-      y = wrapText(ctx, payload.dailySuggestion || "保持稳定作息，照顾好自己。", 38, y + 16, width - 84, 34, 3);
+    y = drawBlockTitle(ctx, "诗词回应", y + 14);
+    ctx.setFontSize(22);
+    ctx.setFillStyle("#7f6c58");
+    ctx.fillText(safeText(payload.poet) || "诗词回应", 38, y);
+    y += 32;
+    ctx.setFontSize(24);
+    ctx.setFillStyle("#3f2f22");
+    y = drawWrappedText(ctx, payload.poemText || "暂无诗词内容。", 38, y, width - 84, 38, 6);
+    y += 8;
 
-      ctx.setFontSize(20);
-      ctx.setFillStyle("#8f7f72");
-      const footerY = Math.min(height - 56, y + 30);
-      ctx.fillText(`生成时间：${formatGeneratedAt(payload.generatedAt)}`, 38, footerY);
-      if (safeText(payload.requestId)) {
-        ctx.fillText(`请求编号：${safeText(payload.requestId)}`, 38, footerY + 28);
-      }
+    y = drawBlockTitle(ctx, "国潮慰藉", y + 14);
+    ctx.setFontSize(22);
+    ctx.setFillStyle("#7f6c58");
+    ctx.fillText(safeText(payload.guochaoName) || "国潮伙伴", 38, y);
+    y += 32;
+    ctx.setFontSize(24);
+    ctx.setFillStyle("#3f2f22");
+    y = drawWrappedText(ctx, payload.comfort || "暂无慰藉内容。", 38, y, width - 84, 38, 6);
+    y += 8;
 
+    y = drawBlockTitle(ctx, "今日建议", y + 14);
+    ctx.setFontSize(24);
+    ctx.setFillStyle("#3f2f22");
+    y = drawWrappedText(ctx, payload.dailySuggestion || "保持稳定作息，照顾好自己。", 38, y, width - 84, 38, 4);
+
+    ctx.setFontSize(20);
+    ctx.setFillStyle("#8f7f72");
+    const footerY = Math.max(1400, y + 24);
+    ctx.fillText(`生成时间：${formatGeneratedAt(payload.generatedAt)}`, 38, footerY);
+    if (safeText(payload.requestId)) {
+      ctx.fillText(`请求编号：${safeText(payload.requestId)}`, 38, footerY + 30);
+    }
+
+    await new Promise((resolve) => {
       ctx.draw(false, resolve);
     });
   },

@@ -224,6 +224,13 @@
   color: #8e7d62;
 }
 
+.img-loading-tip {
+  margin-top: 10rpx;
+  margin-bottom: 4rpx;
+  font-size: 24rpx;
+  color: #8e7d62;
+}
+
 .poem-text {
   margin-top: 16rpx;
   white-space: pre-wrap;
