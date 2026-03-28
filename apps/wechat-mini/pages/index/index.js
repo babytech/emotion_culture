@@ -198,6 +198,7 @@ Page({
     pendingSelfiePath: "",
     audioTempPath: "",
     isRecording: false,
+    isRecordBusy: false,
     recordSeconds: 0,
     isSubmitting: false,
     submitStage: SUBMIT_STAGE.IDLE,
@@ -261,6 +262,7 @@ Page({
       this.resetPendingSubmissionState();
       this.setData({
         isRecording: true,
+        isRecordBusy: false,
         recordSeconds: 0,
         submitStage: SUBMIT_STAGE.IDLE,
         submitStatusText: "",
@@ -275,6 +277,7 @@ Page({
       this.resetPendingSubmissionState();
       this.setData({
         isRecording: false,
+        isRecordBusy: false,
         audioTempPath: res.tempFilePath || "",
         submitStage: SUBMIT_STAGE.IDLE,
         submitStatusText: "",
@@ -285,7 +288,10 @@ Page({
 
     recorder.onError((err) => {
       this.stopRecordTimer();
-      this.setData({ isRecording: false });
+      this.setData({
+        isRecording: false,
+        isRecordBusy: false,
+      });
       wx.showToast({
         title: err.errMsg || "录音失败",
         icon: "none",
@@ -479,29 +485,47 @@ Page({
   },
 
   startRecord() {
-    if (this.data.isRecording) return;
+    if (this.data.isRecording || this.data.isRecordBusy) return;
 
     this.resetPendingSubmissionState();
     this.setData({
+      isRecordBusy: true,
       submitStage: SUBMIT_STAGE.IDLE,
       submitStatusText: "",
       submitButtonText: "提交分析",
       errorMsg: "",
     });
 
-    recorder.start({
-      duration: 60000,
-      sampleRate: 16000,
-      numberOfChannels: 1,
-      encodeBitRate: 96000,
-      format: "mp3",
-      frameSize: 50,
-    });
+    try {
+      recorder.start({
+        duration: 60000,
+        sampleRate: 16000,
+        numberOfChannels: 1,
+        encodeBitRate: 96000,
+        format: "mp3",
+        frameSize: 50,
+      });
+    } catch (err) {
+      this.setData({ isRecordBusy: false });
+      wx.showToast({
+        title: (err && err.errMsg) || "录音启动失败",
+        icon: "none",
+      });
+    }
   },
 
   stopRecord() {
-    if (!this.data.isRecording) return;
-    recorder.stop();
+    if (!this.data.isRecording || this.data.isRecordBusy) return;
+    this.setData({ isRecordBusy: true });
+    try {
+      recorder.stop();
+    } catch (err) {
+      this.setData({ isRecordBusy: false });
+      wx.showToast({
+        title: (err && err.errMsg) || "停止录音失败",
+        icon: "none",
+      });
+    }
   },
 
   clearAudio() {

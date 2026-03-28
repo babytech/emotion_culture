@@ -59,16 +59,18 @@
       <button
         wx:if="{{!isRecording}}"
         class="btn btn-secondary"
+        disabled="{{isRecordBusy}}"
         bindtap="startRecord"
       >
-        开始录音
+        {{isRecordBusy ? "录音启动中..." : "开始录音"}}
       </button>
       <button
         wx:if="{{isRecording}}"
         class="btn btn-primary"
+        disabled="{{isRecordBusy}}"
         bindtap="stopRecord"
       >
-        停止录音
+        {{isRecordBusy ? "停止中..." : "停止录音"}}
       </button>
       <button class="btn" disabled="{{!audioTempPath}}" bindtap="clearAudio">
         清除

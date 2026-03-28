@@ -162,13 +162,14 @@ Page({
   data: {
     hasData: false,
     payload: null,
+    triggerTagsText: "",
     generatedAtText: "",
     isGenerating: false,
     imageTempPath: "",
+    generatedPreviewExpanded: false,
+    selfiePreviewExpanded: false,
     errorMsg: "",
     saveStatus: "",
-    canvasWidth: CANVAS_WIDTH,
-    canvasHeight: CANVAS_HEIGHT,
   },
 
   onLoad() {
@@ -193,6 +194,7 @@ Page({
     this.setData({
       hasData: true,
       payload,
+      triggerTagsText: normalizeTriggerTags(payload.triggerTags).join("、"),
       generatedAtText: formatGeneratedAt(payload.generatedAt),
       errorMsg: "",
     });
@@ -209,18 +211,20 @@ Page({
     ctx.fillRect(0, 0, width, height);
 
     ctx.setFillStyle("#a1261b");
-    ctx.fillRect(0, 0, width, 120);
+    ctx.fillRect(0, 0, width, 150);
     ctx.setFillStyle("#ffffff");
     ctx.setFontSize(34);
-    ctx.fillText("情绪文化助手", 32, 72);
+    ctx.setTextAlign("center");
+    ctx.fillText("情绪陪伴小助手", width / 2, 96);
+    ctx.setTextAlign("left");
 
     ctx.setFillStyle("#fffaf1");
-    ctx.fillRect(24, 140, width - 48, height - 180);
+    ctx.fillRect(24, 170, width - 48, height - 210);
     ctx.setStrokeStyle("rgba(161, 38, 27, 0.15)");
     ctx.setLineWidth(2);
-    ctx.strokeRect(24, 140, width - 48, height - 180);
+    ctx.strokeRect(24, 170, width - 48, height - 210);
 
-    let y = 190;
+    let y = 220;
     ctx.setFontSize(24);
     ctx.setFillStyle("#6f5a45");
     const emotionCodeText = safeText(payload.emotionCode);
@@ -314,6 +318,8 @@ Page({
       const exported = await this.exportCanvasImage();
       this.setData({
         imageTempPath: safeText(exported && exported.tempFilePath),
+        generatedPreviewExpanded: false,
+        selfiePreviewExpanded: false,
         saveStatus: "卡片已生成，可保存到相册。",
       });
       wx.showToast({ title: "生成成功", icon: "none" });
@@ -373,6 +379,18 @@ Page({
     wx.previewImage({
       current: filePath,
       urls: [filePath],
+    });
+  },
+
+  toggleGeneratedPreview() {
+    this.setData({
+      generatedPreviewExpanded: !this.data.generatedPreviewExpanded,
+    });
+  },
+
+  toggleSelfiePreview() {
+    this.setData({
+      selfiePreviewExpanded: !this.data.selfiePreviewExpanded,
     });
   },
 

@@ -14,24 +14,48 @@
       <view wx:if="{{generatedAtText}}" class="meta text-muted">生成时间：{{generatedAtText}}</view>
     </view>
 
-    <view class="card canvas-wrap">
-      <canvas
-        canvas-id="shareCardCanvas"
-        class="share-canvas"
-        style="width: {{canvasWidth}}rpx; height: {{canvasHeight}}rpx;"
-      />
+    <view class="render-canvas-wrap">
+      <canvas canvas-id="shareCardCanvas" class="render-canvas" />
+    </view>
+
+    <view class="card content-wrap">
+      <view class="content-line">
+        主情绪：{{payload.emotionLabel}}
+        <text wx:if="{{payload.emotionCode}}">（{{payload.emotionCode}}）</text>
+      </view>
+      <view wx:if="{{triggerTagsText}}" class="content-line">触发标签：{{triggerTagsText}}</view>
+
+      <view class="content-section-title">情绪概述</view>
+      <view class="content-text">{{payload.emotionOverview || "暂无情绪概述。"}}</view>
+
+      <view class="content-section-title">诗词回应</view>
+      <view class="content-sub">{{payload.poet || "诗词回应"}}</view>
+      <view class="content-text">{{payload.poemText || "暂无诗词内容。"}}</view>
+
+      <view class="content-section-title">国潮慰藉</view>
+      <view class="content-sub">{{payload.guochaoName || "国潮伙伴"}}</view>
+      <view class="content-text">{{payload.comfort || "暂无慰藉内容。"}}</view>
+
+      <view class="content-section-title">今日建议</view>
+      <view class="content-text">{{payload.dailySuggestion || "保持稳定作息，照顾好自己。"}}</view>
+    </view>
+
+    <view wx:if="{{payload.userImageUrl}}" class="card preview-wrap">
+      <view class="preview-head" bindtap="toggleSelfiePreview">
+        <view class="preview-title">用户自拍图片预览</view>
+        <view class="preview-toggle">{{selfiePreviewExpanded ? '收起' : '展开'}}</view>
+      </view>
+      <view wx:if="{{selfiePreviewExpanded}}" class="selfie-box">
+        <image class="selfie-image" mode="aspectFit" src="{{payload.userImageUrl}}" />
+      </view>
     </view>
 
     <view wx:if="{{imageTempPath}}" class="card preview-wrap">
-      <view class="preview-title">已生成图片预览</view>
-      <image class="preview-image" mode="widthFix" src="{{imageTempPath}}" />
-    </view>
-
-    <view wx:if="{{imageTempPath && payload.userImageUrl}}" class="card preview-wrap">
-      <view class="preview-title">用户自拍预览</view>
-      <view class="selfie-box">
-        <image class="selfie-image" mode="aspectFit" src="{{payload.userImageUrl}}" />
+      <view class="preview-head" bindtap="toggleGeneratedPreview">
+        <view class="preview-title">已生成卡片预览</view>
+        <view class="preview-toggle">{{generatedPreviewExpanded ? '收起' : '展开'}}</view>
       </view>
+      <image wx:if="{{generatedPreviewExpanded}}" class="preview-image" mode="widthFix" src="{{imageTempPath}}" />
     </view>
 
     <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
