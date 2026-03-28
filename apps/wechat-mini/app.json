@@ -17,6 +17,7 @@
     "backgroundColor": "#F5EFE4",
     "backgroundTextStyle": "light"
   },
+  "lazyCodeLoading": "requiredComponents",
   "style": "v2",
   "sitemapLocation": "sitemap.json"
 }
