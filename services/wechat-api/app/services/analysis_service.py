@@ -10,7 +10,7 @@ from typing import Optional
 
 import cv2
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 from app.core.culture import CultureManager
 from app.core.emotion import (
@@ -302,6 +302,15 @@ def _validate_face_quality(image: np.ndarray) -> None:
         minNeighbors=6,
         minSize=(40, 40),
     )
+    if len(raw_faces) == 0:
+        # Fallback for edge cases (glasses reflection / close-up / slight angle):
+        # retry with a slightly relaxed detector config before declaring no face.
+        raw_faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.08,
+            minNeighbors=4,
+            minSize=(30, 30),
+        )
 
     image_area = float(gray.shape[0] * gray.shape[1])
     min_candidate_ratio = _env_float("FACE_MIN_CANDIDATE_AREA_RATIO", 0.01)
@@ -404,7 +413,10 @@ def _validate_face_quality(image: np.ndarray) -> None:
 
 def _load_image_numpy(image_path: str) -> np.ndarray:
     with Image.open(image_path) as image:
-        rgb = image.convert("RGB")
+        # Normalize EXIF orientation first. Some mobile photos are stored in rotated
+        # orientation metadata; without this, face detection may run on a sideways image.
+        normalized = ImageOps.exif_transpose(image)
+        rgb = normalized.convert("RGB")
         max_edge = _env_int("ANALYZE_IMAGE_MAX_EDGE", 896)
         width, height = rgb.size
         longest = max(width, height)
