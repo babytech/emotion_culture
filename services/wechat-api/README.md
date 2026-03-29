@@ -152,8 +152,8 @@ Optional:
 - `WEEKLY_REPORT_CACHE_MAX_ITEMS` (default `32`, max cached weekly report snapshots per user)
 - `MEDIA_GEN_PROVIDER` (`local_mock` | `static_pool`, default `local_mock`)
 - Third-party dynamic image providers (`http` / `qwen` / `hunyuan` / `liblib`) are removed from current codebase.
-- `MEDIA_GEN_MOCK_MAX_EDGE` (default `1024`, resize upper bound for local mock)
-- `MEDIA_GEN_MOCK_QUALITY` (default `82`, output quality for local mock JPEG)
+- `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO` (comma-separated static references, recommend COS URLs)
+- `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON` (JSON array form, same meaning as above)
 - `FACE_MIN_CANDIDATE_AREA_RATIO` (default `0.01`, tiny box filter for initial face candidates)
 - `FACE_DEDUPE_IOU_THRESHOLD` (default `0.3`, merge duplicated overlapping face boxes)
 - `FACE_MIN_PRESENCE_EYE_COUNT` (default `1`, minimum eyes for considering a face as valid)

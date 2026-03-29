@@ -253,17 +253,14 @@ Request body fields:
 - `request_token` optional idempotency token
 - `analysis_request_id` optional trace id
 - `style` required: `tech | guochao`
-- `consent_confirmed` required boolean (`true` means user explicitly agreed)
+- `consent_confirmed` optional (kept for compatibility, static-pool mode does not require it)
 - `consent_version` optional text
-- `source_image` optional normalized media object (`url` / `file_id` / `local_path`)
-- legacy fallback: `source_image_url` / `source_image_file_id` / `source_image_path`
+- `source_image` / `source_image_url` / `source_image_file_id` / `source_image_path` optional (ignored in static-pool mode)
 
 Important:
 
 - call must carry WeChat identity (`x-wx-openid`), otherwise returns `401`
-- if `consent_confirmed=false`, create API returns `400` with `MEDIA_GEN_CONSENT_REQUIRED`
-- if user exceeds weekly limit, create API returns `429` with `MEDIA_GEN_WEEKLY_LIMIT_EXCEEDED`
-- if points are insufficient, create API returns `402` with `MEDIA_GEN_POINTS_INSUFFICIENT`
+- static-pool mode no longer depends on third-party generation or per-call points deduction
 
 Create response example:
 
@@ -291,14 +288,14 @@ Succeeded example:
   "started_at": "2026-03-29T12:50:01Z",
   "finished_at": "2026-03-29T12:50:02Z",
   "poll_after_ms": 2200,
-  "status_message": "生图完成",
+  "status_message": "选图完成",
   "retryable": false,
   "error_code": null,
   "error_detail": null,
   "result": {
-    "generated_image_url": "/generated-media/20260329125002_tech_91af4e0b3d.jpg",
-    "generated_image_file_id": "/generated-media/20260329125002_tech_91af4e0b3d.jpg",
-    "provider": "local_mock",
+    "generated_image_url": "https://<your-cdn-domain>/emotion/tech/tech_001.jpg",
+    "generated_image_file_id": null,
+    "provider": "static_pool",
     "style": "tech",
     "generated_at": "2026-03-29T12:50:02Z"
   }
@@ -311,10 +308,10 @@ Failure example:
 {
   "task_id": "mgt_xxx",
   "status": "failed",
-  "status_message": "生图失败",
+  "status_message": "选图失败",
   "retryable": false,
-  "error_code": "MEDIA_GEN_CONSENT_REQUIRED",
-  "error_detail": "MEDIA_GEN_CONSENT_REQUIRED: user consent is required before generation"
+  "error_code": "MEDIA_GEN_POOL_EMPTY",
+  "error_detail": "MEDIA_GEN_STATIC_POOL_EMPTY: no static assets configured for selected style"
 }
 ```
 
@@ -324,8 +321,9 @@ Provider env quick notes:
 - Third-party dynamic providers (`qwen`/`hunyuan`/`liblib`/generic `http`) were removed from current codebase.
 - If `MEDIA_GEN_PROVIDER` is set to any removed provider, API returns:
   - `MEDIA_GEN_PROVIDER_DISABLED: third-party dynamic image providers are removed; please use MEDIA_GEN_PROVIDER=local_mock`
-- `MEDIA_GEN_MOCK_MAX_EDGE` controls local mock resize upper bound (default `1024`).
-- `MEDIA_GEN_MOCK_QUALITY` controls local mock JPEG quality (default `82`).
+- `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO`: comma-separated static references (recommend COS/CDN URLs).
+- `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON`: JSON array form of static references.
+- If static pool env not configured, backend fallback uses local `/assets/tangsong/*` or `/assets/guochao/*`.
 
 Timing fields note:
 

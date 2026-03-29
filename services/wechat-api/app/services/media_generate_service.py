@@ -1,4 +1,3 @@
-import hashlib
 import logging
 import os
 import threading
@@ -6,16 +5,10 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any, Optional
 
-from PIL import Image
-
-from app.schemas.media_generate import MediaGenerateRequest, MediaGenerateStyle
+from app.schemas.media_generate import MediaGenerateRequest
 from app.services.image_provider_service import generate_stylized_image
-from app.services.points_service import deduct_points_for_task, refund_points_transaction
-from app.services.quota_service import consume_weekly_quota, release_weekly_quota
-from app.services.storage_service import cleanup_temp_files, resolve_input_file
 
 
 logger = logging.getLogger(__name__)
@@ -29,17 +22,6 @@ _DEFAULT_POLL_AFTER_MS = 2200
 _DEFAULT_TASK_TTL_SECONDS = 1800
 _DEFAULT_MAX_TASKS = 800
 _DEFAULT_WORKERS = 2
-_DEFAULT_WEEKLY_LIMIT = 1
-_DEFAULT_POINTS_PER_TASK = 1
-
-_GENERATED_DIR = Path(
-    (os.getenv("MEDIA_GEN_OUTPUT_DIR", "/tmp/emotion_culture/generated_media") or "").strip()
-).expanduser()
-
-
-def ensure_generated_media_dir() -> Path:
-    _GENERATED_DIR.mkdir(parents=True, exist_ok=True)
-    return _GENERATED_DIR
 
 
 def _env_int(name: str, default: int) -> int:
@@ -100,31 +82,21 @@ def _executor() -> ThreadPoolExecutor:
     return _EXECUTOR
 
 
-def _weekly_limit() -> int:
-    return _env_int("MEDIA_GEN_WEEKLY_LIMIT", _DEFAULT_WEEKLY_LIMIT)
-
-
-def _points_per_task() -> int:
-    return _env_int("MEDIA_GEN_POINTS_PER_TASK", _DEFAULT_POINTS_PER_TASK)
-
-
 def _error_code_for(exc: Exception) -> str:
     text = str(exc).upper()
-    if "CONSENT" in text:
-        return "MEDIA_GEN_CONSENT_REQUIRED"
     if "STYLE" in text:
         return "MEDIA_GEN_STYLE_INVALID"
-    if "SOURCE_IMAGE" in text or "SELFIE" in text:
-        return "MEDIA_GEN_SOURCE_INVALID"
-    if isinstance(exc, NotImplementedError):
-        return "MEDIA_GEN_PROVIDER_NOT_READY"
+    if "STATIC_POOL_EMPTY" in text or "POOL_EMPTY" in text:
+        return "MEDIA_GEN_POOL_EMPTY"
+    if "PROVIDER_DISABLED" in text:
+        return "MEDIA_GEN_PROVIDER_DISABLED"
     if isinstance(exc, ValueError):
         return "MEDIA_GEN_BAD_REQUEST"
     return "MEDIA_GEN_INTERNAL_ERROR"
 
 
 def _retryable_for(exc: Exception) -> bool:
-    if isinstance(exc, (ValueError, NotImplementedError)):
+    if isinstance(exc, ValueError):
         return False
     return True
 
@@ -198,26 +170,9 @@ def _snapshot(task: dict[str, Any]) -> dict[str, Any]:
     return snapshot
 
 
-def _build_output_name(*, user_id: str, style: MediaGenerateStyle, task_id: str) -> str:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
-    digest = hashlib.sha1(f"{user_id}|{style.value}|{task_id}".encode("utf-8")).hexdigest()[:10]
-    return f"{stamp}_{style.value}_{digest}.jpg"
-
-
-def _stage_generated_image(source_path: str, *, user_id: str, style: MediaGenerateStyle, task_id: str) -> str:
-    output_dir = ensure_generated_media_dir()
-    output_name = _build_output_name(user_id=user_id, style=style, task_id=task_id)
-    output_path = output_dir / output_name
-
-    with Image.open(source_path) as image:
-        image.convert("RGB").save(
-            output_path,
-            format="JPEG",
-            quality=max(55, min(92, _env_int("MEDIA_GEN_OUTPUT_QUALITY", 84))),
-            optimize=True,
-            progressive=True,
-        )
-    return f"/generated-media/{output_name}"
+def _is_cloud_file_id(reference: str) -> bool:
+    text = (reference or "").strip().lower()
+    return text.startswith("cloud://") or text.startswith("fileid://")
 
 
 def _run_task(task_id: str) -> None:
@@ -226,49 +181,28 @@ def _run_task(task_id: str) -> None:
         if not task:
             return
         task["status"] = "running"
-        task["status_message"] = "生图中"
+        task["status_message"] = "选图中"
         task["started_at"] = _iso_now_utc()
 
-    cleanup_paths: list[str] = []
     try:
         payload = MediaGenerateRequest.model_validate(task.get("payload", {}))
         user_id = str(task.get("user_id") or "anonymous")
         if user_id == "anonymous":
             raise ValueError("MEDIA_GEN_USER_REQUIRED: missing wechat user identity")
-        if not payload.consent_confirmed:
-            raise ValueError("MEDIA_GEN_CONSENT_REQUIRED: user consent is required before generation")
-
-        resolved_source = resolve_input_file(
-            local_path=payload.resolved_source_image_local_path(),
-            file_url=payload.resolved_source_image_url(),
-            file_id=payload.resolved_source_image_file_id(),
-            field_name="source_image_path/source_image_url/source_image_file_id",
-            prefer_file_id=False,
-        )
-        if not resolved_source.path:
-            raise ValueError("MEDIA_GEN_SOURCE_INVALID: source selfie image is required")
-        if resolved_source.cleanup_path:
-            cleanup_paths.append(resolved_source.cleanup_path)
 
         artifact = generate_stylized_image(
             style=payload.style,
-            source_path=resolved_source.path,
-            source_url=payload.resolved_source_image_url(),
+            source_path="",
+            source_url=None,
             prompt=(payload.prompt or "").strip() or None,
         )
-        if artifact.cleanup_path:
-            cleanup_paths.append(artifact.cleanup_path)
-
-        generated_url = _stage_generated_image(
-            artifact.path,
-            user_id=user_id,
-            style=payload.style,
-            task_id=task_id,
-        )
+        reference = str(getattr(artifact, "reference", "") or "").strip()
+        if not reference:
+            raise ValueError("MEDIA_GEN_PROVIDER_BAD_RESPONSE: missing media reference")
 
         result = {
-            "generated_image_url": generated_url,
-            "generated_image_file_id": generated_url,
+            "generated_image_url": reference,
+            "generated_image_file_id": reference if _is_cloud_file_id(reference) else None,
             "provider": artifact.provider,
             "style": payload.style.value,
             "generated_at": _iso_now_utc(),
@@ -281,7 +215,7 @@ def _run_task(task_id: str) -> None:
             if not current:
                 return
             current["status"] = "succeeded"
-            current["status_message"] = "生图完成"
+            current["status_message"] = "选图完成"
             current["finished_at"] = _iso_now_utc()
             current["retryable"] = False
             current["error_code"] = None
@@ -298,36 +232,12 @@ def _run_task(task_id: str) -> None:
                 snapshot.get("total_elapsed_ms"),
             )
     except Exception as exc:  # pragma: no cover
-        refunded = False
-        quota_released = False
-        with _LOCK:
-            current = _TASKS.get(task_id)
-            points_txn_id = str(current.get("points_txn_id") or "").strip() if isinstance(current, dict) else ""
-            quota_consumed = bool(current.get("quota_consumed")) if isinstance(current, dict) else False
-            current_user_id = str(current.get("user_id") or "").strip() if isinstance(current, dict) else ""
-        if points_txn_id and current_user_id:
-            try:
-                refunded = bool(
-                    refund_points_transaction(
-                        current_user_id,
-                        points_txn_id,
-                        reason="media_generate_failed",
-                    ).get("refunded", False)
-                )
-            except Exception:
-                refunded = False
-        if quota_consumed and current_user_id:
-            try:
-                quota_released = release_weekly_quota(current_user_id, task_id)
-            except Exception:
-                quota_released = False
-
         with _LOCK:
             current = _TASKS.get(task_id)
             if not current:
                 return
             current["status"] = "failed"
-            current["status_message"] = "生图失败"
+            current["status_message"] = "选图失败"
             current["finished_at"] = _iso_now_utc()
             current["retryable"] = _retryable_for(exc)
             current["error_code"] = _error_code_for(exc)
@@ -336,30 +246,17 @@ def _run_task(task_id: str) -> None:
             current.pop("payload", None)
             snapshot = _snapshot(current)
             logger.warning(
-                "media-generate failed: task_id=%s queue_wait_ms=%s run_elapsed_ms=%s total_elapsed_ms=%s error_code=%s refunded=%s quota_released=%s detail=%s",
+                "media-generate failed: task_id=%s queue_wait_ms=%s run_elapsed_ms=%s total_elapsed_ms=%s error_code=%s detail=%s",
                 task_id,
                 snapshot.get("queue_wait_ms"),
                 snapshot.get("run_elapsed_ms"),
                 snapshot.get("total_elapsed_ms"),
                 current.get("error_code"),
-                refunded,
-                quota_released,
                 current.get("error_detail"),
             )
-    finally:
-        cleanup_temp_files(cleanup_paths)
 
 
 def create_media_generate_task(payload: MediaGenerateRequest, user_id: str) -> dict[str, Any]:
-    if not payload.consent_confirmed:
-        raise ValueError("MEDIA_GEN_CONSENT_REQUIRED: user consent is required before generation")
-    if not (
-        payload.resolved_source_image_local_path()
-        or payload.resolved_source_image_url()
-        or payload.resolved_source_image_file_id()
-    ):
-        raise ValueError("MEDIA_GEN_SOURCE_INVALID: source selfie image is required")
-
     token = (payload.request_token or "").strip()
     token_key = f"{str(user_id or '').strip()}::{token}" if token else ""
 
@@ -388,34 +285,6 @@ def create_media_generate_task(payload: MediaGenerateRequest, user_id: str) -> d
         "error_detail": None,
         "payload": payload.model_dump(mode="python"),
     }
-
-    try:
-        quota_info = consume_weekly_quota(
-            user_id=user_id,
-            task_id=task_id,
-            weekly_limit=_weekly_limit(),
-        )
-    except ValueError as exc:
-        raise ValueError(str(exc)) from exc
-    quota_consumed = bool(quota_info.get("consumed", False))
-
-    try:
-        points_info = deduct_points_for_task(
-            user_id=user_id,
-            task_id=task_id,
-            points=_points_per_task(),
-            reason="media_generate_create",
-        )
-    except ValueError as exc:
-        if quota_consumed:
-            release_weekly_quota(user_id, task_id)
-        raise ValueError(str(exc)) from exc
-
-    task["quota_consumed"] = quota_consumed
-    task["points_charged"] = bool(points_info.get("charged", False))
-    task["points_txn_id"] = points_info.get("txn_id")
-    task["points_cost"] = int(points_info.get("points", 0) or 0)
-    task["points_balance_after_charge"] = int(points_info.get("balance", 0) or 0)
 
     with _LOCK:
         if token_key:

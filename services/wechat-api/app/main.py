@@ -15,12 +15,10 @@ from app.api.retention import router as retention_router
 from app.api.report import router as report_router
 from app.api.settings import router as settings_router
 from app.api.stt import router as stt_router
-from app.services.media_generate_service import ensure_generated_media_dir
 
 # Load local env file for development.
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 CORE_IMAGES_DIR = Path(__file__).resolve().parent / "core" / "images"
-GENERATED_MEDIA_DIR = ensure_generated_media_dir()
 
 
 app = FastAPI(
@@ -50,8 +48,6 @@ app.include_router(media_generate_router, prefix="/api", tags=["media-generate"]
 
 if CORE_IMAGES_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(CORE_IMAGES_DIR)), name="assets")
-if GENERATED_MEDIA_DIR.exists():
-    app.mount("/generated-media", StaticFiles(directory=str(GENERATED_MEDIA_DIR)), name="generated-media")
 
 
 @app.get("/")
