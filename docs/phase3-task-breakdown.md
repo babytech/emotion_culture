@@ -121,6 +121,52 @@
 - `apps/wechat-mini/pages/result/result.wxml`
 - 完成定义：未选风格不得提交，已选风格可透传给后端供应商适配层。
 
+### MINI-306 UI 设计 Token 与组件规范
+
+- 目标：统一颜色、字号、圆角、间距、按钮主次和卡片样式。
+- 依赖：无。
+- 目标文件：
+- `apps/wechat-mini/app.wxss`
+- `apps/wechat-mini/pages/**/**/*.wxss`
+- 完成定义：三大页面共享同一套视觉 token，不再各写各的样式。
+
+### MINI-307 首页 UI 重构
+
+- 目标：重构首页信息层级，突出“今日状态 + 核心输入 + 主操作”。
+- 依赖：`MINI-306`。
+- 目标文件：
+- `apps/wechat-mini/pages/index/index.wxml`
+- `apps/wechat-mini/pages/index/index.wxss`
+- 完成定义：首屏核心信息清晰，操作路径不超过两次点击。
+
+### MINI-308 结果页 UI 重构
+
+- 目标：重构结果页信息结构，消除内容堆叠与视觉噪声。
+- 依赖：`MINI-306`、`MINI-301`、`MINI-302`。
+- 目标文件：
+- `apps/wechat-mini/pages/result/result.wxml`
+- `apps/wechat-mini/pages/result/result.wxss`
+- 完成定义：主结果、诗词、国潮、邮件、生图区域层次分明，状态提示统一。
+
+### MINI-309 分享页 UI 重构
+
+- 目标：重构分享页预览体验，明确“文本内容”和“图片预览”边界。
+- 依赖：`MINI-306`。
+- 目标文件：
+- `apps/wechat-mini/pages/share/index.wxml`
+- `apps/wechat-mini/pages/share/index.wxss`
+- 完成定义：已生成卡片预览与用户自拍预览默认折叠、可展开，布局不重复不混叠。
+
+### MINI-310 统一状态反馈组件化
+
+- 目标：将加载中/失败/空态/重试统一为可复用样式和文案模式。
+- 依赖：`MINI-306`。
+- 目标文件：
+- `apps/wechat-mini/pages/index/index.wxml`
+- `apps/wechat-mini/pages/result/result.wxml`
+- `apps/wechat-mini/pages/share/index.wxml`
+- 完成定义：同类状态在不同页面视觉和文案一致。
+
 ## 阶段 2：数据与安全
 
 ### DATA-301 生成图保留与清理
@@ -175,10 +221,17 @@
 - 依赖：`BE-306`、`BE-307`、`MINI-304`、`MINI-305`、`DATA-303`。
 - 完成定义：规则行为和文案提示与产品要求一致。
 
+### QA-305 UI 一致性与可用性回归
+
+- 目标：覆盖首页/结果页/分享页的视觉一致性和交互可用性。
+- 依赖：`MINI-306`、`MINI-307`、`MINI-308`、`MINI-309`、`MINI-310`。
+- 完成定义：无文字重叠、无关键按钮误触、无长时间空白占位，iOS/Android 视觉一致。
+
 ## 建议开工顺序
 
 1. `BE-301` -> `BE-302` -> `BE-303`
 2. `BE-304` -> `BE-305` -> `BE-306` -> `BE-307`
 3. `MINI-301` -> `MINI-302` -> `MINI-303` -> `MINI-304` -> `MINI-305`
-4. `DATA-301` -> `DATA-302` -> `DATA-303`
-5. `QA-301` -> `QA-302` -> `QA-303` -> `QA-304`
+4. `MINI-306` -> `MINI-307` -> `MINI-308` -> `MINI-309` -> `MINI-310`
+5. `DATA-301` -> `DATA-302` -> `DATA-303`
+6. `QA-301` -> `QA-302` -> `QA-303` -> `QA-304` -> `QA-305`
