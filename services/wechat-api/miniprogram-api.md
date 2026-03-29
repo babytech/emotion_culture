@@ -320,26 +320,12 @@ Failure example:
 
 Provider env quick notes:
 
-- `MEDIA_GEN_PROVIDER=local_mock|http|liblib_signed` (`local_mock` default for baseline)
-- `MEDIA_GEN_HTTP_ENDPOINT` required when provider is `http`
-- `MEDIA_GEN_HTTP_MODE=multipart|json`
-- `MEDIA_GEN_HTTP_FILE_FIELD` default `image`
-- `MEDIA_GEN_HTTP_STYLE_FIELD` default `style`
-- `MEDIA_GEN_HTTP_PROMPT_FIELD` default `prompt`
-- `MEDIA_GEN_HTTP_RESPONSE_PATH` default `result.url,data.url,url`
-- `MEDIA_GEN_LIBLIB_BASE_URL` default `https://openapi.liblibai.cloud`
-- `MEDIA_GEN_LIBLIB_CREATE_URI` default `/api/genImg`
-- `MEDIA_GEN_LIBLIB_ACCESS_KEY` / `MEDIA_GEN_LIBLIB_SECRET_KEY` required when provider is `liblib_signed`
-- Liblib signature rule (backend auto-generated):
-  `content = "<uri>&<timestamp_ms>&<signature_nonce>"`
-  `signature = base64url(hmac_sha1(secret_key, content)).rstrip("=")`
-- Default signature query keys:
-  `AccessKey` / `Timestamp` / `SignatureNonce` / `Signature`
-- `MEDIA_GEN_LIBLIB_CREATE_JSON_TEMPLATE` supports provider-native payload template
-- `MEDIA_GEN_LIBLIB_*_FIELD` supports dotted path, e.g. `generateParams.prompt` / `generateParams.image_list.0`
-- `MEDIA_GEN_LIBLIB_IMAGE_MODE=base64|hex|url|none` (default `base64`)
-- `MEDIA_GEN_LIBLIB_RESPONSE_PATH` default `data.images.0.imageUrl,data.image_url,data.imageUrl,data.url,result.url,url`
-- Optional polling: set `MEDIA_GEN_LIBLIB_STATUS_URI` and related `MEDIA_GEN_LIBLIB_STATUS_*`
+- `MEDIA_GEN_PROVIDER=local_mock|static_pool`
+- Third-party dynamic providers (`qwen`/`hunyuan`/`liblib`/generic `http`) were removed from current codebase.
+- If `MEDIA_GEN_PROVIDER` is set to any removed provider, API returns:
+  - `MEDIA_GEN_PROVIDER_DISABLED: third-party dynamic image providers are removed; please use MEDIA_GEN_PROVIDER=local_mock`
+- `MEDIA_GEN_MOCK_MAX_EDGE` controls local mock resize upper bound (default `1024`).
+- `MEDIA_GEN_MOCK_QUALITY` controls local mock JPEG quality (default `82`).
 
 Timing fields note:
 
