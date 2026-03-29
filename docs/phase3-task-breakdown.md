@@ -18,7 +18,7 @@
 - 目标文件：
 - 新增 `services/wechat-api/app/services/media_asset_service.py`
 - 新增 `services/wechat-api/app/schemas/media_asset.py`
-- 完成定义：可按风格、标签、权重筛选候选素材。
+- 完成定义：元数据字段固定为 `id,url,style(tech|guochao),emotion_tags,intensity,active,weight,updated_at`，并可按风格、标签、权重筛选候选素材。
 
 ### BE-302 图池选择策略
 
@@ -51,7 +51,7 @@
 - 依赖：`BE-304`。
 - 目标文件：
 - `services/wechat-api/app/services/image_provider_service.py`
-- 完成定义：任何情况下主分析结果不受阻塞。
+- 完成定义：分层兜底顺序固定为“风格候选池 -> 通用图池 -> 本地默认图”，任何情况下主分析结果不受阻塞。
 
 ## 阶段 1：小程序接入
 
@@ -91,7 +91,7 @@
 - 依赖：`BE-301`。
 - 目标文件：
 - 新增 `services/wechat-api/app/services/media_asset_admin_service.py`
-- 完成定义：可运维地迭代图池内容。
+- 完成定义：可运维地迭代图池内容，并支持按点击/收藏/邮件打开数据调整权重。
 
 ### DATA-302 域名与访问策略
 
@@ -101,6 +101,15 @@
 - `apps/wechat-mini/config/index.js`
 - 部署文档
 - 完成定义：真机访问无跨域/白名单问题。
+
+### DATA-303 周期化素材运营
+
+- 目标：形成“每周补图 + 调权复盘”的固定节奏，避免素材长期单一。
+- 依赖：`DATA-301`。
+- 目标文件：
+- 运维文档
+- `docs/phase3-qa-regression-report.md`
+- 完成定义：每周至少一次补图，调权记录可追踪，下一周回归中验证新图命中效果。
 
 ## 阶段 3：回归与封板
 
