@@ -54,6 +54,25 @@
 - `services/wechat-api/README.md`
 - 完成定义：供应商故障时主分析结果不受阻塞，图片链路可降级。
 
+### BE-306 微信身份识别与用户配额键
+
+- 目标：基于微信身份（`openid/unionid`）识别用户并作为配额与积分主键。
+- 依赖：`BE-301`。
+- 目标文件：
+- `services/wechat-api/app/core/user_identity.py`
+- `services/wechat-api/app/api/media_generate.py`
+- 完成定义：未识别到微信身份时拒绝动态生图，返回明确错误码。
+
+### BE-307 周限额与积分扣减
+
+- 目标：同一用户每自然周仅允许生图 1 次，且每次生图都扣减积分。
+- 依赖：`BE-306`。
+- 目标文件：
+- 新增 `services/wechat-api/app/services/quota_service.py`
+- 新增 `services/wechat-api/app/services/points_service.py`
+- `services/wechat-api/app/services/media_generate_service.py`
+- 完成定义：超限拒绝、积分不足拒绝、任务失败可回滚积分。
+
 ## 阶段 1：小程序接入
 
 ### MINI-301 结果页改造为统一图片来源
@@ -84,6 +103,24 @@
 - `apps/wechat-mini/assets/guochao/*`
 - 完成定义：真机场景下不再长期出现“图片暂不可用”空白态。
 
+### MINI-304 用户主动触发与授权确认
+
+- 目标：动态生图仅由用户主动点击触发，并显示授权说明。
+- 依赖：`BE-301`、`BE-306`。
+- 目标文件：
+- `apps/wechat-mini/pages/result/result.js`
+- `apps/wechat-mini/pages/result/result.wxml`
+- 完成定义：用户拒绝授权时立即取消，不发起生图请求。
+
+### MINI-305 风格选择（科技类/国潮类）
+
+- 目标：提供可见按钮让用户选择风格并作为生图请求条件。
+- 依赖：`MINI-304`、`BE-302`。
+- 目标文件：
+- `apps/wechat-mini/pages/result/result.js`
+- `apps/wechat-mini/pages/result/result.wxml`
+- 完成定义：未选风格不得提交，已选风格可透传给后端供应商适配层。
+
 ## 阶段 2：数据与安全
 
 ### DATA-301 生成图保留与清理
@@ -102,6 +139,15 @@
 - `apps/wechat-mini/config/index.js`
 - 部署与配置文档
 - 完成定义：体验版与正式版域名策略一致可验。
+
+### DATA-303 授权与扣减审计
+
+- 目标：记录用户授权、配额命中、积分扣减/回滚，支持审计追踪。
+- 依赖：`BE-307`。
+- 目标文件：
+- 新增 `services/wechat-api/app/services/media_audit_service.py`
+- `services/wechat-api/app/services/history_service.py`
+- 完成定义：可按请求追踪“是否授权、是否扣分、是否回滚”。
 
 ## 阶段 3：回归与封板
 
@@ -123,10 +169,16 @@
 - 依赖：全部任务。
 - 完成定义：不再出现“邮件有图、页面无图”。
 
+### QA-304 授权/配额/积分规则回归
+
+- 目标：覆盖“用户拒绝授权、同周超限、积分不足、失败回滚”场景。
+- 依赖：`BE-306`、`BE-307`、`MINI-304`、`MINI-305`、`DATA-303`。
+- 完成定义：规则行为和文案提示与产品要求一致。
+
 ## 建议开工顺序
 
 1. `BE-301` -> `BE-302` -> `BE-303`
-2. `BE-304` -> `BE-305`
-3. `MINI-301` -> `MINI-302` -> `MINI-303`
-4. `DATA-301` -> `DATA-302`
-5. `QA-301` -> `QA-302` -> `QA-303`
+2. `BE-304` -> `BE-305` -> `BE-306` -> `BE-307`
+3. `MINI-301` -> `MINI-302` -> `MINI-303` -> `MINI-304` -> `MINI-305`
+4. `DATA-301` -> `DATA-302` -> `DATA-303`
+5. `QA-301` -> `QA-302` -> `QA-303` -> `QA-304`
