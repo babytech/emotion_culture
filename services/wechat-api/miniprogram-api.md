@@ -234,6 +234,113 @@ Response when running:
 }
 ```
 
+### 2.2) Dynamic media generate (phase-3 BE-301 baseline)
+
+Used for style generation based on user selfie image.
+
+Flow:
+
+1. `POST /api/media-generate` create async task
+2. poll `GET /api/media-generate/{task_id}`
+3. when `status=succeeded`, read `result.generated_image_url`
+
+#### Create task
+
+`POST /api/media-generate`
+
+Request body fields:
+
+- `request_token` optional idempotency token
+- `analysis_request_id` optional trace id
+- `style` required: `tech | guochao`
+- `consent_confirmed` required boolean (`true` means user explicitly agreed)
+- `consent_version` optional text
+- `source_image` optional normalized media object (`url` / `file_id` / `local_path`)
+- legacy fallback: `source_image_url` / `source_image_file_id` / `source_image_path`
+
+Important:
+
+- call must carry WeChat identity (`x-wx-openid`), otherwise returns `401`
+- if `consent_confirmed=false`, create API returns `400` with `MEDIA_GEN_CONSENT_REQUIRED`
+- if user exceeds weekly limit, create API returns `429` with `MEDIA_GEN_WEEKLY_LIMIT_EXCEEDED`
+- if points are insufficient, create API returns `402` with `MEDIA_GEN_POINTS_INSUFFICIENT`
+
+Create response example:
+
+```json
+{
+  "task_id": "mgt_9a01fbe3c4d2",
+  "status": "queued",
+  "accepted_at": "2026-03-29T12:50:00Z",
+  "poll_after_ms": 2200,
+  "status_message": "排队中"
+}
+```
+
+#### Query task status
+
+`GET /api/media-generate/{task_id}`
+
+Succeeded example:
+
+```json
+{
+  "task_id": "mgt_9a01fbe3c4d2",
+  "status": "succeeded",
+  "accepted_at": "2026-03-29T12:50:00Z",
+  "started_at": "2026-03-29T12:50:01Z",
+  "finished_at": "2026-03-29T12:50:02Z",
+  "poll_after_ms": 2200,
+  "status_message": "生图完成",
+  "retryable": false,
+  "error_code": null,
+  "error_detail": null,
+  "result": {
+    "generated_image_url": "/generated-media/20260329125002_tech_91af4e0b3d.jpg",
+    "generated_image_file_id": "/generated-media/20260329125002_tech_91af4e0b3d.jpg",
+    "provider": "local_mock",
+    "style": "tech",
+    "generated_at": "2026-03-29T12:50:02Z"
+  }
+}
+```
+
+Failure example:
+
+```json
+{
+  "task_id": "mgt_xxx",
+  "status": "failed",
+  "status_message": "生图失败",
+  "retryable": false,
+  "error_code": "MEDIA_GEN_CONSENT_REQUIRED",
+  "error_detail": "MEDIA_GEN_CONSENT_REQUIRED: user consent is required before generation"
+}
+```
+
+Provider env quick notes:
+
+- `MEDIA_GEN_PROVIDER=local_mock|http|liblib_signed` (`local_mock` default for baseline)
+- `MEDIA_GEN_HTTP_ENDPOINT` required when provider is `http`
+- `MEDIA_GEN_HTTP_MODE=multipart|json`
+- `MEDIA_GEN_HTTP_FILE_FIELD` default `image`
+- `MEDIA_GEN_HTTP_STYLE_FIELD` default `style`
+- `MEDIA_GEN_HTTP_PROMPT_FIELD` default `prompt`
+- `MEDIA_GEN_HTTP_RESPONSE_PATH` default `result.url,data.url,url`
+- `MEDIA_GEN_LIBLIB_BASE_URL` default `https://openapi.liblibai.cloud`
+- `MEDIA_GEN_LIBLIB_CREATE_URI` default `/api/genImg`
+- `MEDIA_GEN_LIBLIB_ACCESS_KEY` / `MEDIA_GEN_LIBLIB_SECRET_KEY` required when provider is `liblib_signed`
+- Liblib signature rule (backend auto-generated):
+  `content = "<uri>&<timestamp_ms>&<signature_nonce>"`
+  `signature = base64url(hmac_sha1(secret_key, content)).rstrip("=")`
+- Default signature query keys:
+  `AccessKey` / `Timestamp` / `SignatureNonce` / `Signature`
+- `MEDIA_GEN_LIBLIB_CREATE_JSON_TEMPLATE` supports provider-native payload template
+- `MEDIA_GEN_LIBLIB_*_FIELD` supports dotted path, e.g. `generateParams.prompt` / `generateParams.image_list.0`
+- `MEDIA_GEN_LIBLIB_IMAGE_MODE=base64|hex|url|none` (default `base64`)
+- `MEDIA_GEN_LIBLIB_RESPONSE_PATH` default `data.images.0.imageUrl,data.image_url,data.imageUrl,data.url,result.url,url`
+- Optional polling: set `MEDIA_GEN_LIBLIB_STATUS_URI` and related `MEDIA_GEN_LIBLIB_STATUS_*`
+
 Timing fields note:
 
 - `system_fields.processing_metrics_ms`: backend stage timing breakdown (ms) for completed analysis.

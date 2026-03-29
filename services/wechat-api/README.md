@@ -150,6 +150,22 @@ Optional:
 - `RETENTION_FAVORITES_ENABLED` (`on` | `off`, default `on`; favorites switch, depends on retention switch)
 - `FAVORITES_MAX_ITEMS` (default `500`, max favorites per user)
 - `WEEKLY_REPORT_CACHE_MAX_ITEMS` (default `32`, max cached weekly report snapshots per user)
+- `MEDIA_GEN_PROVIDER` (`local_mock` | `http` | `liblib_signed`, default `local_mock`)
+- `MEDIA_GEN_HTTP_ENDPOINT` / `MEDIA_GEN_HTTP_MODE` / `MEDIA_GEN_HTTP_RESPONSE_PATH` (generic HTTP provider config)
+- `MEDIA_GEN_LIBLIB_BASE_URL` (default `https://openapi.liblibai.cloud`)
+- `MEDIA_GEN_LIBLIB_CREATE_URI` (default `/api/genImg`)
+- `MEDIA_GEN_LIBLIB_ACCESS_KEY` / `MEDIA_GEN_LIBLIB_SECRET_KEY` (Liblib OpenAPI credentials)
+- `MEDIA_GEN_LIBLIB_ACCESS_KEY_PARAM` (default `AccessKey`)
+- `MEDIA_GEN_LIBLIB_TIMESTAMP_PARAM` (default `Timestamp`)
+- `MEDIA_GEN_LIBLIB_NONCE_PARAM` (default `SignatureNonce`)
+- `MEDIA_GEN_LIBLIB_SIGNATURE_PARAM` (default `Signature`)
+- `MEDIA_GEN_LIBLIB_NONCE_WITH_DASH` (`0`/`1`, default `0`)
+- `MEDIA_GEN_LIBLIB_CREATE_JSON_TEMPLATE` (optional JSON object string)
+- `MEDIA_GEN_LIBLIB_STYLE_FIELD` / `MEDIA_GEN_LIBLIB_PROMPT_FIELD` / `MEDIA_GEN_LIBLIB_IMAGE_FIELD` (supports dotted path like `generateParams.prompt`)
+- `MEDIA_GEN_LIBLIB_IMAGE_MODE` (`base64` | `hex` | `url` | `none`, default `base64`)
+- `MEDIA_GEN_LIBLIB_IMAGE_ENCODING_FIELD` (default `image_encoding`)
+- `MEDIA_GEN_LIBLIB_RESPONSE_PATH` (comma-separated image URL paths)
+- `MEDIA_GEN_LIBLIB_STATUS_URI` + `MEDIA_GEN_LIBLIB_STATUS_*` (optional async polling fields)
 - `FACE_MIN_CANDIDATE_AREA_RATIO` (default `0.01`, tiny box filter for initial face candidates)
 - `FACE_DEDUPE_IOU_THRESHOLD` (default `0.3`, merge duplicated overlapping face boxes)
 - `FACE_MIN_PRESENCE_EYE_COUNT` (default `1`, minimum eyes for considering a face as valid)
@@ -200,6 +216,41 @@ SPEECH_ASR_SERVICE=off
 SPEECH_STT_PROVIDER=http
 SPEECH_STT_ENDPOINT=https://<your-cloud-host-domain>/api/stt/tencent
 VOICE_REQUIRE_TRANSCRIPT=0
+```
+
+### Liblib OpenAPI signed mode (phase-3)
+
+When `MEDIA_GEN_PROVIDER=liblib_signed`, backend signs every request as:
+
+- `content = "<uri>&<timestamp_ms>&<signature_nonce>"`
+- `signature = base64url(hmac_sha1(secret_key, content)).rstrip("=")`
+
+Query params are configurable and default to:
+
+- `AccessKey`
+- `Timestamp`
+- `SignatureNonce`
+- `Signature`
+
+Example:
+
+```env
+MEDIA_GEN_PROVIDER=liblib_signed
+MEDIA_GEN_LIBLIB_BASE_URL=https://openapi.liblibai.cloud
+MEDIA_GEN_LIBLIB_CREATE_URI=/api/generate/webui/img2img/ultra
+MEDIA_GEN_LIBLIB_ACCESS_KEY=<your_access_key>
+MEDIA_GEN_LIBLIB_SECRET_KEY=<your_secret_key>
+MEDIA_GEN_LIBLIB_CREATE_JSON_TEMPLATE={"templateUuid":"07e00af4fc464c7ab55ff906f8acf1b7","generateParams":{"imgCount":1}}
+MEDIA_GEN_LIBLIB_STYLE_FIELD=
+MEDIA_GEN_LIBLIB_PROMPT_FIELD=generateParams.prompt
+MEDIA_GEN_LIBLIB_IMAGE_FIELD=generateParams.sourceImage
+MEDIA_GEN_LIBLIB_IMAGE_MODE=url
+MEDIA_GEN_LIBLIB_STATUS_URI=/api/generate/webui/status
+MEDIA_GEN_LIBLIB_STATUS_TASK_FIELD=generateUuid
+MEDIA_GEN_LIBLIB_STATUS_STATE_PATH=data.generateStatus,generateStatus
+MEDIA_GEN_LIBLIB_STATUS_DONE_VALUES=5
+MEDIA_GEN_LIBLIB_STATUS_FAILED_VALUES=6,7
+MEDIA_GEN_LIBLIB_RESPONSE_PATH=data.images.0.imageUrl,data.imageUrl,data.url,result.url,url
 ```
 
 Built-in gateway endpoint:
