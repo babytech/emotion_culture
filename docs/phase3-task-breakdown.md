@@ -1,132 +1,181 @@
-# 第三阶段任务分解（静态图池稳定链路，必须完成）
+# 第三阶段任务分解（M2-M5 对齐版）
 
 ## 使用方式
 
-本文件对应第三阶段“静态图池能力稳定化”目标，任务编号沿用现有规则：
+本文件用于把第三阶段拆成里程碑交付，编号规则：
 
 - `BE`：后端
 - `MINI`：小程序
-- `DATA`：数据与安全
+- `DATA`：数据与策略
 - `QA`：回归与验收
 
-## 阶段 0：后端图池底座（必须先做）
+当前第三阶段基线仍是“静态图池 + 云存储分发”。  
+M3 的“授权弹窗/风格按钮/生成状态”按可插拔增强链路设计，默认可运行在静态图池模式，不阻塞主分析链路。
 
-### BE-301 图片素材元数据模型
+## 里程碑 M2：成本与风控闭环（硬约束）
 
-- 目标：建立“科技/国潮静态图池”元数据结构。
-- 依赖：无。
-- 目标文件：
-- 新增 `services/wechat-api/app/services/media_asset_service.py`
-- 新增 `services/wechat-api/app/schemas/media_asset.py`
-- 完成定义：元数据字段固定为 `id,url,style(tech|guochao),emotion_tags,intensity,active,weight,updated_at`，并可按风格、标签、权重筛选候选素材。
+### BE-304 幂等缓存与失败重试
 
-### BE-302 图池选择策略
-
-- 目标：根据情绪语境（主情绪、触发标签）做加权随机选图。
-- 依赖：`BE-301`。
+- 目标：媒体增强请求具备幂等能力，并对可重试失败自动重试。
 - 目标文件：
 - `services/wechat-api/app/services/media_generate_service.py`
-- 完成定义：同一语境可输出多样化结果，不固定同一张图。
+- `services/wechat-api/app/api/media_generate.py`
+- 完成定义：
+- `request_token` 同参重复提交可复用任务快照
+- 上游失败按策略重试（重试次数/退避可配置）
+- 失败返回统一 `error_code` 与 `retryable`
 
-### BE-303 用户去重策略
+### BE-305 微信身份识别（openid/unionid）
 
-- 目标：同一用户短期内尽量不重复命中同一素材。
-- 依赖：`BE-302`。
+- 目标：统一支持 `x-wx-openid` / `x-wx-unionid` 身份识别。
+- 目标文件：
+- `services/wechat-api/app/core/user_identity.py`
+- `services/wechat-api/app/api/media_generate.py`
+- 完成定义：
+- 同时支持 openid 与 unionid
+- 匿名请求返回 401
+- 日志可识别 identity_type
+
+### BE-306 周配额与积分校验
+
+- 目标：实现每用户每自然周 1 次配额 + 积分校验/扣减/失败回滚。
+- 目标文件：
+- `services/wechat-api/app/services/quota_service.py`
+- `services/wechat-api/app/services/points_service.py`
+- `services/wechat-api/app/services/media_generate_service.py`
+- 完成定义：
+- 默认周配额=1（可配）
+- 积分不足直接拒绝
+- 任务失败自动触发积分回滚与配额释放
+
+### BE-307 授权/配额/扣分审计日志
+
+- 目标：关键风控动作可追踪、可审计。
 - 目标文件：
 - `services/wechat-api/app/services/media_generate_service.py`
-- 完成定义：支持按用户维度做近 7 天去重。
+- 完成定义：
+- 记录授权校验、配额消耗、扣分、回滚、任务终态日志
+- 日志具备 task_id、user_id、identity_type、reason 关键信息
 
-### BE-304 云存储 URL 统一化
+### DATA-303 规则验收用例沉淀
 
-- 目标：素材统一从腾讯云存储（COS/云存储）域名输出。
-- 依赖：`BE-301`。
+- 目标：沉淀硬约束回归用例，保证后续迭代不回退。
 - 目标文件：
-- `services/wechat-api/app/services/storage_service.py`
-- `services/wechat-api/app/services/media_generate_service.py`
-- 完成定义：小程序只接收自有域名 URL 或 file_id。
+- `docs/phase3-qa-regression-report.md`
+- 完成定义：
+- 四类场景回归可复现并通过：
+- 拒绝授权
+- 超周限额
+- 积分不足
+- 失败回滚
 
-### BE-305 兜底与开关
+## 里程碑 M3：小程序生图交互上线（功能层）
 
-- 目标：图池命中失败时回退到本地静态兜底图。
-- 依赖：`BE-304`。
+### MINI-301 用户主动触发媒体增强
+
+- 目标：用户点击后才触发媒体增强任务。
 - 目标文件：
+- `apps/wechat-mini/pages/result/*`
+- `apps/wechat-mini/services/api.js`
+
+### MINI-302 授权弹窗与同意记录
+
+- 目标：明确告知“会使用自拍图进行媒体增强处理”，用户同意后才提交。
+- 目标文件：
+- `apps/wechat-mini/pages/result/*`
+- 完成定义：
+- 拒绝授权时不发请求
+- 同意版本号随请求上送（`consent_version`）
+
+### MINI-303 风格按钮（科技/国潮）
+
+- 目标：用户可选风格后发起任务。
+- 目标文件：
+- `apps/wechat-mini/pages/result/*`
+- 完成定义：支持 `tech` / `guochao` 风格参数传递
+
+### MINI-304 状态反馈统一
+
+- 目标：统一展示“生成中/失败/重试/完成”。
+- 目标文件：
+- `apps/wechat-mini/pages/result/*`
+- `apps/wechat-mini/services/api.js`
+
+### MINI-305 远端失败静态兜底
+
+- 目标：增强链路失败时，自动回退静态图池，不影响主分析与邮件。
+- 目标文件：
+- `apps/wechat-mini/pages/result/*`
 - `services/wechat-api/app/services/image_provider_service.py`
-- 完成定义：分层兜底顺序固定为“风格候选池 -> 通用图池 -> 本地默认图”，任何情况下主分析结果不受阻塞。
 
-## 阶段 1：小程序接入
+### MINI-310 主链路保护
 
-### MINI-301 结果页统一图片来源
-
-- 目标：结果页只消费后端统一返回的图片引用。
-- 依赖：`BE-304`。
-- 目标文件：
-- `apps/wechat-mini/pages/result/result.js`
-- `apps/wechat-mini/pages/result/result.wxml`
-- 完成定义：不再依赖第三方生图 URL。
-
-### MINI-302 状态反馈统一
-
-- 目标：保留“加载中/成功/失败/兜底”状态提示。
-- 依赖：`MINI-301`。
-- 目标文件：
-- `apps/wechat-mini/pages/result/result.js`
-- `apps/wechat-mini/pages/result/result.wxml`
-- 完成定义：用户可明确感知当前展示状态。
-
-### MINI-303 UI 优化收口
-
-- 目标：继续优化首页/结果页/分享页视觉层级与可读性。
-- 依赖：无。
+- 目标：媒体增强为“可降级副链路”，失败不阻塞分析和邮件功能。
 - 目标文件：
 - `apps/wechat-mini/pages/index/*`
 - `apps/wechat-mini/pages/result/*`
-- `apps/wechat-mini/pages/share/*`
-- 完成定义：无重叠、无遮挡、主次清晰。
+- `services/wechat-api/app/api/analyze.py`
+- `services/wechat-api/app/api/email.py`
 
-## 阶段 2：数据与安全
+## 里程碑 M4：UI 重构上线（体验层）
 
-### DATA-301 图池运维机制
+### MINI-306 全局 UI Token
 
-- 目标：支持素材上下线、权重调整、标签维护。
-- 依赖：`BE-301`。
+- 目标：建立统一 token（色彩、字号、间距、圆角、按钮层级）。
 - 目标文件：
-- 新增 `services/wechat-api/app/services/media_asset_admin_service.py`
-- 完成定义：可运维地迭代图池内容，并支持按点击/收藏/邮件打开数据调整权重。
+- `apps/wechat-mini/app.wxss`
 
-### DATA-302 域名与访问策略
+### MINI-307 首页重构
 
-- 目标：确保体验版/正式版可稳定访问云存储图片域名。
-- 依赖：`BE-304`、`MINI-301`。
+- 目标：优化输入流与操作主次，减少拥挤与误触。
+- 目标文件：
+- `apps/wechat-mini/pages/index/*`
+
+### MINI-308 结果页重构
+
+- 目标：优化信息层级、图片区、反馈区，消除遮挡和重叠。
+- 目标文件：
+- `apps/wechat-mini/pages/result/*`
+
+### MINI-309 分享页重构
+
+- 目标：优化分享卡导出体验，避免信息重复与排版拥挤。
+- 目标文件：
+- `apps/wechat-mini/pages/share/*`
+
+## 里程碑 M5：数据与域名策略收口 + 全量回归
+
+### DATA-301 生成图生命周期治理
+
+- 目标：临时资源可追踪、可清理，避免长期堆积。
+- 目标文件：
+- `services/wechat-api/app/services/media_retention_service.py`
+- `services/wechat-api/app/services/retention_cleanup_service.py`
+
+### DATA-302 域名策略校验
+
+- 目标：体验版/正式版域名策略一致，真机加载稳定。
 - 目标文件：
 - `apps/wechat-mini/config/index.js`
 - 部署文档
-- 完成定义：真机访问无跨域/白名单问题。
-
-### DATA-303 周期化素材运营
-
-- 目标：形成“每周补图 + 调权复盘”的固定节奏，避免素材长期单一。
-- 依赖：`DATA-301`。
-- 目标文件：
-- 运维文档
-- `docs/phase3-qa-regression-report.md`
-- 完成定义：每周至少一次补图，调权记录可追踪，下一周回归中验证新图命中效果。
-
-## 阶段 3：回归与封板
 
 ### QA-301 图池命中回归
 
-- 目标：覆盖不同情绪标签下的素材命中正确性。
-- 依赖：`BE-301` 到 `BE-303`。
-- 完成定义：科技/国潮均可稳定命中。
+- 覆盖不同情绪与风格下命中正确性。
 
-### QA-302 弱网真机回归
+### QA-302 5G/弱网回归
 
-- 目标：覆盖 5G/弱网下图片加载与兜底表现。
-- 依赖：`MINI-301`、`MINI-302`。
-- 完成定义：无长期空白区域。
+- 覆盖网络抖动场景的加载、重试与兜底。
 
 ### QA-303 页面与邮件一致性回归
 
-- 目标：确保页面展示图片与邮件图片来源一致。
-- 依赖：全部任务。
-- 完成定义：不再出现“邮件有图、页面无图”。
+- 避免“页面无图、邮件有图”不一致。
+
+### QA-304 风控约束回归
+
+- 覆盖授权拒绝、周限额、积分不足、失败回滚四类场景。
+
+### QA-305 全量回归与封板报告
+
+- 输出自动化 + 真机专项回归结论，并更新 checklist 全量勾选状态。
+

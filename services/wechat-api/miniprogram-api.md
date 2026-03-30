@@ -234,9 +234,10 @@ Response when running:
 }
 ```
 
-### 2.2) Dynamic media generate (phase-3 BE-301 baseline)
+### 2.2) Media generate task (phase-3 M2/M3 baseline)
 
-Used for style generation based on user selfie image.
+Used for user-triggered media enhancement task (style: tech/guochao).  
+Current provider baseline is static asset pool; third-party dynamic providers are removed.
 
 Flow:
 
@@ -253,14 +254,18 @@ Request body fields:
 - `request_token` optional idempotency token
 - `analysis_request_id` optional trace id
 - `style` required: `tech | guochao`
-- `consent_confirmed` optional (kept for compatibility, static-pool mode does not require it)
+- `consent_confirmed` required when `MEDIA_GEN_REQUIRE_CONSENT=1` (default enabled)
 - `consent_version` optional text
 - `source_image` / `source_image_url` / `source_image_file_id` / `source_image_path` optional (ignored in static-pool mode)
 
 Important:
 
-- call must carry WeChat identity (`x-wx-openid`), otherwise returns `401`
-- static-pool mode no longer depends on third-party generation or per-call points deduction
+- call must carry WeChat identity (`x-wx-openid` or `x-wx-unionid`), otherwise returns `401`
+- default hard constraints:
+  - weekly quota (per user per ISO week)
+  - points check and deduction
+  - failure rollback for deducted points and consumed quota
+- static-pool mode does not call third-party generation providers
 
 Create response example:
 
@@ -315,6 +320,12 @@ Failure example:
 }
 ```
 
+Hard-constraint error examples:
+
+- `403 MEDIA_GEN_CONSENT_REQUIRED: user consent must be confirmed before generation`
+- `429 MEDIA_GEN_WEEKLY_LIMIT_EXCEEDED: week=2026-W13, limit=1`
+- `402 MEDIA_GEN_POINTS_INSUFFICIENT: need=1, current=0`
+
 Provider env quick notes:
 
 - `MEDIA_GEN_PROVIDER=local_mock|static_pool`
@@ -324,6 +335,14 @@ Provider env quick notes:
 - `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO`: comma-separated static references (recommend COS/CDN URLs).
 - `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON`: JSON array form of static references.
 - If static pool env not configured, backend fallback uses local `/assets/tangsong/*` or `/assets/guochao/*`.
+- M2 hard-constraint env:
+  - `MEDIA_GEN_REQUIRE_CONSENT=1`
+  - `MEDIA_GEN_ENABLE_WEEKLY_QUOTA=1`
+  - `MEDIA_GEN_WEEKLY_LIMIT=1`
+  - `MEDIA_GEN_ENABLE_POINTS=1`
+  - `MEDIA_GEN_POINTS_COST=1`
+  - `MEDIA_GEN_PROVIDER_MAX_RETRIES=1`
+  - `MEDIA_GEN_PROVIDER_RETRY_BACKOFF_MS=220`
 
 Timing fields note:
 
