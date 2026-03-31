@@ -350,21 +350,26 @@
 }
 
 .media-style-group {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: nowrap;
   gap: 12rpx;
   width: 100%;
-  max-width: 620rpx;
-  margin: 0 auto;
+  margin: 0 auto 2rpx;
+  box-sizing: border-box;
 }
 
 .media-style-btn {
+  flex: 1 1 0;
   min-width: 0;
+  width: auto;
   min-height: 78rpx;
   line-height: 78rpx;
   padding: 0 18rpx !important;
   font-size: 24rpx !important;
   font-weight: 700;
+  text-align: center;
   color: #6b543f !important;
   background: #f8f1e4 !important;
   border: 2rpx solid rgba(161, 38, 27, 0.18) !important;
