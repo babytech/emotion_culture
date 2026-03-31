@@ -1,6 +1,8 @@
 const {
+  createMediaGenerateTask,
   deleteFavoriteItem,
   getFavoriteStatus,
+  getMediaGenerateTask,
   getRetentionCalendar,
   normalizeAssetUrl,
   sendEmail,
@@ -13,6 +15,11 @@ const FAVORITE_TYPE_POEM = "poem";
 const FAVORITE_TYPE_GUOCHAO = "guochao";
 const SHARE_PAYLOAD_STORAGE_KEY = "ec_share_payload";
 const RESULT_IMAGE_RETRY_LIMIT = 2;
+const MEDIA_STYLE_CLASSICAL = "classical";
+const MEDIA_STYLE_TECH = "tech";
+const MEDIA_STYLE_GUOCHAO = "guochao";
+const MEDIA_GENERATE_DEFAULT_POLL_MS = 2200;
+const MEDIA_GENERATE_MAX_POLL_ATTEMPTS = 24;
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -262,6 +269,93 @@ function clearRequestUserImageRefs(req) {
   req.user_image_temp_path = "";
 }
 
+function buildMediaGeneratePrompt(style, emotionLabel, triggerTags) {
+  const mood = safeText(emotionLabel) || "当前情绪";
+  const tags = Array.isArray(triggerTags)
+    ? triggerTags.map((item) => safeText(item)).filter(Boolean).slice(0, 4)
+    : [];
+  const base =
+    style === MEDIA_STYLE_CLASSICAL
+      ? `古典风静态陪伴图片，主情绪：${mood}`
+      : style === MEDIA_STYLE_TECH
+      ? `科技风静态陪伴图片，主情绪：${mood}`
+      : `国潮风静态陪伴图片，主情绪：${mood}`;
+  return tags.length ? `${base}，关键词：${tags.join("、")}` : base;
+}
+
+function buildMediaGenerateRequestToken(style, requestId) {
+  const stamp = Date.now().toString(36);
+  const styleText = safeText(style) || MEDIA_STYLE_CLASSICAL;
+  const requestText = safeText(requestId) || "no_req";
+  return `m3_${styleText}_${stableHash(`${requestText}_${stamp}`).slice(0, 12)}`;
+}
+
+function buildMediaGenerateStyleLabel(style) {
+  if (style === MEDIA_STYLE_CLASSICAL) return "古典风";
+  if (style === MEDIA_STYLE_GUOCHAO) return "国潮风";
+  return "科技风";
+}
+
+function buildMediaGenerateActionText(status, loading) {
+  if (loading) return "切换中...";
+  if (status === "succeeded") return "重新切换风格图";
+  if (status === "failed") return "重试风格图";
+  return "切换风格图";
+}
+
+function buildMediaGenerateStatusClass(status) {
+  if (status === "succeeded") return "success";
+  if (status === "failed") return "error";
+  if (status === "queued" || status === "running" || status === "submitting") return "working";
+  return "muted";
+}
+
+function buildMediaGenerateStatusText(task) {
+  const status = safeText(task && task.status);
+  const statusMessage = safeText(task && task.status_message);
+  if (status === "queued") {
+    return statusMessage || "任务已提交，正在排队。";
+  }
+  if (status === "running") {
+    return statusMessage || "正在挑选风格图片，请稍候。";
+  }
+  if (status === "succeeded") {
+    return "静态风格图已更新，可直接预览。";
+  }
+  return statusMessage || "";
+}
+
+function buildMediaGenerateFailureText(errorCode, detail, style) {
+  const normalizedDetail = safeText(detail).toUpperCase();
+  const code = safeText(errorCode).toUpperCase() || normalizedDetail;
+  if (code.includes("MEDIA_GEN_WEEKLY_LIMIT_EXCEEDED")) {
+    return "本自然周风格图片次数已用完，当前继续使用静态配图。";
+  }
+  if (code.includes("MEDIA_GEN_POINTS_INSUFFICIENT")) {
+    return "当前积分不足，当前继续使用静态配图。";
+  }
+  if (code.includes("MEDIA_GEN_PROVIDER_DISABLED")) {
+    return "当前增强服务未开启，当前继续使用静态配图。";
+  }
+  if (code.includes("MEDIA_GEN_POOL_EMPTY")) {
+    if ((style || "") === MEDIA_STYLE_TECH) {
+      return "科技风格图片暂未支持，请耐心等待后续发布。";
+    }
+    return "当前风格素材暂不可用，当前继续使用静态配图。";
+  }
+  if (code.includes("MEDIA_GEN_CONSENT_REQUIRED")) {
+    return "授权未确认，本次未发起风格图片生成。";
+  }
+  if (code.includes("MEDIA_GEN_POLL_TIMEOUT")) {
+    return "风格图片查询超时，当前继续使用静态配图，可稍后重试。";
+  }
+  const detailText = safeText(detail);
+  if (detailText) {
+    return `${detailText}；当前继续使用静态配图。`;
+  }
+  return "风格图片生成失败，当前继续使用静态配图，可稍后重试。";
+}
+
 function normalizeMonthValue(value) {
   const dateObj = value ? new Date(value) : new Date();
   const safeDate = Number.isNaN(dateObj.getTime()) ? new Date() : dateObj;
@@ -365,6 +459,19 @@ Page({
     userImageVisible: false,
     userImageFailed: false,
     userImageRemoved: false,
+    mediaGenerateAvailable: false,
+    mediaGenerateStyle: MEDIA_STYLE_CLASSICAL,
+    mediaGenerateStyleLabel: buildMediaGenerateStyleLabel(MEDIA_STYLE_CLASSICAL),
+    mediaGenerateActionText: buildMediaGenerateActionText("", false),
+    mediaGenerateStatus: "",
+    mediaGenerateStatusText: "",
+    mediaGenerateStatusClass: "muted",
+    mediaGenerateTaskId: "",
+    mediaGenerateLoading: false,
+    mediaGenerateRetryable: false,
+    mediaGenerateError: "",
+    mediaGenerateResultUrl: "",
+    mediaGenerateResultStyle: "",
     email: "",
     emailError: "",
     emailFocused: false,
@@ -452,6 +559,19 @@ Page({
       userImageVisible: !!userImagePreviewUrl,
       userImageFailed: false,
       userImageRemoved: false,
+      mediaGenerateAvailable: true,
+      mediaGenerateStyle: MEDIA_STYLE_CLASSICAL,
+      mediaGenerateStyleLabel: buildMediaGenerateStyleLabel(MEDIA_STYLE_CLASSICAL),
+      mediaGenerateActionText: buildMediaGenerateActionText("", false),
+      mediaGenerateStatus: "",
+      mediaGenerateStatusText: "选择风格后，点击按钮即可换一张静态风格图；失败时不影响当前静态结果和邮件。",
+      mediaGenerateStatusClass: "muted",
+      mediaGenerateTaskId: "",
+      mediaGenerateLoading: false,
+      mediaGenerateRetryable: false,
+      mediaGenerateError: "",
+      mediaGenerateResultUrl: "",
+      mediaGenerateResultStyle: "",
       favoriteErrorMsg: "",
       poemFavoriteTargetId,
       poemFavoriteId: "",
@@ -483,6 +603,152 @@ Page({
         );
       };
       wx.onKeyboardHeightChange(this._keyboardHandler);
+    }
+  },
+
+  applyMediaGenerateData(updates) {
+    const merged = {
+      mediaGenerateStyle: this.data.mediaGenerateStyle || MEDIA_STYLE_CLASSICAL,
+      mediaGenerateStatus: this.data.mediaGenerateStatus || "",
+      mediaGenerateLoading: !!this.data.mediaGenerateLoading,
+      ...updates,
+    };
+    const style = safeText(merged.mediaGenerateStyle) || MEDIA_STYLE_CLASSICAL;
+    const status = safeText(merged.mediaGenerateStatus);
+    const loading = !!merged.mediaGenerateLoading;
+    merged.mediaGenerateStyle = style;
+    merged.mediaGenerateStyleLabel = buildMediaGenerateStyleLabel(style);
+    merged.mediaGenerateActionText = buildMediaGenerateActionText(status, loading);
+    merged.mediaGenerateStatusClass = buildMediaGenerateStatusClass(status);
+    this.setData(merged);
+  },
+
+  clearMediaGeneratePollTimer() {
+    if (this._mediaGeneratePollTimer) {
+      clearTimeout(this._mediaGeneratePollTimer);
+      this._mediaGeneratePollTimer = null;
+    }
+  },
+
+  scheduleMediaGeneratePoll(taskId, delayMs, attempt) {
+    this.clearMediaGeneratePollTimer();
+    const waitMs = Math.max(400, Number(delayMs) || MEDIA_GENERATE_DEFAULT_POLL_MS);
+    this._mediaGeneratePollTimer = setTimeout(() => {
+      this.pollMediaGenerateTask(taskId, attempt);
+    }, waitMs);
+  },
+
+  applyMediaGenerateFailure(taskLike, fallbackText) {
+    const errorCode = safeText(taskLike && taskLike.error_code);
+    const detail = safeText(taskLike && (taskLike.error_detail || taskLike.message));
+    const style = safeText(taskLike && taskLike.style) || this.data.mediaGenerateStyle;
+    const message = fallbackText || buildMediaGenerateFailureText(errorCode, detail, style);
+    this.clearMediaGeneratePollTimer();
+    this.applyMediaGenerateData({
+      mediaGenerateLoading: false,
+      mediaGenerateStatus: "failed",
+      mediaGenerateStatusText: message,
+      mediaGenerateRetryable: !!(taskLike && taskLike.retryable),
+      mediaGenerateError: message,
+      mediaGenerateResultUrl: "",
+      mediaGenerateResultStyle: "",
+    });
+  },
+
+  async pollMediaGenerateTask(taskId, attempt = 0) {
+    if (!taskId) return;
+    try {
+      const task = await getMediaGenerateTask(taskId);
+      const status = safeText(task && task.status);
+      if (status === "queued" || status === "running") {
+        if (attempt >= MEDIA_GENERATE_MAX_POLL_ATTEMPTS) {
+          this.applyMediaGenerateFailure(
+            { error_code: "MEDIA_GEN_POLL_TIMEOUT", retryable: true, style: this.data.mediaGenerateStyle },
+            buildMediaGenerateFailureText("MEDIA_GEN_POLL_TIMEOUT", "", this.data.mediaGenerateStyle)
+          );
+          return;
+        }
+        this.applyMediaGenerateData({
+          mediaGenerateTaskId: taskId,
+          mediaGenerateLoading: true,
+          mediaGenerateStatus: status,
+          mediaGenerateStatusText: buildMediaGenerateStatusText(task),
+          mediaGenerateRetryable: false,
+          mediaGenerateError: "",
+        });
+        this.scheduleMediaGeneratePoll(taskId, task && task.poll_after_ms, attempt + 1);
+        return;
+      }
+
+      if (status === "succeeded") {
+        const result = (task && task.result) || {};
+        const generatedImageUrl = normalizeAssetUrl(result.generated_image_url || "");
+        if (!generatedImageUrl) {
+          this.applyMediaGenerateFailure(
+            {
+              error_code: "MEDIA_GEN_BAD_RESULT",
+              error_detail: "结果缺少可显示图片地址",
+              retryable: true,
+              style: safeText(result.style) || this.data.mediaGenerateStyle,
+            },
+            "风格图片已生成，但预览地址缺失，当前继续使用静态配图。"
+          );
+          return;
+        }
+        this.clearMediaGeneratePollTimer();
+        this.applyMediaGenerateData({
+          mediaGenerateTaskId: taskId,
+          mediaGenerateLoading: false,
+          mediaGenerateStatus: "succeeded",
+          mediaGenerateStatusText: buildMediaGenerateStatusText(task),
+          mediaGenerateRetryable: false,
+          mediaGenerateError: "",
+          mediaGenerateResultUrl: generatedImageUrl,
+          mediaGenerateResultStyle: safeText(result.style) || this.data.mediaGenerateStyle,
+        });
+        return;
+      }
+
+      if (status === "failed") {
+        this.applyMediaGenerateFailure(task);
+        return;
+      }
+
+      if (attempt >= MEDIA_GENERATE_MAX_POLL_ATTEMPTS) {
+        this.applyMediaGenerateFailure(
+          { error_code: "MEDIA_GEN_POLL_TIMEOUT", retryable: true, style: this.data.mediaGenerateStyle },
+          buildMediaGenerateFailureText("MEDIA_GEN_POLL_TIMEOUT", "", this.data.mediaGenerateStyle)
+        );
+        return;
+      }
+      this.applyMediaGenerateData({
+        mediaGenerateTaskId: taskId,
+        mediaGenerateLoading: true,
+        mediaGenerateStatus: "running",
+        mediaGenerateStatusText: "结果查询中，正在继续刷新...",
+        mediaGenerateRetryable: false,
+      });
+      this.scheduleMediaGeneratePoll(taskId, MEDIA_GENERATE_DEFAULT_POLL_MS, attempt + 1);
+    } catch (err) {
+      if (attempt >= MEDIA_GENERATE_MAX_POLL_ATTEMPTS) {
+        this.applyMediaGenerateFailure(
+          {
+            error_code: "MEDIA_GEN_POLL_TIMEOUT",
+            message: (err && err.message) || "",
+            style: this.data.mediaGenerateStyle,
+          },
+          buildMediaGenerateFailureText("MEDIA_GEN_POLL_TIMEOUT", "", this.data.mediaGenerateStyle)
+        );
+        return;
+      }
+      this.applyMediaGenerateData({
+        mediaGenerateTaskId: taskId,
+        mediaGenerateLoading: true,
+        mediaGenerateStatus: "running",
+        mediaGenerateStatusText: "结果查询中断，正在自动重试...",
+        mediaGenerateRetryable: true,
+      });
+      this.scheduleMediaGeneratePoll(taskId, 1200, attempt + 1);
     }
   },
 
@@ -717,6 +983,7 @@ Page({
     if (this._keyboardHandler && wx.offKeyboardHeightChange) {
       wx.offKeyboardHeightChange(this._keyboardHandler);
     }
+    this.clearMediaGeneratePollTimer();
   },
 
   scrollToEmailSection() {
@@ -791,6 +1058,74 @@ Page({
       title: "已移除自拍图",
       icon: "none",
     });
+  },
+
+  handleMediaGenerateStyleTap(event) {
+    const style = safeText(event && event.currentTarget && event.currentTarget.dataset.style);
+    if (style !== MEDIA_STYLE_CLASSICAL && style !== MEDIA_STYLE_TECH && style !== MEDIA_STYLE_GUOCHAO) return;
+    this.applyMediaGenerateData({
+      mediaGenerateStyle: style,
+      mediaGenerateStatusText:
+        this.data.mediaGenerateStatus === "succeeded" || this.data.mediaGenerateStatus === "failed"
+          ? this.data.mediaGenerateStatusText
+          : "选择风格后，点击按钮即可触发增强；失败时不影响当前静态结果和邮件。",
+    });
+  },
+
+  async startMediaGenerate() {
+    if (this.data.mediaGenerateLoading) return;
+    const style = safeText(this.data.mediaGenerateStyle) || MEDIA_STYLE_CLASSICAL;
+
+    try {
+      const payload = {
+        request_token: buildMediaGenerateRequestToken(style, this.data.requestId),
+        analysis_request_id: this.data.requestId || undefined,
+        style,
+        prompt: buildMediaGeneratePrompt(style, this.data.emotionLabel, this.data.triggerTags),
+        consent_confirmed: true,
+      };
+
+      this.applyMediaGenerateData({
+        mediaGenerateTaskId: "",
+        mediaGenerateLoading: true,
+        mediaGenerateStatus: "submitting",
+        mediaGenerateStatusText: "正在切换静态风格图...",
+        mediaGenerateRetryable: false,
+        mediaGenerateError: "",
+        mediaGenerateResultUrl: "",
+        mediaGenerateResultStyle: "",
+      });
+
+      const task = await createMediaGenerateTask(payload);
+      const taskId = safeText(task && task.task_id);
+      if (!taskId) {
+        throw new Error("未拿到风格图片任务编号");
+      }
+      this.applyMediaGenerateData({
+        mediaGenerateTaskId: taskId,
+        mediaGenerateLoading: true,
+        mediaGenerateStatus: safeText(task && task.status) || "queued",
+        mediaGenerateStatusText: buildMediaGenerateStatusText(task),
+        mediaGenerateRetryable: false,
+        mediaGenerateError: "",
+      });
+      this.scheduleMediaGeneratePoll(taskId, task && task.poll_after_ms, 0);
+    } catch (err) {
+      const message = buildMediaGenerateFailureText("", (err && err.message) || "", style);
+      this.applyMediaGenerateFailure(
+        {
+          error_code: "",
+          message,
+          retryable: true,
+          style,
+        },
+        message
+      );
+      wx.showToast({
+        title: "切换未发起",
+        icon: "none",
+      });
+    }
   },
 
   handleEmailInput(event) {

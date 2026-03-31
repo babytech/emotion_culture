@@ -49,7 +49,12 @@ def _env_csv_list(name: str) -> list[str]:
 
 def _local_assets_by_style(style: MediaGenerateStyle) -> list[str]:
     root = Path(__file__).resolve().parents[1] / "core" / "images"
-    subdir = "guochao" if style == MediaGenerateStyle.GUOCHAO else "tangsong"
+    if style == MediaGenerateStyle.CLASSICAL:
+        subdir = "tangsong"
+    elif style == MediaGenerateStyle.GUOCHAO:
+        subdir = "guochao"
+    else:
+        subdir = "tech"
     base = root / subdir
     if not base.exists() or not base.is_dir():
         return []
@@ -65,7 +70,10 @@ def _local_assets_by_style(style: MediaGenerateStyle) -> list[str]:
 
 
 def _style_pool_refs(style: MediaGenerateStyle) -> list[str]:
-    if style == MediaGenerateStyle.TECH:
+    if style == MediaGenerateStyle.CLASSICAL:
+        refs = _env_json_list("MEDIA_GEN_STATIC_POOL_CLASSICAL_JSON")
+        refs.extend(_env_csv_list("MEDIA_GEN_STATIC_POOL_CLASSICAL"))
+    elif style == MediaGenerateStyle.TECH:
         refs = _env_json_list("MEDIA_GEN_STATIC_POOL_TECH_JSON")
         refs.extend(_env_csv_list("MEDIA_GEN_STATIC_POOL_TECH"))
     else:

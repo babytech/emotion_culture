@@ -253,7 +253,7 @@ Request body fields:
 
 - `request_token` optional idempotency token
 - `analysis_request_id` optional trace id
-- `style` required: `tech | guochao`
+- `style` required: `classical | tech | guochao`
 - `consent_confirmed` required when `MEDIA_GEN_REQUIRE_CONSENT=1` (default enabled)
 - `consent_version` optional text
 - `source_image` / `source_image_url` / `source_image_file_id` / `source_image_path` optional (ignored in static-pool mode)
@@ -332,9 +332,9 @@ Provider env quick notes:
 - Third-party dynamic providers (`qwen`/`hunyuan`/`liblib`/generic `http`) were removed from current codebase.
 - If `MEDIA_GEN_PROVIDER` is set to any removed provider, API returns:
   - `MEDIA_GEN_PROVIDER_DISABLED: third-party dynamic image providers are removed; please use MEDIA_GEN_PROVIDER=local_mock`
-- `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO`: comma-separated static references (recommend COS/CDN URLs).
-- `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON`: JSON array form of static references.
-- If static pool env not configured, backend fallback uses local `/assets/tangsong/*` or `/assets/guochao/*`.
+- `MEDIA_GEN_STATIC_POOL_CLASSICAL` / `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO`: comma-separated static references (recommend COS/CDN URLs).
+- `MEDIA_GEN_STATIC_POOL_CLASSICAL_JSON` / `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON`: JSON array form of static references.
+- If static pool env not configured, backend fallback uses local `/assets/tangsong/*` for `classical`, `/assets/guochao/*` for `guochao`; `tech` requires explicit tech pool config or returns `MEDIA_GEN_STATIC_POOL_EMPTY`.
 - M2 hard-constraint env:
   - `MEDIA_GEN_REQUIRE_CONSENT=1`
   - `MEDIA_GEN_ENABLE_WEEKLY_QUOTA=1`

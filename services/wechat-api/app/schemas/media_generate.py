@@ -7,6 +7,7 @@ from app.schemas.analyze import ClientMeta, MediaInput
 
 
 class MediaGenerateStyle(str, Enum):
+    CLASSICAL = "classical"
     TECH = "tech"
     GUOCHAO = "guochao"
 

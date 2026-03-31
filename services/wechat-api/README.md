@@ -154,8 +154,8 @@ Optional:
 - Third-party dynamic image providers (`http` / `qwen` / `hunyuan` / `liblib`) are removed from current codebase.
 - `MEDIA_GEN_PROVIDER_MAX_RETRIES` (default `1`, provider retry count on retryable failure)
 - `MEDIA_GEN_PROVIDER_RETRY_BACKOFF_MS` (default `220`, retry backoff base milliseconds)
-- `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO` (comma-separated static references, recommend COS URLs)
-- `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON` (JSON array form, same meaning as above)
+- `MEDIA_GEN_STATIC_POOL_CLASSICAL` / `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO` (comma-separated static references, recommend COS URLs)
+- `MEDIA_GEN_STATIC_POOL_CLASSICAL_JSON` / `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON` (JSON array form, same meaning as above)
 - `MEDIA_GEN_REQUIRE_CONSENT` (default `1`, require explicit user consent before media generation task)
 - `MEDIA_GEN_ENABLE_WEEKLY_QUOTA` (default `1`, enable per-user weekly quota guard)
 - `MEDIA_GEN_WEEKLY_LIMIT` (default `1`, max media-generate tasks per user per ISO week)

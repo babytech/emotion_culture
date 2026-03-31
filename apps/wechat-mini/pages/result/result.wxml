@@ -162,6 +162,60 @@
       </view>
     </view>
 
+    <view class="section card media-generate-card">
+      <view class="section-head">
+        <view class="section-title">风格切换</view>
+        <view class="poet-tag">{{mediaGenerateStyleLabel}}</view>
+      </view>
+      <view class="media-generate-tip text-muted">
+        该功能只会在你主动点击后触发。系统会按当前情绪从静态图池切换一张科技风或国潮风图片；失败时，当前静态结果图和邮件功能保持不变。
+      </view>
+
+      <view class="media-style-group">
+        <button
+          class="btn mini-action-btn media-style-btn {{mediaGenerateStyle === 'classical' ? 'media-style-btn-active' : ''}}"
+          data-style="classical"
+          bindtap="handleMediaGenerateStyleTap"
+        >
+          古典风
+        </button>
+        <button
+          class="btn mini-action-btn media-style-btn {{mediaGenerateStyle === 'tech' ? 'media-style-btn-active' : ''}}"
+          data-style="tech"
+          bindtap="handleMediaGenerateStyleTap"
+        >
+          科技风
+        </button>
+        <button
+          class="btn mini-action-btn media-style-btn {{mediaGenerateStyle === 'guochao' ? 'media-style-btn-active' : ''}}"
+          data-style="guochao"
+          bindtap="handleMediaGenerateStyleTap"
+        >
+          国潮风
+        </button>
+      </view>
+
+      <button
+        class="btn btn-primary media-generate-submit"
+        loading="{{mediaGenerateLoading}}"
+        disabled="{{mediaGenerateLoading}}"
+        bindtap="startMediaGenerate"
+      >
+        {{mediaGenerateActionText}}
+      </button>
+
+      <view wx:if="{{mediaGenerateStatusText}}" class="media-generate-status {{mediaGenerateStatusClass}}">
+        {{mediaGenerateStatusText}}
+      </view>
+
+      <image
+        wx:if="{{mediaGenerateResultUrl}}"
+        class="result-image media-generate-image"
+        mode="widthFix"
+        src="{{mediaGenerateResultUrl}}"
+      />
+    </view>
+
     <view id="email-section" class="section card email-section {{emailFocused ? 'email-section-focus' : ''}}">
       <view class="section-title">发送到邮箱（可选）</view>
       <view class="email-tip text-muted">请输入常用邮箱，结果将发送到该地址。</view>

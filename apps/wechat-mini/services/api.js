@@ -280,6 +280,42 @@ function getAnalyzeTask(taskId) {
   });
 }
 
+function createMediaGenerateTask(payload) {
+  const data = payload && typeof payload === "object" ? { ...payload } : {};
+  const existingClient = data.client && typeof data.client === "object" ? data.client : {};
+  data.client = {
+    ...existingClient,
+    platform: existingClient.platform || "mp-weixin",
+    version: existingClient.version || "0.1.0",
+  };
+  if (!data.client.user_id && shouldUseClientUserIdFallback()) {
+    data.client.user_id = getOrCreateClientUserId();
+  }
+  return callViaContainer("/api/media-generate", "POST", data, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 350,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 2,
+    transientHttpRetryDelayMs: 500,
+  });
+}
+
+function getMediaGenerateTask(taskId) {
+  const value = (taskId || "").trim();
+  if (!value) {
+    return Promise.reject(new Error("taskId is required"));
+  }
+  return callViaContainer(`/api/media-generate/${encodeURIComponent(value)}`, "GET", undefined, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 2,
+    timeoutRetryDelayMs: 250,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 3,
+    transientHttpRetryDelayMs: 450,
+  });
+}
+
 function sendEmail(payload) {
   return callViaContainer("/api/send-email", "POST", payload, {
     retryOnInvalidHost: true,
@@ -403,6 +439,7 @@ module.exports = {
   getAnalyzeTask,
   getFavoriteStatus,
   getHistoryDetail,
+  getMediaGenerateTask,
   getRetentionCalendar,
   getRetentionWeeklyReport,
   getRetentionWriteSettings,
@@ -410,6 +447,7 @@ module.exports = {
   listHistory,
   listFavorites,
   normalizeAssetUrl,
+  createMediaGenerateTask,
   sendEmail,
   upsertFavorite,
   updateRetentionWriteSettings,
