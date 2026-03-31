@@ -337,7 +337,7 @@ function buildMediaGenerateFailureText(errorCode, detail, style) {
   if (code.includes("MEDIA_GEN_PROVIDER_DISABLED")) {
     return "当前增强服务未开启，当前继续使用静态配图。";
   }
-  if (code.includes("MEDIA_GEN_POOL_EMPTY")) {
+  if (code.includes("MEDIA_GEN_POOL_EMPTY") || code.includes("MEDIA_GEN_STATIC_POOL_EMPTY")) {
     if ((style || "") === MEDIA_STYLE_TECH) {
       return "科技风格图片暂未支持，请耐心等待后续发布。";
     }
