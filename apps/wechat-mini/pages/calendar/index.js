@@ -31,12 +31,42 @@ function buildCellItem(raw) {
   return {
     date: dateText,
     day,
+    isPlaceholder: false,
     hasCheckin,
     statusClass: hasCheckin ? "checked" : "unchecked",
     emotionLabel,
     emotionShort: emotionLabel ? emotionLabel.slice(0, 2) : "",
     analysesCount: Number((raw && raw.analyses_count) || 0),
   };
+}
+
+function buildPlaceholderItem(index) {
+  return {
+    date: `placeholder_${index}`,
+    day: "",
+    isPlaceholder: true,
+    hasCheckin: false,
+    statusClass: "placeholder",
+    emotionLabel: "",
+    emotionShort: "",
+    analysesCount: 0,
+  };
+}
+
+function getMonthLeadingOffset(monthText) {
+  const dateObj = parseMonth(monthText);
+  const weekday = dateObj.getDay();
+  return (weekday + 6) % 7;
+}
+
+function buildCalendarItems(rawItems, monthText) {
+  const offset = getMonthLeadingOffset(monthText);
+  const cells = [];
+  for (let i = 0; i < offset; i += 1) {
+    cells.push(buildPlaceholderItem(i));
+  }
+  rawItems.forEach((item) => cells.push(buildCellItem(item)));
+  return cells;
 }
 
 Page({
@@ -79,8 +109,9 @@ Page({
     });
     try {
       const result = await getRetentionCalendar(month);
-      const items = Array.isArray(result.items) ? result.items.map(buildCellItem) : [];
       const resolvedMonth = (result && result.month) || month || this.data.currentMonth;
+      const rawItems = Array.isArray(result.items) ? result.items : [];
+      const items = buildCalendarItems(rawItems, resolvedMonth);
       this.setData({
         currentMonth: resolvedMonth,
         currentMonthLabel: monthLabel(resolvedMonth),

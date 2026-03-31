@@ -7,7 +7,13 @@
 
   <block wx:if="{{hasData}}">
     <view class="emotion card">
-      <view class="emotion-title">情绪反馈卡</view>
+      <view class="panel-head">
+        <view>
+          <view class="panel-kicker">Emotion Brief</view>
+          <view class="emotion-title">情绪反馈卡</view>
+        </view>
+        <view class="panel-badge">{{emotionLabel || '待识别'}}</view>
+      </view>
       <view class="emotion-row">
         <view class="emotion-key">主情绪</view>
         <view class="emotion-badge emotion-{{emotionCode}}">
@@ -73,7 +79,10 @@
 
     <view class="section card">
       <view class="section-head">
-        <view class="section-title">诗词回应</view>
+        <view>
+          <view class="panel-kicker">Classical Comfort</view>
+          <view class="section-title">诗词回应</view>
+        </view>
         <view class="poet-tag">{{poet}}</view>
       </view>
       <image
@@ -105,7 +114,10 @@
 
     <view class="section card">
       <view class="section-head">
-        <view class="section-title">国潮伙伴慰藉</view>
+        <view>
+          <view class="panel-kicker">Guochao Companion</view>
+          <view class="section-title">国潮伙伴慰藉</view>
+        </view>
         <view class="poet-tag">{{guochaoName}}</view>
       </view>
       <image
@@ -138,14 +150,17 @@
 
     <view wx:if="{{userImagePreviewUrl || userImageRemoved}}" class="section card">
       <view class="section-head">
-        <view class="section-title">本次自拍</view>
+        <view>
+          <view class="panel-kicker">Session Selfie</view>
+          <view class="section-title">本次自拍</view>
+        </view>
         <view wx:if="{{userImageRemoved}}" class="selfie-state">已从邮件中移除</view>
       </view>
       <view wx:if="{{!userImageRemoved}}" class="user-actions">
         <button class="btn btn-secondary mini-action-btn" bindtap="toggleUserImageVisible">
           {{userImageVisible ? '隐藏自拍' : '显示自拍'}}
         </button>
-        <button class="btn mini-action-btn" bindtap="removeUserImageForEmail">从邮件移除</button>
+        <button class="btn btn-secondary mini-action-btn" bindtap="removeUserImageForEmail">从邮件移除</button>
       </view>
       <image
         wx:if="{{!userImageRemoved && userImageVisible && userImagePreviewUrl && !userImageFailed}}"
@@ -164,11 +179,14 @@
 
     <view class="section card media-generate-card">
       <view class="section-head">
-        <view class="section-title">风格切换</view>
+        <view>
+          <view class="panel-kicker">Style Switch</view>
+          <view class="section-title">风格切换</view>
+        </view>
         <view class="poet-tag">{{mediaGenerateStyleLabel}}</view>
       </view>
       <view class="media-generate-tip text-muted">
-        该功能只会在你主动点击后触发。系统会按当前情绪从静态图池切换一张科技风或国潮风图片；失败时，当前静态结果图和邮件功能保持不变。
+        该功能只会在你主动点击后触发。系统会按当前情绪从静态图池切换一张古典风、国潮风或科技风图片；失败时，当前静态结果图和邮件功能保持不变。
       </view>
 
       <view class="media-style-group">
@@ -217,6 +235,7 @@
     </view>
 
     <view id="email-section" class="section card email-section {{emailFocused ? 'email-section-focus' : ''}}">
+      <view class="panel-kicker">Deliver to Inbox</view>
       <view class="section-title">发送到邮箱（可选）</view>
       <view class="email-tip text-muted">请输入常用邮箱，结果将发送到该地址。</view>
       <input
@@ -246,11 +265,17 @@
       </view>
     </view>
 
-    <button class="btn btn-secondary result-bottom-btn" bindtap="goCalendar">查看情绪日历</button>
-    <button class="btn btn-secondary result-bottom-btn" bindtap="goReport">查看周报复盘</button>
-    <button class="btn btn-secondary result-bottom-btn" bindtap="goFavorites">查看我的收藏</button>
-    <button class="btn btn-secondary result-bottom-btn" bindtap="goShareCard">导出分享卡片</button>
-    <button class="btn btn-secondary result-bottom-btn" bindtap="goHistory">查看历史记录</button>
-    <button class="btn result-bottom-btn" bindtap="backHome">返回继续分析</button>
+    <view class="section card action-card">
+      <view class="panel-kicker">More Paths</view>
+      <view class="section-title">后续动作</view>
+      <view class="action-grid">
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goCalendar">查看情绪日历</button>
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goReport">查看周报复盘</button>
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goFavorites">查看我的收藏</button>
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goShareCard">导出分享卡片</button>
+        <button class="btn btn-secondary result-bottom-btn action-grid-full" bindtap="goHistory">查看历史记录</button>
+      </view>
+      <button class="btn btn-primary action-home-btn" bindtap="backHome">返回继续分析</button>
+    </view>
   </block>
 </view>

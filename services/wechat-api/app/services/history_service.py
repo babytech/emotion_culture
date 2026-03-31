@@ -7,6 +7,7 @@ from collections import Counter
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 from app.core.feature_flags import is_retention_service_enabled
 from app.schemas.analyze import AnalyzeResponse, EmotionBrief
@@ -48,6 +49,7 @@ _DEFAULT_RETENTION_DAYS = 180
 _DEFAULT_USER_MAX_ITEMS = 500
 _DEFAULT_WEEKLY_REPORT_CACHE_MAX_ITEMS = 32
 _DEFAULT_FAVORITES_MAX_ITEMS = 500
+_DEFAULT_APP_TIMEZONE = "Asia/Shanghai"
 
 
 def _env_int(name: str, default: int) -> int:
@@ -91,6 +93,24 @@ def _default_store() -> dict[str, Any]:
 
 def _iso_now_utc() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _app_timezone() -> ZoneInfo:
+    raw = os.getenv("APP_TIMEZONE", _DEFAULT_APP_TIMEZONE).strip() or _DEFAULT_APP_TIMEZONE
+    try:
+        return ZoneInfo(raw)
+    except Exception:
+        return ZoneInfo(_DEFAULT_APP_TIMEZONE)
+
+
+def _now_local_date() -> date:
+    return datetime.now(_app_timezone()).date()
+
+
+def _to_local_date(value: datetime) -> date:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(_app_timezone()).date()
 
 
 def _parse_iso_datetime(raw: str) -> Optional[datetime]:
@@ -235,7 +255,7 @@ def _cleanup_user_history(bucket: dict[str, Any]) -> bool:
 
 
 def _to_iso_day(value: datetime) -> str:
-    return value.date().isoformat()
+    return _to_local_date(value).isoformat()
 
 
 def _parse_iso_day(raw: str) -> Optional[date]:
@@ -372,18 +392,19 @@ def _history_entries_with_summary(bucket: dict[str, Any]) -> list[tuple[dict[str
     return rows
 
 
-def _rebuild_daily_checkins_from_history(bucket: dict[str, Any]) -> None:
+def _rebuild_daily_checkins_from_history(bucket: dict[str, Any]) -> bool:
     retention = bucket.get("retention")
     if not isinstance(retention, dict):
         retention = _default_retention_dict()
         bucket["retention"] = retention
 
+    previous = retention.get("checkins")
     by_day: dict[str, dict[str, Any]] = {}
     for _entry, summary, analyzed_at in sorted(
         _history_entries_with_summary(bucket),
         key=lambda row: row[2],
     ):
-        day_key = analyzed_at.date().isoformat()
+        day_key = _to_local_date(analyzed_at).isoformat()
         primary_emotion = summary.get("primary_emotion", {})
         current = by_day.get(day_key)
         next_count = int(current.get("analyses_count", 0)) + 1 if isinstance(current, dict) else 1
@@ -400,6 +421,7 @@ def _rebuild_daily_checkins_from_history(bucket: dict[str, Any]) -> None:
         }
 
     retention["checkins"] = by_day
+    return by_day != previous
 
 
 def _invalidate_weekly_report_cache(bucket: dict[str, Any]) -> None:
@@ -777,7 +799,7 @@ def update_user_save_history(user_id: str, save_history: bool) -> UserSettingsRe
 def _parse_month(month: Optional[str]) -> date:
     raw = (month or "").strip()
     if not raw:
-        return datetime.now(timezone.utc).date().replace(day=1)
+        return _now_local_date().replace(day=1)
     try:
         parsed = datetime.strptime(raw, "%Y-%m").date()
     except ValueError:
@@ -793,7 +815,7 @@ def _parse_week_start(week_start: Optional[str]) -> date:
         except ValueError:
             raise ValueError("week_start must be in YYYY-MM-DD format")
         return _week_start_from_day(parsed)
-    return _week_start_from_day(datetime.now(timezone.utc).date())
+    return _week_start_from_day(_now_local_date())
 
 
 def get_calendar_overview(user_id: str, month: Optional[str] = None) -> CalendarOverviewResponse:
@@ -801,13 +823,15 @@ def get_calendar_overview(user_id: str, month: Optional[str] = None) -> Calendar
     month_start = _parse_month(month)
     _, day_count = calendar.monthrange(month_start.year, month_start.month)
     month_end = month_start.replace(day=day_count)
-    today = datetime.now(timezone.utc).date()
+    today = _now_local_date()
 
     with _STORE_LOCK:
         payload = _load_store()
         bucket = _ensure_user_bucket(payload, normalized_user_id)
         changed = _cleanup_user_history(bucket)
         if _cleanup_retention_data(bucket):
+            changed = True
+        if _rebuild_daily_checkins_from_history(bucket):
             changed = True
 
         retention = bucket.get("retention", {})
@@ -881,13 +905,15 @@ def get_weekly_report(user_id: str, week_start: Optional[str] = None) -> WeeklyR
     start = _parse_week_start(week_start)
     end = start + timedelta(days=6)
     week_key = _week_key(start)
-    today = datetime.now(timezone.utc).date()
+    today = _now_local_date()
 
     with _STORE_LOCK:
         payload = _load_store()
         bucket = _ensure_user_bucket(payload, normalized_user_id)
         changed = _cleanup_user_history(bucket)
         if _cleanup_retention_data(bucket):
+            changed = True
+        if _rebuild_daily_checkins_from_history(bucket):
             changed = True
         settings = bucket.get("settings", _default_settings_dict())
         retention_write_enabled = _is_retention_write_enabled(settings)
@@ -909,12 +935,12 @@ def get_weekly_report(user_id: str, week_start: Optional[str] = None) -> WeeklyR
                         changed = True
 
         history_rows = _history_entries_with_summary(bucket)
-        weekly_rows = [row for row in history_rows if start <= row[2].date() <= end]
+        weekly_rows = [row for row in history_rows if start <= _to_local_date(row[2]) <= end]
         weekly_rows.sort(key=lambda row: row[2])
 
         latest_by_day: dict[str, tuple[dict[str, Any], dict[str, Any], datetime]] = {}
         for row in weekly_rows:
-            day_key = row[2].date().isoformat()
+            day_key = _to_local_date(row[2]).isoformat()
             previous = latest_by_day.get(day_key)
             if not previous or row[2] >= previous[2]:
                 latest_by_day[day_key] = row

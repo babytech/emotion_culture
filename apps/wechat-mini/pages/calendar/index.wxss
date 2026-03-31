@@ -135,6 +135,12 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+}
+
+.placeholder {
+  background: transparent;
+  border-color: transparent;
 }
 
 .checked {
@@ -150,6 +156,15 @@
   font-size: 25rpx;
   font-weight: 700;
   color: #614c3a;
+}
+
+.marker {
+  width: 12rpx;
+  height: 12rpx;
+  margin-top: 6rpx;
+  border-radius: 999rpx;
+  background: #b73526;
+  box-shadow: 0 0 0 4rpx rgba(183, 53, 38, 0.12);
 }
 
 .emotion {

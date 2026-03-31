@@ -6,11 +6,19 @@
 
   <block wx:if="{{hasData}}">
     <view class="card header">
-      <view class="title">分享卡片导出</view>
-      <view class="sub text-muted">生成基础分享图，可保存到相册后转发给家人或朋友。</view>
-      <view class="meta">主情绪：{{payload.emotionLabel}}</view>
-      <view class="meta">当前连续打卡：{{payload.currentStreak}} 天</view>
-      <view class="meta">本月打卡：{{payload.monthCheckinDays}} 天</view>
+      <view class="header-head">
+        <view>
+          <view class="header-kicker">Share Studio</view>
+          <view class="title">分享卡片导出</view>
+        </view>
+        <view class="header-stamp">可保存</view>
+      </view>
+      <view class="sub text-muted">生成基础分享图，可保存到相册后再转发给家人或朋友。</view>
+      <view class="meta-grid">
+        <view class="meta-pill">主情绪：{{payload.emotionLabel}}</view>
+        <view class="meta-pill">连续打卡：{{payload.currentStreak}} 天</view>
+        <view class="meta-pill">本月打卡：{{payload.monthCheckinDays}} 天</view>
+      </view>
       <view wx:if="{{generatedAtText}}" class="meta text-muted">生成时间：{{generatedAtText}}</view>
     </view>
 
@@ -19,6 +27,7 @@
     </view>
 
     <view class="card content-wrap">
+      <view class="content-kicker">Card Copy</view>
       <view class="content-line">
         主情绪：{{payload.emotionLabel}}
         <text wx:if="{{payload.emotionCode}}">（{{payload.emotionCode}}）</text>
@@ -61,16 +70,21 @@
     <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
     <view wx:if="{{saveStatus}}" class="status card">{{saveStatus}}</view>
 
-    <button
-      class="btn btn-primary action-btn"
-      loading="{{isGenerating}}"
-      disabled="{{isGenerating}}"
-      bindtap="generateCard"
-    >
-      生成分享卡片
-    </button>
-    <button class="btn btn-secondary action-btn" bindtap="saveCardToAlbum">保存到相册</button>
-    <button class="btn btn-secondary action-btn" bindtap="previewGeneratedCard">预览生成图片</button>
-    <button class="btn btn-secondary action-btn" open-type="share">转发小程序</button>
+    <view class="card action-panel">
+      <view class="content-kicker">Export Actions</view>
+      <view class="action-grid">
+        <button
+          class="btn btn-primary action-btn action-btn-grid"
+          loading="{{isGenerating}}"
+          disabled="{{isGenerating}}"
+          bindtap="generateCard"
+        >
+          生成分享卡片
+        </button>
+        <button class="btn btn-secondary action-btn action-btn-grid" bindtap="saveCardToAlbum">保存到相册</button>
+        <button class="btn btn-secondary action-btn action-btn-grid" bindtap="previewGeneratedCard">预览生成图片</button>
+        <button class="btn btn-secondary action-btn action-btn-grid" open-type="share">转发小程序</button>
+      </view>
+    </view>
   </block>
 </view>

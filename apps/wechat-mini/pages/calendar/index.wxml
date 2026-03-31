@@ -44,9 +44,12 @@
     </view>
     <view class="grid">
       <view wx:for="{{items}}" wx:key="date" class="day-cell {{item.statusClass}}">
-        <view class="day-num">{{item.day}}</view>
-        <view wx:if="{{item.hasCheckin && item.emotionShort}}" class="emotion">{{item.emotionShort}}</view>
-        <view wx:if="{{item.hasCheckin && item.analysesCount > 1}}" class="count">x{{item.analysesCount}}</view>
+        <block wx:if="{{!item.isPlaceholder}}">
+          <view class="day-num">{{item.day}}</view>
+          <view wx:if="{{item.hasCheckin}}" class="marker"></view>
+          <view wx:if="{{item.hasCheckin && item.emotionShort}}" class="emotion">{{item.emotionShort}}</view>
+          <view wx:if="{{item.hasCheckin && item.analysesCount > 1}}" class="count">x{{item.analysesCount}}</view>
+        </block>
       </view>
     </view>
   </view>
