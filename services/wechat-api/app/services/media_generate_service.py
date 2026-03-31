@@ -146,10 +146,10 @@ def _error_code_for(exc: Exception) -> str:
         return "MEDIA_GEN_WEEKLY_LIMIT_EXCEEDED"
     if "POINTS_INSUFFICIENT" in text:
         return "MEDIA_GEN_POINTS_INSUFFICIENT"
-    if "STYLE" in text:
-        return "MEDIA_GEN_STYLE_INVALID"
     if "STATIC_POOL_EMPTY" in text or "POOL_EMPTY" in text:
         return "MEDIA_GEN_POOL_EMPTY"
+    if "STYLE" in text:
+        return "MEDIA_GEN_STYLE_INVALID"
     if "PROVIDER_DISABLED" in text:
         return "MEDIA_GEN_PROVIDER_DISABLED"
     if isinstance(exc, ValueError):

@@ -327,7 +327,8 @@ function buildMediaGenerateStatusText(task) {
 
 function buildMediaGenerateFailureText(errorCode, detail, style) {
   const normalizedDetail = safeText(detail).toUpperCase();
-  const code = safeText(errorCode).toUpperCase() || normalizedDetail;
+  const normalizedErrorCode = safeText(errorCode).toUpperCase();
+  const code = `${normalizedErrorCode} ${normalizedDetail}`.trim();
   if (code.includes("MEDIA_GEN_WEEKLY_LIMIT_EXCEEDED")) {
     return "本自然周风格图片次数已用完，当前继续使用静态配图。";
   }
