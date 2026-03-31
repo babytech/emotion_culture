@@ -60,6 +60,46 @@
   margin-bottom: 14rpx;
 }
 
+.emotion-summary-grid {
+  margin-bottom: 12rpx;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12rpx;
+}
+
+.emotion-summary-card {
+  padding: 16rpx 14rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 249, 241, 0.82);
+  border: 2rpx solid rgba(147, 37, 29, 0.08);
+}
+
+.emotion-summary-label {
+  font-size: 22rpx;
+  color: #8a715d;
+}
+
+.emotion-summary-value {
+  margin-top: 8rpx;
+  font-size: 27rpx;
+  line-height: 1.2;
+  font-weight: 700;
+  color: #7e4d2d;
+}
+
+.overview-block,
+.speech-block,
+.suggestion-block {
+  padding: 18rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 250, 242, 0.78);
+  border: 2rpx solid rgba(147, 37, 29, 0.08);
+}
+
+.speech-block-muted {
+  background: rgba(246, 240, 231, 0.78);
+}
+
 .emotion-key {
   font-size: 28rpx;
   color: #6f5a45;
@@ -211,6 +251,38 @@
   padding: 28rpx 24rpx;
 }
 
+.section-poem {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 160, 91, 0.1), transparent 26%),
+    linear-gradient(180deg, rgba(255, 251, 245, 0.98), rgba(248, 241, 232, 0.96));
+}
+
+.section-guochao {
+  background:
+    radial-gradient(circle at 0% 0%, rgba(147, 37, 29, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 250, 245, 0.98), rgba(249, 240, 235, 0.96));
+}
+
+.section-selfie {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 160, 91, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 251, 246, 0.96), rgba(247, 241, 233, 0.94));
+}
+
+.section-media {
+  border-color: rgba(146, 51, 36, 0.18);
+}
+
+.section-email {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(147, 37, 29, 0.06), transparent 24%),
+    linear-gradient(180deg, rgba(255, 251, 245, 0.96), rgba(247, 241, 233, 0.94));
+}
+
+.section-action {
+  border-color: rgba(146, 51, 36, 0.18);
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -267,12 +339,16 @@
   white-space: pre-wrap;
   line-height: 1.86;
   font-size: 29rpx;
+  color: #3d2e21;
 }
 
 .interpretation {
   margin-top: 12rpx;
   line-height: 1.72;
   font-size: 27rpx;
+  padding: 16rpx 18rpx;
+  border-radius: 18rpx;
+  background: rgba(255, 250, 243, 0.74);
 }
 
 .comfort {
@@ -280,6 +356,9 @@
   line-height: 1.86;
   white-space: pre-wrap;
   font-size: 29rpx;
+  color: #3d2e21;
+  padding: 16rpx 18rpx 0;
+  border-top: 2rpx solid rgba(147, 37, 29, 0.08);
 }
 
 .favorite-actions {
@@ -339,6 +418,9 @@
   display: flex;
   flex-direction: column;
   gap: 16rpx;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 160, 91, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(255, 250, 243, 0.98), rgba(248, 241, 231, 0.96));
 }
 
 .media-generate-tip {
@@ -455,6 +537,17 @@
   display: flex;
   flex-direction: column;
   gap: 16rpx;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(147, 37, 29, 0.08), transparent 28%),
+    linear-gradient(180deg, rgba(255, 250, 243, 0.98), rgba(248, 241, 231, 0.96));
+}
+
+.action-tip {
+  font-size: 24rpx;
+  line-height: 1.68;
+  padding: 16rpx 18rpx;
+  border-radius: 18rpx;
+  background: rgba(255, 247, 235, 0.74);
 }
 
 .action-grid {

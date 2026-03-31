@@ -2,7 +2,7 @@
   <view class="hero card">
     <view class="hero-head">
       <view>
-        <view class="hero-kicker">Emotion Check-In</view>
+        <view class="hero-kicker">今日情绪记录</view>
         <view class="hero-title">青少年情绪文化助手</view>
       </view>
       <view class="hero-stamp">即时陪伴</view>
@@ -16,9 +16,46 @@
       <view class="hero-chip">语音表达</view>
       <view class="hero-chip">结果导出</view>
     </view>
+    <view class="hero-metrics">
+      <view class="hero-metric">
+        <view class="hero-metric-value">轻量输入</view>
+        <view class="hero-metric-label">只写一句话也能分析</view>
+      </view>
+      <view class="hero-metric">
+        <view class="hero-metric-value">多模态</view>
+        <view class="hero-metric-label">可补充自拍或录音</view>
+      </view>
+      <view class="hero-metric">
+        <view class="hero-metric-value">可回看</view>
+        <view class="hero-metric-label">历史与周报持续沉淀</view>
+      </view>
+    </view>
+    <view class="entry-path">
+      <view class="entry-step">
+        <view class="entry-step-no">1</view>
+        <view class="entry-step-body">
+          <view class="entry-step-title">先写一句</view>
+          <view class="entry-step-text">用一句话把当下状态留下来。</view>
+        </view>
+      </view>
+      <view class="entry-step">
+        <view class="entry-step-no">2</view>
+        <view class="entry-step-body">
+          <view class="entry-step-title">再选补充</view>
+          <view class="entry-step-text">自拍和录音都可选，不强制。</view>
+        </view>
+      </view>
+      <view class="entry-step">
+        <view class="entry-step-no">3</view>
+        <view class="entry-step-body">
+          <view class="entry-step-title">提交分析</view>
+          <view class="entry-step-text">生成情绪解读、诗词和国潮回应。</view>
+        </view>
+      </view>
+    </view>
   </view>
 
-  <view class="section card">
+  <view class="section section-thought card">
     <view class="section-head">
       <view class="section-index">01</view>
       <view class="section-heading">
@@ -35,7 +72,7 @@
     />
   </view>
 
-  <view class="section card">
+  <view class="section section-selfie card">
     <view class="section-head">
       <view class="section-index">02</view>
       <view class="section-heading">
@@ -76,7 +113,7 @@
     </view>
   </view>
 
-  <view class="section card">
+  <view class="section section-audio card">
     <view class="section-head">
       <view class="section-index">03</view>
       <view class="section-heading">
@@ -127,7 +164,7 @@
     <view class="status-text">{{submitStatusText}}</view>
   </view>
 
-  <view class="section card quick-actions">
+  <view class="section section-tools card quick-actions">
     <view class="section-head compact-head">
       <view class="section-index">04</view>
       <view class="section-heading">
@@ -141,8 +178,9 @@
     </view>
   </view>
 
-  <view class="submit-shell card">
+  <view class="submit-shell submit-shell-hero card">
     <view class="submit-copy">
+      <view class="submit-badge">最后一步</view>
       <view class="submit-title">准备好后再提交分析</view>
       <view class="submit-tip text-muted">图片和录音都是可选项，没有也可以直接分析。</view>
     </view>

@@ -8,7 +8,7 @@
     <view class="card header">
       <view class="header-head">
         <view>
-          <view class="header-kicker">Share Studio</view>
+          <view class="header-kicker">导出工作台</view>
           <view class="title">分享卡片导出</view>
         </view>
         <view class="header-stamp">可保存</view>
@@ -20,14 +20,19 @@
         <view class="meta-pill">本月打卡：{{payload.monthCheckinDays}} 天</view>
       </view>
       <view wx:if="{{generatedAtText}}" class="meta text-muted">生成时间：{{generatedAtText}}</view>
+      <view class="export-steps">
+        <view class="export-step">1 生成卡片</view>
+        <view class="export-step">2 预览检查</view>
+        <view class="export-step">3 保存或转发</view>
+      </view>
     </view>
 
     <view class="render-canvas-wrap">
       <canvas canvas-id="shareCardCanvas" class="render-canvas" />
     </view>
 
-    <view class="card content-wrap">
-      <view class="content-kicker">Card Copy</view>
+    <view class="card content-wrap content-paper">
+      <view class="content-kicker">卡片文案</view>
       <view class="content-line">
         主情绪：{{payload.emotionLabel}}
         <text wx:if="{{payload.emotionCode}}">（{{payload.emotionCode}}）</text>
@@ -49,21 +54,23 @@
       <view class="content-text">{{payload.dailySuggestion || "保持稳定作息，照顾好自己。"}}</view>
     </view>
 
-    <view wx:if="{{payload.userImageUrl}}" class="card preview-wrap">
+    <view wx:if="{{payload.userImageUrl}}" class="card preview-wrap preview-selfie">
       <view class="preview-head" bindtap="toggleSelfiePreview">
         <view class="preview-title">用户自拍图片预览</view>
         <view class="preview-toggle">{{selfiePreviewExpanded ? '收起' : '展开'}}</view>
       </view>
+      <view class="preview-sub">这里展示的是用户原始自拍，不会覆盖已生成的卡片内容。</view>
       <view wx:if="{{selfiePreviewExpanded}}" class="selfie-box">
         <image class="selfie-image" mode="aspectFit" src="{{payload.userImageUrl}}" />
       </view>
     </view>
 
-    <view wx:if="{{imageTempPath}}" class="card preview-wrap">
+    <view wx:if="{{imageTempPath}}" class="card preview-wrap preview-generated">
       <view class="preview-head" bindtap="toggleGeneratedPreview">
         <view class="preview-title">已生成卡片预览</view>
         <view class="preview-toggle">{{generatedPreviewExpanded ? '收起' : '展开'}}</view>
       </view>
+      <view class="preview-sub">建议先展开检查版面和内容，再决定保存或转发。</view>
       <image wx:if="{{generatedPreviewExpanded}}" class="preview-image" mode="widthFix" src="{{imageTempPath}}" />
     </view>
 
@@ -71,7 +78,8 @@
     <view wx:if="{{saveStatus}}" class="status card">{{saveStatus}}</view>
 
     <view class="card action-panel">
-      <view class="content-kicker">Export Actions</view>
+      <view class="content-kicker">导出操作</view>
+      <view class="action-note text-muted">建议先生成卡片并预览确认，再保存到相册或转发。</view>
       <view class="action-grid">
         <button
           class="btn btn-primary action-btn action-btn-grid"
