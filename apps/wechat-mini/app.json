@@ -1,14 +1,19 @@
 {
   "pages": [
-    "pages/index/index",
+    "pages/home/index",
+    "pages/journey/index",
+    "pages/analyze/index",
+    "pages/favorites/index",
+    "pages/profile/index",
     "pages/result/result",
+    "pages/style/index",
     "pages/calendar/index",
     "pages/report/index",
-    "pages/favorites/index",
     "pages/share/index",
     "pages/history/index",
     "pages/history/detail",
-    "pages/settings/index"
+    "pages/settings/index",
+    "pages/index/index"
   ],
   "window": {
     "navigationBarTitleText": "情绪文化助手",
@@ -16,6 +21,35 @@
     "navigationBarTextStyle": "white",
     "backgroundColor": "#F5EFE4",
     "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "custom": true,
+    "color": "#8B796B",
+    "selectedColor": "#A1261B",
+    "backgroundColor": "#00000000",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
+      {
+        "pagePath": "pages/journey/index",
+        "text": "记录"
+      },
+      {
+        "pagePath": "pages/analyze/index",
+        "text": "分析"
+      },
+      {
+        "pagePath": "pages/favorites/index",
+        "text": "收藏"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "我的"
+      }
+    ]
   },
   "lazyCodeLoading": "requiredComponents",
   "style": "v2",

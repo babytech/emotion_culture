@@ -5,6 +5,7 @@ App({
   globalData: {
     apiBaseUrl: config.apiBaseUrl,
     latestAnalyzeContext: null,
+    latestMediaGenerateState: null,
   },
 
   onLaunch() {

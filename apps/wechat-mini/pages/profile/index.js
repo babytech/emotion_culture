@@ -1,8 +1,48 @@
 const { clearHistory, getSettings, updateSettings } = require("../../services/api");
+const { ANALYZE_TAB, FAVORITES_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
+
+const FEEDBACK_EMAIL = "microbabytech@gmail.com";
+const QUICK_ACTIONS = [
+  { key: "history", title: "历史记录", subtitle: "查看全部摘要与详情", badge: "轨迹", tone: "history" },
+  { key: "favorites", title: "我的收藏", subtitle: "回看收藏过的内容", badge: "收藏", tone: "favorites" },
+  { key: "analyze", title: "继续分析", subtitle: "回到分析工作台", badge: "分析", tone: "analyze" },
+  { key: "settings", title: "更多设置", subtitle: "进入设置页查看扩展项", badge: "设置", tone: "settings" },
+];
+const PRIVACY_CARDS = [
+  {
+    key: "save",
+    title: "保存什么",
+    body: "仅保存分析结果摘要、打卡状态与周报缓存，方便后续回看。",
+    badge: "保存",
+  },
+  {
+    key: "raw",
+    title: "不长期保存什么",
+    body: "原始自拍、图片和录音不会长期保存，只用于本次分析或短期失败恢复。",
+    badge: "媒体",
+  },
+  {
+    key: "delete",
+    title: "你可以怎么删除",
+    body: "你可以随时删除单条历史、清空全部历史、取消收藏或清除周报缓存。",
+    badge: "删除",
+  },
+  {
+    key: "scope",
+    title: "使用边界",
+    body: "本项目仅作情绪文化陪伴，不作医疗诊断或治疗建议。",
+    badge: "说明",
+  },
+];
 
 function formatUpdatedAtText(value) {
   const raw = (value || "").trim();
-  return raw ? `最近更新：${raw}` : "";
+  return raw ? `最近更新：${raw}` : "最近更新：尚未同步";
+}
+
+function formatUpdatedAtValue(value) {
+  const raw = (value || "").trim();
+  return raw || "尚未同步";
 }
 
 Page({
@@ -11,12 +51,16 @@ Page({
     isSaving: false,
     saveHistory: true,
     retentionDays: 180,
-    updatedAt: "",
-    updatedAtText: "",
+    updatedAtValue: "尚未同步",
+    updatedAtText: "最近更新：尚未同步",
     errorMsg: "",
+    quickActions: QUICK_ACTIONS,
+    privacyCards: PRIVACY_CARDS,
+    feedbackEmail: FEEDBACK_EMAIL,
   },
 
   onShow() {
+    setTabBarSelected(this, PROFILE_TAB);
     this.loadSettings();
   },
 
@@ -31,7 +75,7 @@ Page({
       this.setData({
         saveHistory: settings.save_history !== false,
         retentionDays: Number(settings.history_retention_days) || 180,
-        updatedAt: settings.updated_at || "",
+        updatedAtValue: formatUpdatedAtValue(settings.updated_at || ""),
         updatedAtText: formatUpdatedAtText(settings.updated_at || ""),
       });
     } catch (err) {
@@ -58,7 +102,7 @@ Page({
       this.setData({
         saveHistory: settings.save_history !== false,
         retentionDays: Number(settings.history_retention_days) || this.data.retentionDays,
-        updatedAt: settings.updated_at || "",
+        updatedAtValue: formatUpdatedAtValue(settings.updated_at || ""),
         updatedAtText: formatUpdatedAtText(settings.updated_at || ""),
       });
       wx.showToast({
@@ -112,9 +156,8 @@ Page({
   },
 
   copyFeedbackEmail() {
-    const target = "microbabytech@gmail.com";
     wx.setClipboardData({
-      data: target,
+      data: FEEDBACK_EMAIL,
       success: () => {
         wx.showToast({
           title: "反馈邮箱已复制",
@@ -130,11 +173,39 @@ Page({
     });
   },
 
+  handleQuickAction(event) {
+    const key = (event && event.currentTarget && event.currentTarget.dataset.key) || "";
+    if (!key) return;
+    if (key === "history") {
+      this.goHistory();
+      return;
+    }
+    if (key === "favorites") {
+      this.goFavorites();
+      return;
+    }
+    if (key === "analyze") {
+      this.goAnalyze();
+      return;
+    }
+    if (key === "settings") {
+      this.goSettingsDetail();
+    }
+  },
+
   goHistory() {
     wx.navigateTo({ url: "/pages/history/index" });
   },
 
   goFavorites() {
-    wx.switchTab({ url: "/pages/favorites/index" });
+    wx.switchTab({ url: FAVORITES_TAB });
+  },
+
+  goAnalyze() {
+    wx.switchTab({ url: ANALYZE_TAB });
+  },
+
+  goSettingsDetail() {
+    wx.navigateTo({ url: "/pages/settings/index" });
   },
 });

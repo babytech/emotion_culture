@@ -1,31 +1,38 @@
-<view class="container page-root" style="padding-bottom: {{bottomPaddingPx}}px;">
+<view class="container result-page" style="padding-bottom: {{bottomPaddingPx}}px;">
   <view wx:if="{{!hasData}}" class="empty card">
     <view class="empty-title">暂无分析结果</view>
-    <view class="text-muted">请返回上一页先提交分析。</view>
-    <button class="btn btn-secondary" bindtap="backHome">返回输入页</button>
+    <view class="text-muted">请返回分析工作台后先提交一次分析。</view>
+    <button class="btn btn-secondary" bindtap="backHome">返回分析</button>
   </view>
 
   <block wx:if="{{hasData}}">
-    <view class="emotion card">
-      <view class="panel-head">
-        <view>
-          <view class="panel-kicker">分析总览</view>
-          <view class="emotion-title">情绪反馈卡</view>
+    <view class="card result-hero">
+      <view class="section-head">
+        <view class="section-head-copy">
+          <view class="result-title">今天的情绪摘要</view>
         </view>
-        <view class="panel-badge">{{emotionLabel || '待识别'}}</view>
+        <view class="panel-badge panel-badge-{{resultHeroTheme}}">{{resultHeroTone}}</view>
       </view>
-      <view class="emotion-row">
-        <view class="emotion-key">主情绪</view>
-        <view class="emotion-badge emotion-{{emotionCode}}">
-          {{emotionLabel}}
-          <text wx:if="{{emotionCode}}">（{{emotionCode}}）</text>
+
+      <view class="result-hero-stage">
+        <view class="result-hero-main result-hero-main-{{resultHeroTheme}}">
+          <view class="result-hero-main-label">主情绪</view>
+          <view class="emotion-badge emotion-{{emotionCode}}">{{emotionLabel}}</view>
+          <view class="result-hero-main-text">{{emotionOverview}}</view>
+        </view>
+        <view class="result-hero-side">
+          <view class="emotion-summary-card result-hero-side-card result-hero-side-card-{{resultHeroTheme}}">
+            <view class="emotion-summary-label">今日状态</view>
+            <view class="emotion-summary-value emotion-summary-value-small">{{checkedTodayText}}</view>
+          </view>
+          <view class="emotion-summary-card result-hero-side-card">
+            <view class="emotion-summary-label">本月进度</view>
+            <view class="emotion-summary-value">{{monthCheckinDays}} 天记录</view>
+          </view>
         </view>
       </view>
+
       <view class="emotion-summary-grid">
-        <view class="emotion-summary-card">
-          <view class="emotion-summary-label">本月打卡</view>
-          <view class="emotion-summary-value">{{monthCheckinDays}} 天</view>
-        </view>
         <view class="emotion-summary-card">
           <view class="emotion-summary-label">连续记录</view>
           <view class="emotion-summary-value">{{currentStreak}} 天</view>
@@ -36,73 +43,67 @@
         </view>
       </view>
 
-      <view class="emotion-subtitle">补充情绪</view>
-      <view class="chip-wrap">
-        <block wx:if="{{secondaryEmotions.length}}">
-          <view wx:for="{{secondaryEmotions}}" wx:key="index" class="chip emotion-chip">
-            {{item.label}}
-            <text wx:if="{{item.code}}">（{{item.code}}）</text>
-          </view>
-        </block>
-        <view wx:else class="chip-empty">暂无补充情绪</view>
-      </view>
+      <view wx:if="{{retentionLoading}}" class="request-id text-muted">记录状态更新中...</view>
+      <view wx:if="{{retentionErrorMsg}}" class="request-id text-muted">{{retentionErrorMsg}}</view>
 
-      <view class="emotion-subtitle">情绪概述</view>
-      <view class="overview-block">
-        <view class="overview">{{emotionOverview}}</view>
-      </view>
-
-      <view wx:if="{{speechTranscript}}" class="emotion-subtitle">语音识别文字</view>
-      <view wx:if="{{speechTranscript}}" class="speech-block">
-        <view class="speech-transcript">{{speechTranscript}}</view>
-      </view>
-
-      <view wx:if="{{!speechTranscript && speechTranscriptHint}}" class="emotion-subtitle">语音识别状态</view>
-      <view wx:if="{{!speechTranscript && speechTranscriptHint}}" class="speech-block speech-block-muted">
-        <view class="speech-transcript muted">
-          {{speechTranscriptHint}}
-        </view>
-      </view>
-
-      <view class="emotion-subtitle">触发因素标签</view>
-      <view class="chip-wrap">
-        <block wx:if="{{triggerTags.length}}">
-          <view wx:for="{{triggerTags}}" wx:key="*this" class="chip tag-chip">
-            {{item}}
-          </view>
-        </block>
-        <view wx:else class="chip-empty">暂无触发标签</view>
-      </view>
-
-      <view class="emotion-subtitle">今日建议</view>
-      <view class="suggestion-block">
+      <view class="result-block result-block-accent">
+        <view class="result-block-title">今日建议</view>
         <view class="suggestion">{{dailySuggestion}}</view>
       </view>
 
-      <view class="emotion-subtitle">连续打卡</view>
-      <view wx:if="{{retentionLoading}}" class="speech-transcript muted">正在刷新打卡状态...</view>
-      <view wx:elif="{{retentionErrorMsg}}" class="speech-transcript muted">{{retentionErrorMsg}}</view>
-      <view wx:else class="checkin-wrap">
-        <view class="checkin-chip {{checkedTodayClass}}">
-          {{checkedTodayText}}
+      <view class="result-meta-grid">
+        <view class="result-meta-card">
+          <view class="emotion-subtitle">补充情绪</view>
+          <view class="chip-wrap">
+            <block wx:if="{{secondaryEmotions.length}}">
+              <view wx:for="{{secondaryEmotions}}" wx:key="index" class="chip emotion-chip">{{item.label}}</view>
+            </block>
+            <view wx:else class="chip-empty">暂无补充情绪</view>
+          </view>
         </view>
-        <view class="checkin-meta">当前连续 {{currentStreak}} 天</view>
-        <view class="checkin-meta">本月已打卡 {{monthCheckinDays}} 天</view>
-        <view class="checkin-meta">最长连续 {{longestStreak}} 天</view>
+        <view class="result-meta-card">
+          <view class="emotion-subtitle">触发因素</view>
+          <view class="chip-wrap">
+            <block wx:if="{{triggerTags.length}}">
+              <view wx:for="{{triggerTags}}" wx:key="*this" class="chip tag-chip">{{item}}</view>
+            </block>
+            <view wx:else class="chip-empty">暂无触发标签</view>
+          </view>
+        </view>
       </view>
 
-      <view wx:if="{{requestId}}" class="request-id text-muted">
-        请求编号：{{requestId}}
+    </view>
+
+    <view wx:if="{{speechTranscript || speechTranscriptHint || requestTextPreview || inputModeBadges.length}}" class="card section result-input-card">
+      <view class="section-head">
+        <view class="section-head-copy">
+          <view class="section-title">本次输入回看</view>
+        </view>
       </view>
-      <view wx:if="{{processingSummary}}" class="request-id text-muted">
-        {{processingSummary}}
+
+      <view wx:if="{{inputModeBadges.length}}" class="chip-wrap">
+        <view wx:for="{{inputModeBadges}}" wx:key="*this" class="chip tag-chip">{{item}}</view>
+      </view>
+
+      <view wx:if="{{requestTextPreview}}" class="result-block">
+        <view class="result-block-title">文字输入</view>
+        <view class="speech-transcript">{{requestTextPreview}}</view>
+      </view>
+
+      <view wx:if="{{speechTranscript}}" class="result-block">
+        <view class="result-block-title">语音识别文字</view>
+        <view class="speech-transcript">{{speechTranscript}}</view>
+      </view>
+
+      <view wx:if="{{!speechTranscript && speechTranscriptHint}}" class="result-block result-block-muted">
+        <view class="result-block-title">录音说明</view>
+        <view class="speech-transcript muted">{{speechTranscriptHint}}</view>
       </view>
     </view>
 
     <view class="section section-poem card">
       <view class="section-head">
         <view>
-          <view class="panel-kicker">诗词陪伴</view>
           <view class="section-title">诗词回应</view>
         </view>
         <view class="poet-tag">{{poet}}</view>
@@ -116,9 +117,7 @@
         binderror="onPoetImageError"
       />
       <view wx:if="{{poetImageLoading && !poetImageFailed}}" class="img-loading-tip">诗人图片加载中...</view>
-      <view wx:if="{{!poetImageUrl || poetImageFailed}}" class="img-placeholder">
-        诗人图片暂不可用
-      </view>
+      <view wx:if="{{!poetImageUrl || poetImageFailed}}" class="img-placeholder">诗人图片暂不可用</view>
       <view class="poem-text">{{poemText}}</view>
       <view class="interpretation text-muted">{{interpretation}}</view>
       <view class="favorite-actions">
@@ -137,7 +136,6 @@
     <view class="section section-guochao card">
       <view class="section-head">
         <view>
-          <view class="panel-kicker">国潮陪伴</view>
           <view class="section-title">国潮伙伴慰藉</view>
         </view>
         <view class="poet-tag">{{guochaoName}}</view>
@@ -151,9 +149,7 @@
         binderror="onGuochaoImageError"
       />
       <view wx:if="{{guochaoImageLoading && !guochaoImageFailed}}" class="img-loading-tip">国潮图片加载中...</view>
-      <view wx:if="{{!guochaoImageUrl || guochaoImageFailed}}" class="img-placeholder">
-        国潮图片暂不可用
-      </view>
+      <view wx:if="{{!guochaoImageUrl || guochaoImageFailed}}" class="img-placeholder">国潮图片暂不可用</view>
       <view class="comfort">{{comfort}}</view>
       <view class="favorite-actions">
         <button
@@ -173,7 +169,6 @@
     <view wx:if="{{userImagePreviewUrl || userImageRemoved}}" class="section section-selfie card">
       <view class="section-head">
         <view>
-          <view class="panel-kicker">本次输入</view>
           <view class="section-title">本次自拍</view>
         </view>
         <view wx:if="{{userImageRemoved}}" class="selfie-state">已从邮件中移除</view>
@@ -199,106 +194,88 @@
       </view>
     </view>
 
-    <view class="section section-media card media-generate-card">
+    <view class="section section-action card action-card">
       <view class="section-head">
-        <view>
-          <view class="panel-kicker">风格选择</view>
-          <view class="section-title">风格切换</view>
+        <view class="section-head-copy">
+          <view class="section-title">继续查看</view>
         </view>
-        <view class="poet-tag">{{mediaGenerateStyleLabel}}</view>
       </view>
-      <view class="media-generate-tip text-muted">
-        该功能只会在你主动点击后触发。系统会按当前情绪从静态图池切换一张古典风、国潮风或科技风图片；失败时，当前静态结果图和邮件功能保持不变。
+      <view class="action-grid">
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goCalendar">情绪日历</button>
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goReport">周报复盘</button>
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goHistory">历史记录</button>
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goFavorites">我的收藏</button>
       </view>
-
-      <view class="media-style-group">
-        <button
-          class="btn mini-action-btn media-style-btn {{mediaGenerateStyle === 'classical' ? 'media-style-btn-active' : ''}}"
-          data-style="classical"
-          bindtap="handleMediaGenerateStyleTap"
-        >
-          古典风
-        </button>
-        <button
-          class="btn mini-action-btn media-style-btn {{mediaGenerateStyle === 'tech' ? 'media-style-btn-active' : ''}}"
-          data-style="tech"
-          bindtap="handleMediaGenerateStyleTap"
-        >
-          科技风
-        </button>
-        <button
-          class="btn mini-action-btn media-style-btn {{mediaGenerateStyle === 'guochao' ? 'media-style-btn-active' : ''}}"
-          data-style="guochao"
-          bindtap="handleMediaGenerateStyleTap"
-        >
-          国潮风
-        </button>
-      </view>
-
-      <button
-        class="btn btn-primary media-generate-submit"
-        loading="{{mediaGenerateLoading}}"
-        disabled="{{mediaGenerateLoading}}"
-        bindtap="startMediaGenerate"
-      >
-        {{mediaGenerateActionText}}
-      </button>
-
-      <view wx:if="{{mediaGenerateStatusText}}" class="media-generate-status {{mediaGenerateStatusClass}}">
-        {{mediaGenerateStatusText}}
-      </view>
-
-      <image
-        wx:if="{{mediaGenerateResultUrl}}"
-        class="result-image media-generate-image"
-        mode="widthFix"
-        src="{{mediaGenerateResultUrl}}"
-      />
     </view>
+  </block>
 
-    <view id="email-section" class="section section-email card email-section {{emailFocused ? 'email-section-focus' : ''}}">
-      <view class="panel-kicker">结果投递</view>
-      <view class="section-title">发送到邮箱（可选）</view>
-      <view class="email-tip text-muted">请输入常用邮箱，结果将发送到该地址。</view>
-      <input
-        class="email-input {{emailError ? 'email-input-error' : ''}}"
-        type="text"
-        maxlength="320"
-        confirm-type="done"
-        adjust-position="{{true}}"
-        cursor-spacing="150"
-        placeholder="例如：name@example.com"
-        value="{{email}}"
-        bindinput="handleEmailInput"
-        bindfocus="handleEmailFocus"
-        bindblur="handleEmailBlur"
-      />
-      <view wx:if="{{emailError}}" class="email-error">{{emailError}}</view>
-      <button
-        class="btn btn-primary email-submit-btn"
-        loading="{{isSendingEmail}}"
-        disabled="{{isSendingEmail}}"
-        bindtap="submitEmail"
-      >
-        {{isSendingEmail ? '发送中...' : '发送结果到邮箱'}}
-      </button>
-      <view wx:if="{{emailStatus}}" class="email-status text-muted">
+  <view wx:if="{{emailSheetVisible}}" class="sheet-mask" bindtap="closeEmailSheet"></view>
+  <view
+    wx:if="{{emailSheetVisible}}"
+    class="section section-email card email-sheet {{emailFocused ? 'email-section-focus' : ''}}"
+    style="bottom: {{keyboardHeight}}px;"
+    catchtap="handleEmailPanelTap"
+  >
+    <view class="sheet-handle"></view>
+    <view class="email-sheet-head">
+      <view>
+        <view class="section-title">发送到邮箱</view>
+      </view>
+      <view wx:if="{{emailStatus}}" class="email-status-inline email-status-inline-{{emailStatusClass}}">
         {{emailStatus}}
       </view>
     </view>
+    <view class="email-tip text-muted">请输入常用邮箱，结果将发送到该地址。</view>
+    <input
+      class="email-input {{emailError ? 'email-input-error' : ''}}"
+      type="text"
+      maxlength="320"
+      confirm-type="done"
+      adjust-position="{{true}}"
+      cursor-spacing="150"
+      placeholder="例如：name@example.com"
+      value="{{email}}"
+      bindinput="handleEmailInput"
+      bindfocus="handleEmailFocus"
+      bindblur="handleEmailBlur"
+    />
+    <view wx:if="{{emailError}}" class="email-error">{{emailError}}</view>
+    <button
+      class="btn btn-primary email-submit-btn"
+      loading="{{isSendingEmail}}"
+      disabled="{{isSendingEmail}}"
+      bindtap="submitEmail"
+    >
+      {{isSendingEmail ? '发送中...' : '发送结果到邮箱'}}
+    </button>
+    <button class="btn btn-secondary email-cancel-btn" bindtap="closeEmailSheet">收起面板</button>
+  </view>
 
-    <view class="section section-action card action-card">
-      <view class="panel-kicker">继续探索</view>
-      <view class="section-title">后续动作</view>
-      <view class="action-tip text-muted">你可以回看日历、周报、收藏，或把当前结果导出成卡片。</view>
-      <view class="action-grid">
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goCalendar">查看情绪日历</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goReport">查看周报复盘</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goFavorites">查看我的收藏</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goShareCard">导出分享卡片</button>
-        <button class="btn btn-secondary result-bottom-btn action-grid-full" bindtap="goHistory">查看历史记录</button>
+  <view wx:if="{{hasData && !emailSheetVisible}}" class="result-action-bar" style="bottom: {{actionBarBottomPx}}px;">
+    <view class="result-action-bar-head">
+      <view class="result-action-bar-copy">
+        <view class="result-action-bar-badge">快捷动作</view>
+        <view class="result-action-bar-title">接下来想怎么继续</view>
       </view>
-      <button class="btn btn-primary action-home-btn" bindtap="backHome">返回继续分析</button>
+      <view class="result-action-bar-sub">保留本次结果</view>
     </view>
-  </block>
+    <view class="result-action-grid">
+      <button class="result-action-btn result-action-btn-primary" bindtap="backHome">
+        <view class="result-action-btn-title">再次分析</view>
+        <view class="result-action-btn-sub">回到工作台</view>
+      </button>
+      <button class="result-action-btn" bindtap="goStyleStudio">
+        <view class="result-action-btn-title">换风格</view>
+        <view class="result-action-btn-sub">去风格页</view>
+      </button>
+      <button class="result-action-btn" bindtap="openEmailSheet">
+        <view class="result-action-btn-title">发邮箱</view>
+        <view class="result-action-btn-sub">发送结果</view>
+      </button>
+      <button class="result-action-btn" bindtap="goShareCard">
+        <view class="result-action-btn-title">分享</view>
+        <view class="result-action-btn-sub">生成分享卡</view>
+      </button>
+    </view>
+  </view>
 </view>

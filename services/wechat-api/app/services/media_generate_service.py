@@ -263,6 +263,9 @@ def _run_provider_with_retry(payload: MediaGenerateRequest) -> Any:
                 source_path="",
                 source_url=None,
                 prompt=(payload.prompt or "").strip() or None,
+                emotion_code=(payload.emotion_code or "").strip() or None,
+                emotion_label=(payload.emotion_label or "").strip() or None,
+                trigger_tags=payload.normalized_trigger_tags(),
             )
         except Exception as exc:  # pragma: no cover
             last_exc = exc

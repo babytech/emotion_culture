@@ -29,6 +29,9 @@ class MediaGenerateRequest(BaseModel):
         description="Optional analysis request id for traceability.",
     )
     style: MediaGenerateStyle
+    emotion_code: Optional[str] = Field(default=None, max_length=64)
+    emotion_label: Optional[str] = Field(default=None, max_length=64)
+    trigger_tags: list[str] = Field(default_factory=list, max_length=8)
     prompt: Optional[str] = Field(default=None, max_length=400)
     consent_confirmed: bool = Field(
         default=False,
@@ -68,6 +71,14 @@ class MediaGenerateRequest(BaseModel):
             self.source_image.local_path if self.source_image else None,
             self.source_image_path,
         )
+
+    def normalized_trigger_tags(self) -> list[str]:
+        normalized: list[str] = []
+        for item in self.trigger_tags:
+            stripped = (item or "").strip()
+            if stripped and stripped not in normalized:
+                normalized.append(stripped)
+        return normalized[:8]
 
 
 class MediaGenerateResult(BaseModel):

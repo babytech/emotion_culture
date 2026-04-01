@@ -9,6 +9,7 @@ const {
   upsertFavorite,
 } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
+const { ANALYZE_TAB, FAVORITES_TAB } = require("../../utils/tabbar");
 
 const DEFAULT_DAILY_SUGGESTION = "今天先做一件你能马上完成的小行动，逐步稳住状态。";
 const FAVORITE_TYPE_POEM = "poem";
@@ -62,32 +63,28 @@ function pickSystemFields(response) {
 
 function buildSpeechTranscriptHint(systemFields) {
   const status = safeText(systemFields && systemFields.speech_transcript_status);
-  const provider = safeText(systemFields && systemFields.speech_transcript_provider);
   const error = safeText(systemFields && systemFields.speech_transcript_error);
   if (!status) return "";
 
   if (status === "provider_unconfigured") {
-    return "语音转写未配置（SPEECH_STT_ENDPOINT 为空），当前仅使用录音音色特征参与分析。";
+    return "这段录音已参与分析，暂未生成可阅读文字。";
   }
   if (status === "service_disabled") {
-    return "语音转写已由管理员关闭，当前仅使用录音音色特征参与分析。";
+    return "这段录音已参与分析，当前暂不展示转写文字。";
   }
   if (status === "request_failed" || status === "runtime_error") {
-    return "语音转写失败，当前已降级为仅使用录音音色特征参与分析。";
+    return "这段录音已参与分析，但文字整理失败了。";
   }
   if (status.indexOf("rejected:") === 0) {
-    return `语音质量未通过：${error || status}`;
+    return error ? `录音已参与分析，但文字整理未通过：${error}` : "录音已参与分析，但暂未整理出清晰文字。";
   }
   if (status === "empty") {
-    return "语音转写结果为空，建议在更安静环境重试。";
+    return "录音已参与分析，但暂未识别出清晰文字。";
   }
-  if (status === "ok" && provider) {
-    return `语音转写已完成（${provider}）。`;
+  if (status === "ok") {
+    return "";
   }
-  if (provider) {
-    return `语音转写状态：${status}（${provider}）。`;
-  }
-  return `语音转写状态：${status}`;
+  return "录音已参与分析，暂未展示转写文字。";
 }
 
 function pickProcessingMetrics(systemFields) {
@@ -167,6 +164,35 @@ function buildLegacyOverview(primaryLabel) {
     return "暂未生成情绪概述，请结合主情绪理解当前状态。";
   }
   return `当前以“${primaryLabel}”为主，建议结合下方内容进一步理解。`;
+}
+
+function buildResultHeroTheme(emotionCode) {
+  const code = safeText(emotionCode).toLowerCase();
+  if (code === "happy") return "happy";
+  if (code === "sad") return "sad";
+  if (code === "angry") return "angry";
+  if (code === "surprise") return "surprise";
+  if (code === "fear") return "fear";
+  if (code === "neutral") return "neutral";
+  return "neutral";
+}
+
+function buildResultHeroTone(emotionCode, emotionLabel) {
+  const label = safeText(emotionLabel) || "待识别";
+  const code = buildResultHeroTheme(emotionCode);
+  if (code === "happy") return `偏暖 · ${label}`;
+  if (code === "sad") return `轻缓 · ${label}`;
+  if (code === "angry") return `收束 · ${label}`;
+  if (code === "surprise") return `展开 · ${label}`;
+  if (code === "fear") return `安定 · ${label}`;
+  return `平衡 · ${label}`;
+}
+
+function mapInputModeLabel(mode) {
+  if (mode === "text") return "文字";
+  if (mode === "voice") return "录音";
+  if (mode === "selfie") return "自拍";
+  return safeText(mode) || "输入";
 }
 
 function buildResultViewModel(response) {
@@ -437,6 +463,8 @@ Page({
     processingSummary: "",
     emotionCode: "",
     emotionLabel: "",
+    resultHeroTheme: "neutral",
+    resultHeroTone: "平衡 · 待识别",
     secondaryEmotions: [],
     emotionOverview: "",
     triggerTags: [],
@@ -475,11 +503,14 @@ Page({
     mediaGenerateResultStyle: "",
     email: "",
     emailError: "",
+    emailSheetVisible: false,
     emailFocused: false,
     keyboardHeight: 0,
-    bottomPaddingPx: 0,
+    actionBarBottomPx: 0,
+    bottomPaddingPx: 364,
     isSendingEmail: false,
     emailStatus: "",
+    emailStatusClass: "",
     retentionLoading: false,
     retentionErrorMsg: "",
     checkedToday: false,
@@ -501,6 +532,8 @@ Page({
     guochaoFavoriteLoading: false,
     guochaoFavoriteButtonText: "收藏国潮",
     guochaoFavoriteBadgeText: "",
+    requestTextPreview: "",
+    inputModeBadges: [],
   },
 
   onLoad() {
@@ -537,6 +570,8 @@ Page({
       processingSummary: viewModel.processingSummary,
       emotionCode: viewModel.emotionCode,
       emotionLabel: viewModel.emotionLabel,
+      resultHeroTheme: buildResultHeroTheme(viewModel.emotionCode),
+      resultHeroTone: buildResultHeroTone(viewModel.emotionCode, viewModel.emotionLabel),
       secondaryEmotions: viewModel.secondaryEmotions,
       emotionOverview: viewModel.emotionOverview,
       triggerTags: viewModel.triggerTags,
@@ -573,6 +608,7 @@ Page({
       mediaGenerateError: "",
       mediaGenerateResultUrl: "",
       mediaGenerateResultStyle: "",
+      emailSheetVisible: false,
       favoriteErrorMsg: "",
       poemFavoriteTargetId,
       poemFavoriteId: "",
@@ -586,6 +622,8 @@ Page({
       guochaoFavoriteLoading: false,
       guochaoFavoriteButtonText: "收藏国潮",
       guochaoFavoriteBadgeText: "",
+      requestTextPreview: safeText(request.text),
+      inputModeBadges: Array.isArray(request.input_modes) ? request.input_modes.map(mapInputModeLabel) : [],
     });
     this.refreshRetentionSnapshot();
     this.refreshFavoriteStatus();
@@ -596,10 +634,8 @@ Page({
         this.setData(
           {
             keyboardHeight: height,
-            bottomPaddingPx: height > 0 ? height + 24 : 0,
-          },
-          () => {
-            if (height > 0) this.scrollToEmailSection();
+            actionBarBottomPx: height > 0 ? height : 0,
+            bottomPaddingPx: height > 0 ? height + 424 : 364,
           }
         );
       };
@@ -819,7 +855,7 @@ Page({
       });
     } catch (err) {
       this.setData({
-        retentionErrorMsg: (err && err.message) || "打卡状态刷新失败",
+        retentionErrorMsg: "记录状态稍后刷新，不影响查看本次结果。",
       });
     } finally {
       this.setData({ retentionLoading: false });
@@ -988,19 +1024,14 @@ Page({
   },
 
   scrollToEmailSection() {
-    wx.pageScrollTo({
-      selector: "#email-section",
-      duration: 120,
-      offsetTop: 60,
-      fail() {
-        // ignore
-      },
-    });
+    this.setData({ emailSheetVisible: true });
   },
 
   handleEmailFocus() {
-    this.setData({ emailFocused: true });
-    this.scrollToEmailSection();
+    this.setData({
+      emailFocused: true,
+      emailSheetVisible: true,
+    });
   },
 
   handleEmailBlur() {
@@ -1061,16 +1092,27 @@ Page({
     });
   },
 
-  handleMediaGenerateStyleTap(event) {
-    const style = safeText(event && event.currentTarget && event.currentTarget.dataset.style);
-    if (style !== MEDIA_STYLE_CLASSICAL && style !== MEDIA_STYLE_TECH && style !== MEDIA_STYLE_GUOCHAO) return;
-    this.applyMediaGenerateData({
-      mediaGenerateStyle: style,
-      mediaGenerateStatusText:
-        this.data.mediaGenerateStatus === "succeeded" || this.data.mediaGenerateStatus === "failed"
-          ? this.data.mediaGenerateStatusText
-          : "选择风格后，点击按钮即可触发增强；失败时不影响当前静态结果和邮件。",
+  openEmailSheet() {
+    this.setData({
+      emailSheetVisible: true,
+      emailStatus: "",
+      emailStatusClass: "",
     });
+  },
+
+  closeEmailSheet() {
+    this.setData({
+      emailSheetVisible: false,
+      emailFocused: false,
+    });
+  },
+
+  handleEmailPanelTap() {
+    // keep sheet open
+  },
+
+  goStyleStudio() {
+    wx.navigateTo({ url: "/pages/style/index" });
   },
 
   async startMediaGenerate() {
@@ -1082,6 +1124,9 @@ Page({
         request_token: buildMediaGenerateRequestToken(style, this.data.requestId),
         analysis_request_id: this.data.requestId || undefined,
         style,
+        emotion_code: this.data.emotionCode || undefined,
+        emotion_label: this.data.emotionLabel || undefined,
+        trigger_tags: Array.isArray(this.data.triggerTags) ? this.data.triggerTags.slice(0, 5) : [],
         prompt: buildMediaGeneratePrompt(style, this.data.emotionLabel, this.data.triggerTags),
         consent_confirmed: true,
       };
@@ -1136,6 +1181,7 @@ Page({
       email: raw,
       emailError: getEmailError(normalized),
       emailStatus: "",
+      emailStatusClass: "",
     });
   },
 
@@ -1225,8 +1271,10 @@ Page({
     const toEmail = normalizeEmail(this.data.email);
     const emailError = !toEmail ? "请输入邮箱地址" : getEmailError(toEmail);
     if (emailError) {
-      this.setData({ emailError });
-      this.scrollToEmailSection();
+      this.setData({
+        emailError,
+        emailSheetVisible: true,
+      });
       wx.showToast({ title: emailError, icon: "none" });
       return;
     }
@@ -1250,6 +1298,7 @@ Page({
     this.setData({
       isSendingEmail: true,
       emailStatus: "",
+      emailStatusClass: "",
     });
 
     try {
@@ -1276,7 +1325,8 @@ Page({
 
       const result = await sendEmail(payload);
       this.setData({
-        emailStatus: result.message || "邮件发送完成",
+        emailStatus: result && result.success === false ? "邮件发送失败" : "邮件发送成功！",
+        emailStatusClass: result && result.success === false ? "error" : "success",
       });
       wx.showToast({
         title: result.success ? "发送成功" : "发送失败",
@@ -1284,7 +1334,8 @@ Page({
       });
     } catch (err) {
       this.setData({
-        emailStatus: err.message || "邮件发送失败",
+        emailStatus: "邮件发送失败",
+        emailStatusClass: "error",
       });
       wx.showToast({
         title: "发送失败",
@@ -1296,10 +1347,10 @@ Page({
   },
 
   backHome() {
-    wx.navigateBack({
-      delta: 1,
+    wx.switchTab({
+      url: ANALYZE_TAB,
       fail() {
-        wx.reLaunch({ url: "/pages/index/index" });
+        wx.reLaunch({ url: ANALYZE_TAB });
       },
     });
   },
@@ -1317,7 +1368,7 @@ Page({
   },
 
   goFavorites() {
-    wx.navigateTo({ url: "/pages/favorites/index" });
+    wx.switchTab({ url: FAVORITES_TAB });
   },
 
   goShareCard() {

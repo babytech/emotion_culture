@@ -254,6 +254,9 @@ Request body fields:
 - `request_token` optional idempotency token
 - `analysis_request_id` optional trace id
 - `style` required: `classical | tech | guochao`
+- `emotion_code` optional primary emotion code for pool matching
+- `emotion_label` optional primary emotion label for pool matching
+- `trigger_tags` optional string array for pool matching
 - `consent_confirmed` required when `MEDIA_GEN_REQUIRE_CONSENT=1` (default enabled)
 - `consent_version` optional text
 - `source_image` / `source_image_url` / `source_image_file_id` / `source_image_path` optional (ignored in static-pool mode)
@@ -334,6 +337,18 @@ Provider env quick notes:
   - `MEDIA_GEN_PROVIDER_DISABLED: third-party dynamic image providers are removed; please use MEDIA_GEN_PROVIDER=local_mock`
 - `MEDIA_GEN_STATIC_POOL_CLASSICAL` / `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO`: comma-separated static references (recommend COS/CDN URLs).
 - `MEDIA_GEN_STATIC_POOL_CLASSICAL_JSON` / `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON`: JSON array form of static references.
+  - each JSON item can be either a plain string URL or an object:
+    - `id`
+    - `url`
+    - `style`
+    - `emotion_tags`
+    - `intensity`
+    - `active`
+    - `weight`
+    - `updated_at`
+- optional common fallback pool:
+  - `MEDIA_GEN_STATIC_POOL_COMMON`
+  - `MEDIA_GEN_STATIC_POOL_COMMON_JSON`
 - If static pool env not configured, backend fallback uses local `/assets/tangsong/*` for `classical`, `/assets/guochao/*` for `guochao`; `tech` requires explicit tech pool config or returns `MEDIA_GEN_STATIC_POOL_EMPTY`.
 - M2 hard-constraint env:
   - `MEDIA_GEN_REQUIRE_CONSENT=1`

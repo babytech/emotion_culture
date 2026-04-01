@@ -114,6 +114,6 @@ Page({
   },
 
   backToAnalyze() {
-    wx.reLaunch({ url: "/pages/index/index" });
+    wx.switchTab({ url: "/pages/analyze/index" });
   },
 });

@@ -1,4 +1,5 @@
 const { clearFavorites, deleteFavoriteItem, listFavorites } = require("../../services/api");
+const { FAVORITES_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 const PAGE_SIZE = 20;
 const TYPE_ALL = "all";
@@ -7,6 +8,11 @@ const TAB_ITEMS = [
   { value: "poem", label: "诗词" },
   { value: "guochao", label: "国潮" },
 ];
+const TYPE_LABEL_MAP = {
+  [TYPE_ALL]: "全部",
+  poem: "诗词",
+  guochao: "国潮",
+};
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -15,8 +21,12 @@ function safeText(value) {
 function buildTabs(activeType) {
   return TAB_ITEMS.map((item) => ({
     ...item,
-    className: item.value === activeType ? "tab tab-active" : "tab",
+    className: item.value === activeType ? "favorites-tab favorites-tab-active" : "favorites-tab",
   }));
+}
+
+function getTypeLabel(type) {
+  return TYPE_LABEL_MAP[type] || TYPE_LABEL_MAP[TYPE_ALL];
 }
 
 function formatUpdatedAt(value) {
@@ -60,12 +70,12 @@ function buildFavoriteItemView(item) {
 
 function buildEmptyText(activeType) {
   if (activeType === "poem") {
-    return "你还没有收藏诗词。";
+    return "还没有收藏诗词。";
   }
   if (activeType === "guochao") {
-    return "你还没有收藏国潮慰藉。";
+    return "还没有收藏国潮内容。";
   }
-  return "你还没有任何收藏内容。";
+  return "还没有收藏内容。";
 }
 
 function extractErrorMessage(err, fallback) {
@@ -80,6 +90,7 @@ Page({
   data: {
     tabs: buildTabs(TYPE_ALL),
     activeType: TYPE_ALL,
+    activeTypeLabel: getTypeLabel(TYPE_ALL),
     items: [],
     total: 0,
     nextOffset: 0,
@@ -92,6 +103,7 @@ Page({
   },
 
   onShow() {
+    setTabBarSelected(this, FAVORITES_TAB);
     this.loadFavorites({ reset: true });
   },
 
@@ -122,6 +134,7 @@ Page({
     const offset = reset ? 0 : this.data.nextOffset;
     this.setData({
       errorMsg: "",
+      activeTypeLabel: getTypeLabel(this.data.activeType),
       isLoading: reset,
       isLoadingMore: !reset,
       emptyText: buildEmptyText(this.data.activeType),
@@ -169,6 +182,7 @@ Page({
 
     this.setData({
       activeType: nextType,
+      activeTypeLabel: getTypeLabel(nextType),
       tabs: buildTabs(nextType),
       items: [],
       total: 0,

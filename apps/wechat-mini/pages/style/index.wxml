@@ -1,0 +1,69 @@
+<view class="container style-page">
+  <view wx:if="{{!hasData}}" class="card style-empty">
+    <view class="style-empty-title">暂无可切换的结果</view>
+    <view class="text-muted">请先完成一次分析，再进入风格切换页。</view>
+  </view>
+
+  <block wx:if="{{hasData}}">
+    <view class="card style-hero">
+      <view class="style-kicker">Style Studio</view>
+      <view class="style-title">点击风格按钮后，直接开始切换图片。</view>
+      <view class="style-sub">
+        当前主情绪：{{emotionLabel || '待识别'}}<text wx:if="{{emotionCode}}">（{{emotionCode}}）</text>
+      </view>
+      <view class="style-tag-row">
+        <view wx:for="{{triggerTags}}" wx:key="*this" class="style-tag">{{item}}</view>
+        <view wx:if="{{!triggerTags.length}}" class="style-tag">暂无触发标签</view>
+      </view>
+    </view>
+
+    <view class="card style-panel">
+      <view class="style-panel-head">
+        <view>
+          <view class="style-panel-title">选择风格</view>
+          <view class="style-panel-sub">不需要再额外点击确认按钮，点一下就直接切换。</view>
+        </view>
+        <view class="style-panel-badge">{{mediaGenerateStyleLabel}}</view>
+      </view>
+
+      <view class="style-button-grid">
+        <button
+          class="btn style-button {{mediaGenerateStyle === 'classical' ? 'style-button-active' : ''}}"
+          disabled="{{mediaGenerateLoading}}"
+          data-style="classical"
+          bindtap="handleStyleTap"
+        >
+          古典风
+        </button>
+        <button
+          class="btn style-button {{mediaGenerateStyle === 'tech' ? 'style-button-active' : ''}}"
+          disabled="{{mediaGenerateLoading}}"
+          data-style="tech"
+          bindtap="handleStyleTap"
+        >
+          科技风
+        </button>
+        <button
+          class="btn style-button {{mediaGenerateStyle === 'guochao' ? 'style-button-active' : ''}}"
+          disabled="{{mediaGenerateLoading}}"
+          data-style="guochao"
+          bindtap="handleStyleTap"
+        >
+          国潮风
+        </button>
+      </view>
+
+      <view class="style-status style-status-{{mediaGenerateStatusClass}}">
+        {{mediaGenerateStatusText}}
+      </view>
+
+      <image
+        wx:if="{{mediaGenerateResultUrl}}"
+        class="style-image"
+        mode="widthFix"
+        src="{{mediaGenerateResultUrl}}"
+      />
+      <view wx:else class="style-placeholder">切换成功后，风格图片会显示在这里。</view>
+    </view>
+  </block>
+</view>

@@ -156,6 +156,16 @@ Optional:
 - `MEDIA_GEN_PROVIDER_RETRY_BACKOFF_MS` (default `220`, retry backoff base milliseconds)
 - `MEDIA_GEN_STATIC_POOL_CLASSICAL` / `MEDIA_GEN_STATIC_POOL_TECH` / `MEDIA_GEN_STATIC_POOL_GUOCHAO` (comma-separated static references, recommend COS URLs)
 - `MEDIA_GEN_STATIC_POOL_CLASSICAL_JSON` / `MEDIA_GEN_STATIC_POOL_TECH_JSON` / `MEDIA_GEN_STATIC_POOL_GUOCHAO_JSON` (JSON array form, same meaning as above)
+- `MEDIA_GEN_STATIC_POOL_COMMON` / `MEDIA_GEN_STATIC_POOL_COMMON_JSON` (optional common fallback pool)
+- JSON pool item supports both plain string URL and object form:
+  - `id`
+  - `url`
+  - `style`
+  - `emotion_tags`
+  - `intensity`
+  - `active`
+  - `weight`
+  - `updated_at`
 - `MEDIA_GEN_REQUIRE_CONSENT` (default `1`, require explicit user consent before media generation task)
 - `MEDIA_GEN_ENABLE_WEEKLY_QUOTA` (default `1`, enable per-user weekly quota guard)
 - `MEDIA_GEN_WEEKLY_LIMIT` (default `1`, max media-generate tasks per user per ISO week)
@@ -218,6 +228,14 @@ VOICE_REQUIRE_TRANSCRIPT=0
 ### Phase-3 media provider note
 
 Current backend no longer calls third-party dynamic image providers.
+
+Mini program can optionally pass extra media-generate context:
+
+- `emotion_code`
+- `emotion_label`
+- `trigger_tags`
+
+These fields help backend choose a better matching static asset from the configured pool metadata.
 
 - Use `MEDIA_GEN_PROVIDER=local_mock` (or `static_pool`) for phase-3 baseline.
 - If provider is configured to removed values (`http/qwen/hunyuan/liblib`), API returns:

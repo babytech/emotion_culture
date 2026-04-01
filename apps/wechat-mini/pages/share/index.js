@@ -398,7 +398,7 @@ Page({
     wx.navigateBack({
       delta: 1,
       fail() {
-        wx.reLaunch({ url: "/pages/index/index" });
+        wx.switchTab({ url: "/pages/home/index" });
       },
     });
   },
@@ -408,7 +408,7 @@ Page({
     const emotionLabel = safeText(payload.emotionLabel) || "我的情绪复盘";
     return {
       title: `我的情绪复盘：${emotionLabel}`,
-      path: "/pages/index/index",
+      path: "/pages/home/index",
     };
   },
 });

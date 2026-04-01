@@ -1,0 +1,118 @@
+<view class="container shell-page">
+  <view class="card shell-hero profile-hero">
+    <view class="section-head">
+      <view class="section-head-copy">
+        <view class="shell-title">我的空间</view>
+      </view>
+      <view class="shell-badge profile-hero-badge">
+        <view class="profile-hero-badge-dot"></view>
+        <text class="profile-hero-badge-text">我的</text>
+      </view>
+    </view>
+    <view class="profile-hero-stage">
+      <view class="profile-hero-main-card {{saveHistory ? 'profile-hero-main-card-on' : 'profile-hero-main-card-off'}}">
+        <view class="profile-hero-main-label">历史保存状态</view>
+        <view class="profile-hero-main-value">{{saveHistory ? '已开启' : '已关闭'}}</view>
+        <view class="profile-hero-main-meta">
+          {{saveHistory ? '新的分析会写入历史。' : '新的分析不再写入历史。'}}
+        </view>
+      </view>
+      <view class="profile-hero-side">
+        <view class="profile-hero-mini-card">
+          <view class="profile-hero-mini-label">保留周期</view>
+          <view class="profile-hero-mini-value">{{retentionDays}} 天</view>
+        </view>
+        <view class="profile-hero-mini-card profile-hero-mini-card-accent">
+          <view class="profile-hero-mini-label">最近更新</view>
+          <view class="profile-hero-mini-value profile-hero-mini-value-small">{{updatedAtValue}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card section-card">
+    <view class="section-head">
+      <view class="section-head-copy">
+        <view class="section-title">快捷入口</view>
+      </view>
+    </view>
+
+    <view class="profile-quick-grid">
+      <view
+        wx:for="{{quickActions}}"
+        wx:key="key"
+        class="profile-quick-card profile-quick-card-{{item.tone}}"
+        data-key="{{item.key}}"
+        bindtap="handleQuickAction"
+      >
+        <view class="profile-quick-head">
+          <view class="profile-quick-badge">{{item.badge}}</view>
+          <view class="profile-quick-link">进入</view>
+        </view>
+        <view class="profile-quick-title">{{item.title}}</view>
+        <view class="profile-quick-sub">{{item.subtitle}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card section-card">
+    <view class="section-head">
+      <view class="section-head-copy">
+        <view class="section-title">历史保存</view>
+      </view>
+    </view>
+
+    <view class="profile-switch-row">
+      <view class="profile-switch-copy">
+        <view class="profile-switch-title">保存我的历史记录</view>
+        <view class="profile-switch-sub">{{updatedAtText}}</view>
+      </view>
+      <switch
+        checked="{{saveHistory}}"
+        disabled="{{isLoading || isSaving}}"
+        bindchange="handleSaveHistoryChange"
+        color="#A1261B"
+      />
+    </view>
+
+    <view wx:if="{{errorMsg}}" class="state-panel state-panel-muted">{{errorMsg}}</view>
+
+    <button class="btn profile-clear-btn" bindtap="handleClearHistory">清空全部历史</button>
+  </view>
+
+  <view class="card section-card">
+    <view class="section-head">
+      <view class="section-head-copy">
+        <view class="section-title">隐私与数据说明</view>
+      </view>
+    </view>
+    <view class="profile-privacy-grid">
+      <view wx:for="{{privacyCards}}" wx:key="key" class="profile-privacy-card">
+        <view class="profile-privacy-badge">{{item.badge}}</view>
+        <view class="profile-privacy-title">{{item.title}}</view>
+        <view class="profile-privacy-body">{{item.body}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card section-card">
+    <view class="section-head">
+      <view class="section-head-copy">
+        <view class="section-title">反馈与支持</view>
+      </view>
+    </view>
+    <view class="profile-support-card">
+      <view class="profile-support-top">
+        <view class="profile-support-copy">
+          <view class="profile-support-label">反馈邮箱</view>
+          <view class="profile-support-email">{{feedbackEmail}}</view>
+        </view>
+        <view class="profile-support-chip">支持中</view>
+      </view>
+      <view class="profile-support-meta-row">
+        <view class="profile-support-meta">建议附上页面路径或操作步骤</view>
+      </view>
+    </view>
+    <button class="btn btn-secondary profile-feedback-btn" bindtap="copyFeedbackEmail">复制反馈邮箱</button>
+  </view>
+</view>
