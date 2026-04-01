@@ -103,24 +103,33 @@
 
     <view class="section section-poem card">
       <view class="section-head">
-        <view>
+        <view class="section-head-copy">
           <view class="section-title">诗词回应</view>
+          <view class="section-sub result-card-sub">借一句古意，把这一刻轻轻接住。</view>
         </view>
         <view class="poet-tag">{{poet}}</view>
       </view>
-      <image
-        wx:if="{{poetImageUrl && !poetImageFailed}}"
-        class="result-image"
-        mode="widthFix"
-        src="{{poetImageUrl}}"
-        bindload="onPoetImageLoad"
-        binderror="onPoetImageError"
-      />
-      <view wx:if="{{poetImageLoading && !poetImageFailed}}" class="img-loading-tip">诗人图片加载中...</view>
-      <view wx:if="{{!poetImageUrl || poetImageFailed}}" class="img-placeholder">诗人图片暂不可用</view>
-      <view class="poem-text">{{poemText}}</view>
-      <view class="interpretation text-muted">{{interpretation}}</view>
-      <view class="favorite-actions">
+      <view class="result-visual-frame result-visual-frame-poem">
+        <image
+          wx:if="{{poetImageUrl && !poetImageFailed}}"
+          class="result-image"
+          mode="widthFix"
+          src="{{poetImageUrl}}"
+          bindload="onPoetImageLoad"
+          binderror="onPoetImageError"
+        />
+        <view wx:if="{{poetImageLoading && !poetImageFailed}}" class="img-loading-tip">诗人图片加载中...</view>
+        <view wx:if="{{!poetImageUrl || poetImageFailed}}" class="img-placeholder">诗人图片暂不可用</view>
+      </view>
+      <view class="result-reading-block result-reading-block-poem">
+        <view class="result-reading-mark">诗意回应</view>
+        <view class="poem-text">{{poemText}}</view>
+      </view>
+      <view class="result-support-block">
+        <view class="result-support-title">这句回应想告诉你</view>
+        <view class="interpretation text-muted">{{interpretation}}</view>
+      </view>
+      <view class="favorite-actions result-card-footer">
         <button
           class="btn btn-secondary mini-action-btn"
           loading="{{poemFavoriteLoading}}"
@@ -135,23 +144,29 @@
 
     <view class="section section-guochao card">
       <view class="section-head">
-        <view>
+        <view class="section-head-copy">
           <view class="section-title">国潮伙伴慰藉</view>
+          <view class="section-sub result-card-sub">换一种更直接的方式，陪你把情绪放松下来。</view>
         </view>
         <view class="poet-tag">{{guochaoName}}</view>
       </view>
-      <image
-        wx:if="{{guochaoImageUrl && !guochaoImageFailed}}"
-        class="result-image"
-        mode="widthFix"
-        src="{{guochaoImageUrl}}"
-        bindload="onGuochaoImageLoad"
-        binderror="onGuochaoImageError"
-      />
-      <view wx:if="{{guochaoImageLoading && !guochaoImageFailed}}" class="img-loading-tip">国潮图片加载中...</view>
-      <view wx:if="{{!guochaoImageUrl || guochaoImageFailed}}" class="img-placeholder">国潮图片暂不可用</view>
-      <view class="comfort">{{comfort}}</view>
-      <view class="favorite-actions">
+      <view class="result-visual-frame result-visual-frame-guochao">
+        <image
+          wx:if="{{guochaoImageUrl && !guochaoImageFailed}}"
+          class="result-image"
+          mode="widthFix"
+          src="{{guochaoImageUrl}}"
+          bindload="onGuochaoImageLoad"
+          binderror="onGuochaoImageError"
+        />
+        <view wx:if="{{guochaoImageLoading && !guochaoImageFailed}}" class="img-loading-tip">国潮图片加载中...</view>
+        <view wx:if="{{!guochaoImageUrl || guochaoImageFailed}}" class="img-placeholder">国潮图片暂不可用</view>
+      </view>
+      <view class="result-reading-block result-reading-block-guochao">
+        <view class="result-reading-mark">陪伴话语</view>
+        <view class="comfort">{{comfort}}</view>
+      </view>
+      <view class="favorite-actions result-card-footer">
         <button
           class="btn btn-secondary mini-action-btn"
           loading="{{guochaoFavoriteLoading}}"
@@ -168,29 +183,44 @@
 
     <view wx:if="{{userImagePreviewUrl || userImageRemoved}}" class="section section-selfie card">
       <view class="section-head">
-        <view>
+        <view class="section-head-copy">
           <view class="section-title">本次自拍</view>
+          <view class="section-sub result-card-sub">保留这一刻的表情线索，你也可以随时隐藏或移出邮件。</view>
         </view>
         <view wx:if="{{userImageRemoved}}" class="selfie-state">已从邮件中移除</view>
       </view>
-      <view wx:if="{{!userImageRemoved}}" class="user-actions">
+      <view wx:if="{{!userImageRemoved}}" class="result-visual-frame result-visual-frame-selfie">
+        <image
+          wx:if="{{userImageVisible && userImagePreviewUrl && !userImageFailed}}"
+          class="result-image user-image"
+          mode="widthFix"
+          src="{{userImagePreviewUrl}}"
+          binderror="onUserImageError"
+        />
+        <view
+          wx:if="{{userImageVisible && (!userImagePreviewUrl || userImageFailed)}}"
+          class="img-placeholder"
+        >
+          自拍图片暂不可用
+        </view>
+        <view wx:if="{{!userImageVisible}}" class="selfie-placeholder-card">
+          <view class="selfie-placeholder-title">当前已隐藏自拍</view>
+          <view class="selfie-placeholder-sub">需要时可点击下方按钮再次查看</view>
+        </view>
+      </view>
+      <view wx:if="{{userImageRemoved}}" class="result-support-block result-support-block-muted">
+        <view class="result-support-title">邮件状态</view>
+        <view class="interpretation text-muted">这张自拍已从邮件内容中移除，但不会影响你当前查看结果。</view>
+      </view>
+      <view wx:if="{{!userImageRemoved}}" class="user-actions result-card-footer">
         <button class="btn btn-secondary mini-action-btn" bindtap="toggleUserImageVisible">
           {{userImageVisible ? '隐藏自拍' : '显示自拍'}}
         </button>
         <button class="btn btn-secondary mini-action-btn" bindtap="removeUserImageForEmail">从邮件移除</button>
       </view>
-      <image
-        wx:if="{{!userImageRemoved && userImageVisible && userImagePreviewUrl && !userImageFailed}}"
-        class="result-image user-image"
-        mode="widthFix"
-        src="{{userImagePreviewUrl}}"
-        binderror="onUserImageError"
-      />
-      <view
-        wx:if="{{!userImageRemoved && userImageVisible && (!userImagePreviewUrl || userImageFailed)}}"
-        class="img-placeholder"
-      >
-        自拍图片暂不可用
+      <view wx:if="{{!userImageRemoved}}" class="selfie-note">
+        <view class="selfie-note-dot"></view>
+        <view class="selfie-note-text">仅用于本次结果展示与邮件发送控制，不会单独出现在首页流中。</view>
       </view>
     </view>
 
