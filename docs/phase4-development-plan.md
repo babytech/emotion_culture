@@ -2,6 +2,13 @@
 
 ## 阶段定位
 
+配套文档：
+
+- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase4-task-breakdown.md)
+- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase4-implementation-checklist.md)
+- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase4-qa-regression-report.md)
+- [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md)
+
 第四阶段定义为“前端壳层重构阶段”。
 
 本阶段的目标不是新增后端业务能力，而是在保持现有分析、留存、收藏、邮件与静态图链路不变的前提下，完成小程序主壳层、首页、分析页、结果页、记录页、收藏页、我的页的产品化重构。
@@ -219,6 +226,23 @@
 - 结果页主操作在真机上易发现、易点击、无键盘错位
 - 所有 tab 页在弱网、空数据、接口失败时都有明确降级状态
 - 当前重构不改变既有后端口径，不引入新的主链路不稳定因素
+
+## 封板后衔接
+
+第四阶段封板后，不再继续扩张为“身份体系增强”或“增长能力阶段”。
+
+以下事项统一转入第五阶段处理：
+
+- 首次进入授权门与微信身份收口
+- 主分析链路 5G / 弱网稳定性专项优化
+- 自拍摄像头权限前置校验
+- 录音中提交流程治理
+- 再次分析默认清空旧输入
+- 朋友圈分享链路
+- “历史上的今天”内容模块
+- UI 视觉二次升级
+
+对应文档见：[phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
 
 ## 文档对齐
 
