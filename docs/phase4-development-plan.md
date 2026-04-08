@@ -92,36 +92,23 @@
 - 结果页：[/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/result/result.wxml](/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/result/result.wxml)
 - 风格页：[/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/style/index.wxml](/Users/babytech/github/emotion_culture/apps/wechat-mini/pages/style/index.wxml)
 
-## 当前剩余任务
+## 封板说明
 
-第四阶段当前仍需继续推进的事项如下：
+第四阶段原定的收尾事项已完成封板复核，当前不再继续保留“阶段内剩余任务”。
 
-### 1. 结果页深度精修
+本阶段最终收口结论如下：
 
-- 继续把结果页做得更像“主结果页”而不是“功能集合页”
-- 统一摘要区、内容区、固定动作区之间的层级关系
-- 继续优化邮件、分享、再次分析、风格切换的操作反馈
-- 继续排查真机键盘弹起、邮箱输入、底部动作区之间的避让关系
+- 结果页主结构、邮箱面板与底部动作区已经完成分层
+- 分析页 fixed 工作台、提交状态与失败恢复链路已经稳定
+- 收藏页、我的页、首页、记录页已形成统一的空态 / 错误态 / 加载态表达
+- `custom-tab-bar`、安全区、键盘避让、页面壳层语言已完成统一
+- 第四阶段已具备实施清单、QA 回归、验收报告三份正式封板产物
 
-### 2. 分析页真机收尾
+封板详情见：
 
-- 继续观察固定工作台与页面内容、底部 tab 的相对关系
-- 针对不同机型微调底部 spacer、高度与 fixed 定位
-- 进一步压缩少量仍偏“说明性”的文案
-- 保持文字输入、自拍、录音三模块在窄屏下的点击舒适度
-
-### 3. 收藏页与我的页细节统一
-
-- 继续检查空态、错误态、加载态是否与首页/记录页完全统一
-- 统一按钮主次层级与卡片间距
-- 检查长文案、极端数据、无数据场景下的真机观感
-
-### 4. 全局真机回归
-
-- iPhone 窄屏
-- 刘海屏 / 动态岛机型
-- Android 常见全面屏
-- 户外网络波动场景
+- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase4-implementation-checklist.md)
+- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase4-qa-regression-report.md)
+- [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md)
 
 ## 第四阶段暂不纳入事项
 
