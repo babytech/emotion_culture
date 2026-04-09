@@ -255,6 +255,17 @@ function getBootstrap() {
   });
 }
 
+function bindWechatPhone(payload) {
+  return callViaContainer("/api/auth/wechat-phone", "POST", payload || {}, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 250,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 2,
+    transientHttpRetryDelayMs: 400,
+  });
+}
+
 function createAnalyzeTask(payload) {
   const data = payload && typeof payload === "object" ? { ...payload } : {};
   const existingClient = data.client && typeof data.client === "object" ? data.client : {};
@@ -440,6 +451,7 @@ function clearFavorites(favoriteType) {
 
 module.exports = {
   analyze,
+  bindWechatPhone,
   createAnalyzeTask,
   clearHistory,
   clearFavorites,

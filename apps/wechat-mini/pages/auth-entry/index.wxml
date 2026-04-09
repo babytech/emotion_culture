@@ -1,27 +1,80 @@
-<view class="container shell-page auth-entry-page">
-  <view class="card shell-hero auth-hero">
-    <view class="shell-kicker">微信登录</view>
-    <view class="shell-title">使用当前微信账号进入小程序</view>
-    <view class="shell-subtitle">{{loginHint}}</view>
+<view class="container auth-entry-page">
+  <view class="card auth-status-card">
+    <view class="auth-avatar">情</view>
+    <view class="auth-status-main">
+      <view class="auth-status-title">{{statusTitle}}</view>
+      <view class="auth-status-subtitle">{{statusSubtitle}}</view>
+    </view>
+    <view class="auth-status-chip {{isLoggedIn ? 'auth-status-chip-on' : ''}}">{{statusChip}}</view>
   </view>
 
-  <view class="card section-card auth-copy-card">
-    <view class="auth-brief">
-      <view class="auth-brief-title">进入后会默认绑定当前微信账号</view>
-      <view class="auth-brief-text">历史记录、积分、会员与后续权益都会跟随当前微信身份。</view>
+  <view class="card auth-benefit-card">
+    <view class="auth-benefit-item">
+      <view class="auth-benefit-icon auth-benefit-icon-vip">会</view>
+      <view class="auth-benefit-label">会员</view>
     </view>
-    <view class="auth-brief">
-      <view class="auth-brief-title">原始自拍和录音不会长期保留</view>
-      <view class="auth-brief-text">只保留必要摘要数据，方便后续回看与继续使用。</view>
+    <view class="auth-benefit-item">
+      <view class="auth-benefit-icon auth-benefit-icon-points">积</view>
+      <view class="auth-benefit-label">积分</view>
+    </view>
+    <view class="auth-benefit-item">
+      <view class="auth-benefit-icon auth-benefit-icon-history">史</view>
+      <view class="auth-benefit-label">历史</view>
     </view>
   </view>
 
-  <button
-    class="btn btn-primary auth-enter-btn"
-    loading="{{isEntering}}"
-    disabled="{{isEntering}}"
-    bindtap="handleAgreeAndEnter"
-  >
-    同意并使用微信账号进入
-  </button>
+  <view class="card section-card auth-step-card">
+    <view class="auth-step-row">
+      <view class="auth-step-index {{agreed ? 'auth-step-index-done' : 'auth-step-index-current'}}">1</view>
+      <view class="auth-step-copy">
+        <view class="auth-step-title">同意</view>
+        <view class="auth-step-desc">{{agreed ? '已同意协议' : '先确认隐私与使用说明'}}</view>
+      </view>
+      <button wx:if="{{!agreed}}" class="btn btn-primary auth-step-btn" bindtap="openAgreementSheet">同意</button>
+      <view wx:else class="auth-step-state auth-step-state-done">已完成</view>
+    </view>
+
+    <view class="auth-step-divider"></view>
+
+    <view class="auth-step-row">
+      <view
+        class="auth-step-index {{loginState === 'logged_in' ? 'auth-step-index-done' : ''}} {{agreed && !isLoggedIn ? 'auth-step-index-current' : ''}}"
+      >
+        2
+      </view>
+      <view class="auth-step-copy">
+        <view class="auth-step-title">微信绑定号码</view>
+        <view class="auth-step-desc">{{phoneHint}}</view>
+      </view>
+      <button
+        wx:if="{{agreed && !isLoggedIn}}"
+        class="btn btn-primary auth-step-btn"
+        open-type="getPhoneNumber"
+        bindgetphonenumber="handleGetPhoneNumber"
+        loading="{{isBindingPhone}}"
+        disabled="{{isBindingPhone}}"
+      >
+        微信绑定号码
+      </button>
+      <view wx:elif="{{isLoggedIn}}" class="auth-step-state auth-step-state-phone">{{maskedPhone}}</view>
+      <view wx:else class="auth-step-state">未开始</view>
+    </view>
+  </view>
+
+  <view wx:if="{{isLoggedIn}}" class="card auth-success-card">登录成功，正在进入首页...</view>
+
+  <view wx:if="{{agreementVisible}}" class="auth-modal-mask">
+    <view class="auth-modal" catchtap="noop">
+      <view class="auth-modal-title">请先阅读并同意</view>
+      <view class="auth-modal-body">
+        为完成微信登录与号码绑定，请先同意
+        <text class="auth-modal-link" bindtap="openPrivacyContract">《小程序用户隐私保护指引》</text>
+        。
+      </view>
+      <view class="auth-modal-actions">
+        <button class="auth-modal-btn auth-modal-btn-ghost" bindtap="handleAgreementReject">拒绝</button>
+        <button class="auth-modal-btn auth-modal-btn-confirm" bindtap="handleAgreementAccept">同意</button>
+      </view>
+    </view>
+  </view>
 </view>

@@ -1,4 +1,4 @@
-const { ANALYZE_TAB } = require("../../utils/tabbar");
+const { HOME_TAB } = require("../../utils/tabbar");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 
 Page({
@@ -7,16 +7,16 @@ Page({
   },
 
   onShow() {
-    if (ensurePhase5Auth(ANALYZE_TAB)) return;
+    if (ensurePhase5Auth(HOME_TAB)) return;
     wx.switchTab({
-      url: ANALYZE_TAB,
+      url: HOME_TAB,
       fail: () => {
         this.setData({ redirectFailed: true });
       },
     });
   },
 
-  openAnalyze() {
-    wx.switchTab({ url: ANALYZE_TAB });
+  openHome() {
+    wx.switchTab({ url: HOME_TAB });
   },
 });

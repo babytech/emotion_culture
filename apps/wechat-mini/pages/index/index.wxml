@@ -1,10 +1,10 @@
 <view class="container shell-page">
   <view class="card shell-hero">
     <view class="shell-kicker">Compatibility Route</view>
-    <view class="shell-title">正在进入新的分析工作台</view>
+    <view class="shell-title">正在进入首页</view>
     <view class="shell-subtitle">
-      原 `pages/index/index` 已降级为兼容跳转页，主输入流程已经迁移到底部导航中间的“分析”入口。
+      原 `pages/index/index` 已降级为兼容跳转页，默认会先进入首页，再从底部导航切换到记录、分析、收藏和我的。
     </view>
-    <button wx:if="{{redirectFailed}}" class="btn btn-primary" bindtap="openAnalyze">手动进入分析</button>
+    <button wx:if="{{redirectFailed}}" class="btn btn-primary" bindtap="openHome">手动进入首页</button>
   </view>
 </view>
