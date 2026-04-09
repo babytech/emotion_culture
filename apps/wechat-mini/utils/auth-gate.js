@@ -1,7 +1,7 @@
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB, PROFILE_TAB } = require("./tabbar");
 
 const AUTH_GATE_STORAGE_KEY = "ec_phase5_auth_gate_v1";
-const AUTH_GATE_VERSION = 3;
+const AUTH_GATE_VERSION = 4;
 const AUTH_ENTRY_PATH = "/pages/auth-entry/index";
 const ALLOWED_TARGETS = [HOME_TAB, JOURNEY_TAB, ANALYZE_TAB, FAVORITES_TAB, PROFILE_TAB];
 const AUTH_LOGIN_STATES = {
@@ -15,6 +15,7 @@ function buildDefaultAuthGateState() {
     version: AUTH_GATE_VERSION,
     completed: false,
     agreed: false,
+    privacy_authorized: false,
     phone_bound: false,
     login_state: AUTH_LOGIN_STATES.LOGGED_OUT,
     agreement_at: "",
@@ -45,6 +46,7 @@ function normalizeAuthGateState(value) {
   }
 
   const agreed = normalizeBoolean(value.agreed);
+  const privacyAuthorized = normalizeBoolean(value.privacy_authorized);
   const phoneBound = normalizeBoolean(value.phone_bound);
   const completed = normalizeBoolean(value.completed);
 
@@ -59,6 +61,7 @@ function normalizeAuthGateState(value) {
     version: AUTH_GATE_VERSION,
     completed,
     agreed,
+    privacy_authorized: completed ? true : privacyAuthorized,
     phone_bound: completed ? true : phoneBound,
     login_state: loginState,
     agreement_at: normalizeString(value.agreement_at),
@@ -112,6 +115,7 @@ function markAuthGateAgreementAccepted(payload = {}) {
   return saveAuthGateState({
     ...current,
     agreed: true,
+    privacy_authorized: payload.privacyAuthorized !== false,
     agreement_at: agreementAt,
     identity_type: normalizeString(payload.identityType) || current.identity_type,
     openid_present: payload.openidPresent === true || current.openid_present,
@@ -125,6 +129,7 @@ function markAuthGatePhoneBound(payload = {}) {
   return saveAuthGateState({
     ...current,
     agreed: true,
+    privacy_authorized: payload.privacyAuthorized !== false || current.privacy_authorized,
     phone_bound: true,
     phone_bound_at: phoneBoundAt,
     masked_phone: normalizeString(payload.maskedPhone) || current.masked_phone,
@@ -141,6 +146,7 @@ function markAuthGateCompleted(payload = {}) {
     ...current,
     completed: true,
     agreed: true,
+    privacy_authorized: payload.privacyAuthorized !== false || current.privacy_authorized,
     phone_bound: payload.phoneBound !== false,
     agreement_at: current.agreement_at || now,
     phone_bound_at: current.phone_bound_at || now,

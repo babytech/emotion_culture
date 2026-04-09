@@ -1,95 +1,83 @@
-<view class="container auth-entry-page">
-  <view class="card auth-status-card">
-    <view class="auth-avatar">情</view>
-    <view class="auth-status-main">
-      <view class="auth-status-title">{{statusTitle}}</view>
-      <view class="auth-status-subtitle">{{statusSubtitle}}</view>
-    </view>
-    <view class="auth-status-chip {{isLoggedIn ? 'auth-status-chip-on' : ''}}">{{statusChip}}</view>
-  </view>
-
-  <view class="card auth-benefit-card">
-    <view class="auth-benefit-item">
-      <view class="auth-benefit-icon auth-benefit-icon-vip">会</view>
-      <view class="auth-benefit-label">会员</view>
-    </view>
-    <view class="auth-benefit-item">
-      <view class="auth-benefit-icon auth-benefit-icon-points">积</view>
-      <view class="auth-benefit-label">积分</view>
-    </view>
-    <view class="auth-benefit-item">
-      <view class="auth-benefit-icon auth-benefit-icon-history">史</view>
-      <view class="auth-benefit-label">历史</view>
-    </view>
-  </view>
-
-  <view class="card section-card auth-step-card">
-    <view class="auth-step-row">
-      <view class="auth-step-index {{agreed ? 'auth-step-index-done' : 'auth-step-index-current'}}">1</view>
-      <view class="auth-step-copy">
-        <view class="auth-step-title">同意</view>
-        <view class="auth-step-desc">{{agreed ? '已同意协议' : '先确认隐私与使用说明'}}</view>
+<view class="auth-entry-page">
+  <view class="container auth-background">
+    <view class="auth-profile-head">
+      <view class="auth-profile-avatar">情</view>
+      <view class="auth-profile-copy">
+        <view class="auth-profile-title">{{isLoggedIn ? maskedPhone : '未登录'}}</view>
+        <view class="auth-profile-subtitle">{{statusSubtitle}}</view>
       </view>
-      <button wx:if="{{!agreed}}" class="btn btn-primary auth-step-btn" bindtap="openAgreementSheet">同意</button>
-      <view wx:else class="auth-step-state auth-step-state-done">已完成</view>
+      <view class="auth-profile-chip">{{statusChip}}</view>
     </view>
 
-    <view class="auth-step-divider"></view>
+    <view class="card auth-benefit-card">
+      <view class="auth-benefit-item">
+        <view class="auth-benefit-icon auth-benefit-icon-vip">会</view>
+        <view class="auth-benefit-label">会员</view>
+      </view>
+      <view class="auth-benefit-item">
+        <view class="auth-benefit-icon auth-benefit-icon-points">积</view>
+        <view class="auth-benefit-label">积分</view>
+      </view>
+      <view class="auth-benefit-item">
+        <view class="auth-benefit-icon auth-benefit-icon-history">史</view>
+        <view class="auth-benefit-label">历史</view>
+      </view>
+    </view>
 
-    <view class="auth-step-row">
-      <view
-        class="auth-step-index {{loginState === 'logged_in' ? 'auth-step-index-done' : ''}} {{agreed && !isLoggedIn ? 'auth-step-index-current' : ''}}"
-      >
-        2
+    <view class="card auth-menu-card">
+      <view wx:for="{{profileRows}}" wx:key="key" class="auth-menu-row">
+        <view class="auth-menu-icon">{{item.icon}}</view>
+        <view class="auth-menu-title">{{item.title}}</view>
+        <view class="auth-menu-hint">{{item.hint}}</view>
+        <view class="auth-menu-arrow">›</view>
       </view>
-      <view class="auth-step-copy">
-        <view class="auth-step-title">微信绑定号码</view>
-        <view class="auth-step-desc">{{phoneHint}}</view>
-      </view>
-      <button
-        wx:if="{{agreed && !isLoggedIn}}"
-        class="btn btn-primary auth-step-btn"
-        open-type="getPhoneNumber"
-        bindgetphonenumber="handleGetPhoneNumber"
-        loading="{{isBindingPhone}}"
-        disabled="{{isBindingPhone}}"
-      >
-        微信绑定号码
-      </button>
-      <view wx:elif="{{isLoggedIn}}" class="auth-step-state auth-step-state-phone">{{maskedPhone}}</view>
-      <view wx:else class="auth-step-state">未开始</view>
     </view>
   </view>
 
-  <view wx:if="{{isLoggedIn}}" class="card auth-success-card">登录成功，正在进入首页...</view>
+  <view class="auth-dim-mask"></view>
 
-  <view wx:if="{{agreementVisible}}" class="auth-modal-mask">
-    <view class="auth-modal" catchtap="noop">
-      <view class="auth-modal-title">请先阅读并同意</view>
-      <view class="auth-modal-body">
-        为完成微信登录与号码绑定，请先同意
-        <text class="auth-modal-link" bindtap="openPrivacyContract">《小程序用户隐私保护指引》</text>
-        。
-      </view>
-      <view class="auth-modal-actions">
-        <button class="auth-modal-btn auth-modal-btn-ghost" bindtap="handleAgreementReject">拒绝</button>
+  <view class="auth-sheet">
+    <view class="auth-sheet-handle"></view>
+    <view class="auth-sheet-brand">情绪文化</view>
+    <view class="auth-sheet-title">申请获取并验证你的手机号</view>
+    <view class="auth-sheet-subtitle">完成后将以微信身份登录，并进入首页。</view>
+
+    <view class="auth-step-card">
+      <view class="auth-step-row">
+        <view class="auth-step-badge {{agreed ? 'auth-step-badge-done' : ''}}">1</view>
+        <view class="auth-step-copy">
+          <view class="auth-step-title">同意</view>
+          <view class="auth-step-desc">
+            点击同意隐私授权后，才可继续绑定号码。
+          </view>
+        </view>
         <button
-          wx:if="{{supportsPrivacyAuthorization}}"
-          id="auth-entry-privacy-agree"
-          class="auth-modal-btn auth-modal-btn-confirm"
-          open-type="agreePrivacyAuthorization"
-          bindagreeprivacyauthorization="handleAgreementAccept"
+          class="auth-inline-btn {{agreed ? 'auth-inline-btn-done' : ''}}"
+          bindtap="handleAgreeTap"
+          loading="{{isAuthorizingPrivacy}}"
+          disabled="{{agreed || isAuthorizingPrivacy}}"
         >
-          同意
-        </button>
-        <button
-          wx:else
-          class="auth-modal-btn auth-modal-btn-confirm"
-          bindtap="handleAgreementAcceptFallback"
-        >
-          同意
+          {{agreed ? '已完成' : '同意'}}
         </button>
       </view>
+
+      <view class="auth-step-links">
+        <text class="auth-link" bindtap="openPrivacyContract">
+          {{privacyContractName ? privacyContractName : '《小程序用户隐私保护指引》'}}
+        </text>
+      </view>
     </view>
+
+    <button
+      class="btn btn-primary auth-phone-btn"
+      open-type="getPhoneNumber"
+      bindgetphonenumber="handleGetPhoneNumber"
+      loading="{{isBindingPhone}}"
+      disabled="{{isBindingPhone || !agreed}}"
+    >
+      微信绑定号码登录
+    </button>
+
+    <view class="auth-phone-hint">{{agreed ? phoneHint : '请先点击同意，再绑定号码'}}</view>
   </view>
 </view>
