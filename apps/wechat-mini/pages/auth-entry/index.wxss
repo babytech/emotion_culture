@@ -1,0 +1,42 @@
+.auth-entry-page {
+  gap: 24rpx;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.auth-hero {
+  gap: 20rpx;
+}
+
+.auth-copy-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18rpx;
+}
+
+.auth-brief {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  padding: 20rpx;
+  border-radius: 24rpx;
+  background: rgba(255, 251, 245, 0.86);
+  border: 2rpx solid rgba(147, 37, 29, 0.08);
+}
+
+.auth-brief-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #322319;
+}
+
+.auth-brief-text {
+  font-size: 25rpx;
+  line-height: 1.7;
+  color: #6f5b4c;
+}
+
+.auth-enter-btn {
+  width: 100%;
+  margin-top: 8rpx;
+}

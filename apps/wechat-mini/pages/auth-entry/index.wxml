@@ -1,0 +1,27 @@
+<view class="container shell-page auth-entry-page">
+  <view class="card shell-hero auth-hero">
+    <view class="shell-kicker">微信登录</view>
+    <view class="shell-title">使用当前微信账号进入小程序</view>
+    <view class="shell-subtitle">{{loginHint}}</view>
+  </view>
+
+  <view class="card section-card auth-copy-card">
+    <view class="auth-brief">
+      <view class="auth-brief-title">进入后会默认绑定当前微信账号</view>
+      <view class="auth-brief-text">历史记录、积分、会员与后续权益都会跟随当前微信身份。</view>
+    </view>
+    <view class="auth-brief">
+      <view class="auth-brief-title">原始自拍和录音不会长期保留</view>
+      <view class="auth-brief-text">只保留必要摘要数据，方便后续回看与继续使用。</view>
+    </view>
+  </view>
+
+  <button
+    class="btn btn-primary auth-enter-btn"
+    loading="{{isEntering}}"
+    disabled="{{isEntering}}"
+    bindtap="handleAgreeAndEnter"
+  >
+    同意并使用微信账号进入
+  </button>
+</view>

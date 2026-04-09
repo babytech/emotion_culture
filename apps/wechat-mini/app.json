@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/auth-entry/index",
     "pages/home/index",
     "pages/journey/index",
     "pages/analyze/index",

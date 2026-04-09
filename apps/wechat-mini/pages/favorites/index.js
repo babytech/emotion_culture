@@ -1,4 +1,5 @@
 const { clearFavorites, deleteFavoriteItem, listFavorites } = require("../../services/api");
+const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { FAVORITES_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 const PAGE_SIZE = 20;
@@ -103,6 +104,7 @@ Page({
   },
 
   onShow() {
+    if (ensurePhase5Auth(FAVORITES_TAB)) return;
     setTabBarSelected(this, FAVORITES_TAB);
     this.loadFavorites({ reset: true });
   },

@@ -9,6 +9,7 @@
 - [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
 - [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase5-task-breakdown.md)
 - [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-implementation-checklist.md)
+- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
 
 ## 本周总原则
 
@@ -17,6 +18,11 @@
 - 本周目标不是“把第五阶段做完”，而是先解决最影响真实用户体验的两件事：
   - 首次进入授权与权限流程不清晰
   - 点击分析后在 5G / 弱网下仍经常卡住
+
+补充执行建议：
+
+- `M1` 第一轮代码落地后，先执行一轮最小真机冒烟，再继续展开 `M2`
+- 冒烟清单见：[phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
 
 ## 为什么本周不建议同时做 M3 / M4
 

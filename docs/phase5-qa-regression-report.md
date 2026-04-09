@@ -13,6 +13,7 @@
 - [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
 - [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase5-task-breakdown.md)
 - [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-implementation-checklist.md)
+- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
 
 ## 分任务汇总（待执行）
 
@@ -32,6 +33,8 @@
 - 授权完成后可正常进入首页
 - 自拍权限拒绝后可恢复
 - 录音中提交场景行为符合预期
+- 建议先执行一轮最小真机冒烟清单：
+- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
 
 ### QA-521 5G / 弱网主链路回归
 

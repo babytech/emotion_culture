@@ -1,4 +1,5 @@
 const { getRetentionCalendar, getRetentionWeeklyReport, listHistory } = require("../../services/api");
+const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { JOURNEY_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 function toMonthText(dateObj) {
@@ -79,6 +80,7 @@ Page({
   },
 
   onShow() {
+    if (ensurePhase5Auth(JOURNEY_TAB)) return;
     setTabBarSelected(this, JOURNEY_TAB);
     this.loadJourneyHub();
   },

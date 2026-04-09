@@ -1,4 +1,5 @@
 const { clearHistory, getSettings, updateSettings } = require("../../services/api");
+const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { ANALYZE_TAB, FAVORITES_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 const FEEDBACK_EMAIL = "microbabytech@gmail.com";
@@ -60,6 +61,7 @@ Page({
   },
 
   onShow() {
+    if (ensurePhase5Auth(PROFILE_TAB)) return;
     setTabBarSelected(this, PROFILE_TAB);
     this.loadSettings();
   },

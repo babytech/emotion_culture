@@ -1,5 +1,6 @@
 const { analyze, createAnalyzeTask, getAnalyzeTask } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
+const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { ANALYZE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 const { detectRuntimeEnv } = require("../../utils/runtime");
 
@@ -26,6 +27,127 @@ function sleep(ms) {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
   });
+}
+
+function showModalAsync(options = {}) {
+  return new Promise((resolve) => {
+    wx.showModal({
+      ...options,
+      success(res) {
+        resolve(!!(res && res.confirm));
+      },
+      fail() {
+        resolve(false);
+      },
+    });
+  });
+}
+
+function getScopePermissionState(scope) {
+  return new Promise((resolve) => {
+    wx.getSetting({
+      success(res) {
+        const authSetting = (res && res.authSetting) || {};
+        if (Object.prototype.hasOwnProperty.call(authSetting, scope)) {
+          resolve(authSetting[scope] === true);
+          return;
+        }
+        resolve(null);
+      },
+      fail() {
+        resolve(null);
+      },
+    });
+  });
+}
+
+function requestScopePermission(scope) {
+  return new Promise((resolve, reject) => {
+    wx.authorize({
+      scope,
+      success() {
+        resolve(true);
+      },
+      fail(err) {
+        reject(err);
+      },
+    });
+  });
+}
+
+function openSettingAsync() {
+  return new Promise((resolve) => {
+    wx.openSetting({
+      success(res) {
+        resolve((res && res.authSetting) || {});
+      },
+      fail() {
+        resolve({});
+      },
+    });
+  });
+}
+
+async function ensureScopeAuthorized(scope, options = {}) {
+  const scopeLabel = options.scopeLabel || "相关权限";
+  const state = await getScopePermissionState(scope);
+
+  if (state === true) {
+    return true;
+  }
+
+  if (state === false) {
+    const shouldOpenSettings = await showModalAsync({
+      title: options.deniedTitle || `请开启${scopeLabel}`,
+      content:
+        options.deniedContent ||
+        `${scopeLabel}当前处于关闭状态。开启后才能继续使用对应能力。`,
+      confirmText: options.deniedConfirmText || "去设置",
+      cancelText: options.deniedCancelText || "暂不",
+    });
+    if (!shouldOpenSettings) return false;
+    const authSetting = await openSettingAsync();
+    if (authSetting[scope] === true) {
+      return true;
+    }
+    wx.showToast({
+      title: `未开启${scopeLabel}`,
+      icon: "none",
+    });
+    return false;
+  }
+
+  const confirmed = await showModalAsync({
+    title: options.authorizeTitle || `允许使用${scopeLabel}`,
+    content:
+      options.authorizeContent ||
+      `继续后将申请${scopeLabel}，仅用于当前功能，不会在未使用时持续调用。`,
+    confirmText: options.authorizeConfirmText || "继续授权",
+    cancelText: options.authorizeCancelText || "取消",
+  });
+  if (!confirmed) return false;
+
+  try {
+    await requestScopePermission(scope);
+    return true;
+  } catch (err) {
+    const shouldOpenSettings = await showModalAsync({
+      title: `${scopeLabel}未开启`,
+      content: `若刚刚拒绝了${scopeLabel}，可前往设置重新开启后再继续。`,
+      confirmText: "去设置",
+      cancelText: "取消",
+    });
+    if (!shouldOpenSettings) return false;
+    const authSetting = await openSettingAsync();
+    if (authSetting[scope] === true) {
+      return true;
+    }
+    wx.showToast({
+      title: `未开启${scopeLabel}`,
+      icon: "none",
+    });
+    return false;
+  }
 }
 
 function createAnalyzeRequestToken() {
@@ -247,6 +369,7 @@ Page({
   },
 
   onShow() {
+    if (ensurePhase5Auth(ANALYZE_TAB)) return;
     setTabBarSelected(this, ANALYZE_TAB);
   },
 
@@ -282,25 +405,36 @@ Page({
     recorder.onStop((res) => {
       this.stopRecordTimer();
       this.resetPendingSubmissionState();
-      this.setData(this.withWorkspaceMetrics({
-        isRecording: false,
-        isRecordBusy: false,
-        audioTempPath: res.tempFilePath || "",
-        submitStage: SUBMIT_STAGE.IDLE,
-        submitStatusText: "",
-        submitButtonText: "开始分析",
-        errorMsg: "",
-      }));
+      this.setData(
+        this.withWorkspaceMetrics({
+          isRecording: false,
+          isRecordBusy: false,
+          audioTempPath: res.tempFilePath || "",
+          submitStage: SUBMIT_STAGE.IDLE,
+          submitStatusText: "",
+          submitButtonText: "开始分析",
+          errorMsg: "",
+        }),
+        () => {
+          this.resolvePendingRecorderStop(res);
+        }
+      );
     });
 
     recorder.onError((err) => {
       this.stopRecordTimer();
-      this.setData({
-        isRecording: false,
-        isRecordBusy: false,
-      });
+      const message = (err && err.errMsg) || "录音失败";
+      this.setData(
+        {
+          isRecording: false,
+          isRecordBusy: false,
+        },
+        () => {
+          this.rejectPendingRecorderStop(new Error(message));
+        }
+      );
       wx.showToast({
-        title: err.errMsg || "录音失败",
+        title: message,
         icon: "none",
       });
     });
@@ -406,6 +540,17 @@ Page({
   },
 
   async chooseSelfie() {
+    const hasCameraPermission = await ensureScopeAuthorized("scope.camera", {
+      scopeLabel: "摄像头权限",
+      authorizeTitle: "允许使用摄像头",
+      authorizeContent: "自拍分析需要先开启摄像头权限。授权后才会进入拍摄流程。",
+      deniedTitle: "摄像头权限已关闭",
+      deniedContent: "自拍分析需要摄像头权限。若不授权，本次将直接返回，不会继续打开拍摄。",
+    });
+    if (!hasCameraPermission) {
+      return;
+    }
+
     let tempPath = "";
     try {
       const mediaRes = await wx.chooseMedia({
@@ -551,6 +696,65 @@ Page({
     }
   },
 
+  resolvePendingRecorderStop(result) {
+    if (!this._pendingRecorderStop) return;
+    const pending = this._pendingRecorderStop;
+    this._pendingRecorderStop = null;
+    if (pending.timer) {
+      clearTimeout(pending.timer);
+    }
+    pending.resolve(result);
+  },
+
+  rejectPendingRecorderStop(err) {
+    if (!this._pendingRecorderStop) return;
+    const pending = this._pendingRecorderStop;
+    this._pendingRecorderStop = null;
+    if (pending.timer) {
+      clearTimeout(pending.timer);
+    }
+    pending.reject(err);
+  },
+
+  async stopRecordingForSubmit() {
+    if (!this.data.isRecording) return true;
+    if (this.data.isRecordBusy) {
+      throw new Error("录音仍在处理中，请稍后再提交。");
+    }
+
+    this.setData({
+      isRecordBusy: true,
+      submitStage: SUBMIT_STAGE.UPLOADING,
+      submitStatusText: "正在结束录音并整理内容...",
+      submitButtonText: "处理中...",
+      errorMsg: "",
+    });
+
+    await new Promise((resolve, reject) => {
+      this.rejectPendingRecorderStop(new Error("录音状态已变更，请重新提交。"));
+      const timer = setTimeout(() => {
+        this._pendingRecorderStop = null;
+        reject(new Error("自动结束录音超时，请先手动结束录音再提交。"));
+      }, 5000);
+
+      this._pendingRecorderStop = {
+        resolve,
+        reject,
+        timer,
+      };
+
+      try {
+        recorder.stop();
+      } catch (err) {
+        clearTimeout(timer);
+        this._pendingRecorderStop = null;
+        reject(new Error((err && err.errMsg) || "停止录音失败，请先结束录音再提交。"));
+      }
+    });
+
+    return true;
+  },
+
   clearAudio() {
     this.resetPendingSubmissionState();
     this.setData(this.withWorkspaceMetrics({
@@ -630,6 +834,33 @@ Page({
   },
 
   async submitAnalyze() {
+    if (this.data.isRecording) {
+      try {
+        await this.stopRecordingForSubmit();
+      } catch (err) {
+        const message = ((err && err.message) || "请先结束录音再提交。").trim();
+        this.setData({
+          isSubmitting: false,
+          submitStage: SUBMIT_STAGE.FAILED,
+          submitStatusText: message,
+          submitButtonText: "开始分析",
+          errorMsg: message,
+        });
+        wx.showToast({
+          title: "请先结束录音",
+          icon: "none",
+        });
+        return;
+      }
+    }
+
+    if (this.data.isRecordBusy) {
+      this.setData({
+        errorMsg: "录音仍在处理中，请稍候再提交。",
+      });
+      return;
+    }
+
     const text = (this.data.text || "").trim();
     const imageTempPath = this.data.imageTempPath;
     const pendingSelfiePath = this.data.pendingSelfiePath;

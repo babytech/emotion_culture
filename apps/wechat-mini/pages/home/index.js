@@ -4,6 +4,7 @@ const {
   listFavorites,
   listHistory,
 } = require("../../services/api");
+const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 function toMonthText(dateObj) {
@@ -122,6 +123,7 @@ Page({
   },
 
   onShow() {
+    if (ensurePhase5Auth(HOME_TAB)) return;
     setTabBarSelected(this, HOME_TAB);
     this.loadDashboard();
   },

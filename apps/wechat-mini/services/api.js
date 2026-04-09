@@ -244,6 +244,17 @@ function analyze(payload) {
   });
 }
 
+function getBootstrap() {
+  return callViaContainer("/api/bootstrap", "GET", undefined, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 250,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 2,
+    transientHttpRetryDelayMs: 400,
+  });
+}
+
 function createAnalyzeTask(payload) {
   const data = payload && typeof payload === "object" ? { ...payload } : {};
   const existingClient = data.client && typeof data.client === "object" ? data.client : {};
@@ -436,6 +447,7 @@ module.exports = {
   deleteFavoriteItem,
   deleteRetentionWeeklyReport,
   clearRetentionWeeklyReports,
+  getBootstrap,
   getAnalyzeTask,
   getFavoriteStatus,
   getHistoryDetail,
