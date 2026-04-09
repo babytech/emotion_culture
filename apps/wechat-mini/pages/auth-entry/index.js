@@ -68,10 +68,11 @@ function requirePrivacyAuthorization() {
   });
 }
 
-function mapPhoneBindFailure(detail) {
+function mapPhoneBindFailure(detail, options = {}) {
   const errMsg = typeof detail.errMsg === "string" ? detail.errMsg : "";
   const errno = Number(detail.errno);
   const raw = `${errMsg} ${Number.isFinite(errno) ? errno : ""}`.toLowerCase();
+  const agreed = options.agreed === true;
 
   if (!errMsg) {
     return "微信号码授权失败，请重试";
@@ -80,7 +81,9 @@ function mapPhoneBindFailure(detail) {
     return "你已取消号码授权";
   }
   if (raw.includes("privacy")) {
-    return "请先点击同意，再绑定号码";
+    return agreed
+      ? "后台隐私指引未声明手机号，请到微信公众平台补充后再试"
+      : "请先点击同意，再绑定号码";
   }
   if (raw.includes("no permission") || raw.includes("jsapi has no permission")) {
     return "当前小程序暂不具备手机号能力，请检查 AppID 主体和接口权限";
@@ -170,16 +173,7 @@ Page({
   async refreshPageState() {
     const state = getAuthGateState();
     const privacySetting = await getPrivacySetting();
-    let nextState = state;
-
-    if (!state.agreed && privacySetting.needAuthorization === false) {
-      nextState = markAuthGateAgreementAccepted({
-        identityType: "wechat_phone_pending",
-        privacyAuthorized: true,
-      });
-    }
-
-    this.setData(buildPageState(nextState, { privacyContractName: privacySetting.privacyContractName || "" }));
+    this.setData(buildPageState(state, { privacyContractName: privacySetting.privacyContractName || "" }));
   },
 
   warmupWechatLogin() {
@@ -243,10 +237,19 @@ Page({
     const detail = (event && event.detail) || {};
     const errMsg = typeof detail.errMsg === "string" ? detail.errMsg : "";
     const code = typeof detail.code === "string" ? detail.code.trim() : "";
+    console.info("auth-entry:getPhoneNumber", {
+      errMsg,
+      errno: detail.errno,
+      hasCode: !!code,
+      agreed: this.data.agreed,
+      privacyAuthorized: this.data.privacyAuthorized,
+    });
 
     if (errMsg && !errMsg.endsWith(":ok")) {
       wx.showToast({
-        title: mapPhoneBindFailure(detail),
+        title: mapPhoneBindFailure(detail, {
+          agreed: this.data.agreed,
+        }),
         icon: "none",
       });
       return;

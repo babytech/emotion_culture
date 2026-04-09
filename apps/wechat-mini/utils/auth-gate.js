@@ -1,7 +1,7 @@
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB, PROFILE_TAB } = require("./tabbar");
 
 const AUTH_GATE_STORAGE_KEY = "ec_phase5_auth_gate_v1";
-const AUTH_GATE_VERSION = 4;
+const AUTH_GATE_VERSION = 5;
 const AUTH_ENTRY_PATH = "/pages/auth-entry/index";
 const ALLOWED_TARGETS = [HOME_TAB, JOURNEY_TAB, ANALYZE_TAB, FAVORITES_TAB, PROFILE_TAB];
 const AUTH_LOGIN_STATES = {
