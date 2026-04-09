@@ -73,7 +73,22 @@
       </view>
       <view class="auth-modal-actions">
         <button class="auth-modal-btn auth-modal-btn-ghost" bindtap="handleAgreementReject">拒绝</button>
-        <button class="auth-modal-btn auth-modal-btn-confirm" bindtap="handleAgreementAccept">同意</button>
+        <button
+          wx:if="{{supportsPrivacyAuthorization}}"
+          id="auth-entry-privacy-agree"
+          class="auth-modal-btn auth-modal-btn-confirm"
+          open-type="agreePrivacyAuthorization"
+          bindagreeprivacyauthorization="handleAgreementAccept"
+        >
+          同意
+        </button>
+        <button
+          wx:else
+          class="auth-modal-btn auth-modal-btn-confirm"
+          bindtap="handleAgreementAcceptFallback"
+        >
+          同意
+        </button>
       </view>
     </view>
   </view>

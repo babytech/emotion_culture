@@ -8,6 +8,45 @@ const {
 } = require("../../utils/auth-gate");
 const { HOME_TAB } = require("../../utils/tabbar");
 
+function ensureWechatLogin() {
+  if (typeof wx.login !== "function") {
+    return Promise.resolve("");
+  }
+  return new Promise((resolve) => {
+    wx.login({
+      success(res) {
+        resolve((res && res.code) || "");
+      },
+      fail() {
+        resolve("");
+      },
+    });
+  });
+}
+
+function mapPhoneBindFailure(detail) {
+  const errMsg = typeof detail.errMsg === "string" ? detail.errMsg : "";
+  const errno = Number(detail.errno);
+  const raw = `${errMsg} ${Number.isFinite(errno) ? errno : ""}`.toLowerCase();
+
+  if (!errMsg) {
+    return "微信号码授权失败，请重试";
+  }
+  if (raw.includes("user deny") || raw.includes("user cancel")) {
+    return "你已取消号码授权";
+  }
+  if (raw.includes("privacy")) {
+    return "请先完成隐私授权，再点击绑定号码";
+  }
+  if (raw.includes("no permission") || raw.includes("jsapi has no permission")) {
+    return "当前小程序暂不具备手机号能力，请检查 AppID 主体和接口权限";
+  }
+  if (raw.includes("login") || raw.includes("wxlogin")) {
+    return "微信登录态未就绪，请稍后重试";
+  }
+  return "微信号码授权失败，请重试";
+}
+
 function buildPageState(rawState) {
   const state = rawState || getAuthGateState();
   const loginState = state.login_state || AUTH_LOGIN_STATES.LOGGED_OUT;
@@ -49,6 +88,7 @@ Page({
   data: {
     agreementVisible: false,
     isBindingPhone: false,
+    supportsPrivacyAuthorization: false,
     loginState: AUTH_LOGIN_STATES.LOGGED_OUT,
     agreed: false,
     isLoggedIn: false,
@@ -61,6 +101,10 @@ Page({
 
   onLoad() {
     this.targetTab = HOME_TAB;
+    this.setData({
+      supportsPrivacyAuthorization: typeof wx.getPrivacySetting === "function",
+    });
+    this.warmupWechatLogin();
   },
 
   onShow() {
@@ -69,6 +113,11 @@ Page({
       return;
     }
     this.syncPageState();
+    this.warmupWechatLogin();
+  },
+
+  warmupWechatLogin() {
+    ensureWechatLogin().catch(() => {});
   },
 
   syncPageState(state) {
@@ -98,10 +147,15 @@ Page({
     });
     this.setData({ agreementVisible: false });
     this.syncPageState(nextState);
+    this.warmupWechatLogin();
     wx.showToast({
       title: "请继续绑定号码",
       icon: "none",
     });
+  },
+
+  handleAgreementAcceptFallback() {
+    this.handleAgreementAccept();
   },
 
   openPrivacyContract() {
@@ -134,7 +188,7 @@ Page({
 
     if (errMsg && !errMsg.endsWith(":ok")) {
       wx.showToast({
-        title: "你还没有完成号码绑定",
+        title: mapPhoneBindFailure(detail),
         icon: "none",
       });
       return;
