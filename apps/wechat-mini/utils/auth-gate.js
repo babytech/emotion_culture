@@ -1,12 +1,12 @@
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB, PROFILE_TAB } = require("./tabbar");
 
 const AUTH_GATE_STORAGE_KEY = "ec_phase5_auth_gate_v1";
-const AUTH_GATE_VERSION = 5;
+const AUTH_GATE_VERSION = 7;
 const AUTH_ENTRY_PATH = "/pages/auth-entry/index";
 const ALLOWED_TARGETS = [HOME_TAB, JOURNEY_TAB, ANALYZE_TAB, FAVORITES_TAB, PROFILE_TAB];
 const AUTH_LOGIN_STATES = {
   LOGGED_OUT: "logged_out",
-  PHONE_PENDING: "phone_pending",
+  READY: "ready",
   LOGGED_IN: "logged_in",
 };
 
@@ -16,15 +16,14 @@ function buildDefaultAuthGateState() {
     completed: false,
     agreed: false,
     privacy_authorized: false,
-    phone_bound: false,
+    wechat_identity_bound: false,
     login_state: AUTH_LOGIN_STATES.LOGGED_OUT,
     agreement_at: "",
-    phone_bound_at: "",
+    wechat_identity_bound_at: "",
     confirmed_at: "",
     identity_type: "",
     openid_present: false,
     unionid_present: false,
-    masked_phone: "",
   };
 }
 
@@ -47,14 +46,14 @@ function normalizeAuthGateState(value) {
 
   const agreed = normalizeBoolean(value.agreed);
   const privacyAuthorized = normalizeBoolean(value.privacy_authorized);
-  const phoneBound = normalizeBoolean(value.phone_bound);
+  const wechatIdentityBound = normalizeBoolean(value.wechat_identity_bound);
   const completed = normalizeBoolean(value.completed);
 
   let loginState = AUTH_LOGIN_STATES.LOGGED_OUT;
   if (completed) {
     loginState = AUTH_LOGIN_STATES.LOGGED_IN;
   } else if (agreed) {
-    loginState = AUTH_LOGIN_STATES.PHONE_PENDING;
+    loginState = AUTH_LOGIN_STATES.READY;
   }
 
   return {
@@ -62,15 +61,14 @@ function normalizeAuthGateState(value) {
     completed,
     agreed,
     privacy_authorized: completed ? true : privacyAuthorized,
-    phone_bound: completed ? true : phoneBound,
+    wechat_identity_bound: completed ? true : wechatIdentityBound,
     login_state: loginState,
     agreement_at: normalizeString(value.agreement_at),
-    phone_bound_at: normalizeString(value.phone_bound_at),
+    wechat_identity_bound_at: normalizeString(value.wechat_identity_bound_at),
     confirmed_at: normalizeString(value.confirmed_at),
     identity_type: normalizeString(value.identity_type),
     openid_present: normalizeBoolean(value.openid_present),
     unionid_present: normalizeBoolean(value.unionid_present),
-    masked_phone: normalizeString(value.masked_phone),
   };
 }
 
@@ -123,22 +121,6 @@ function markAuthGateAgreementAccepted(payload = {}) {
   });
 }
 
-function markAuthGatePhoneBound(payload = {}) {
-  const current = getAuthGateState();
-  const phoneBoundAt = current.phone_bound_at || new Date().toISOString();
-  return saveAuthGateState({
-    ...current,
-    agreed: true,
-    privacy_authorized: payload.privacyAuthorized !== false || current.privacy_authorized,
-    phone_bound: true,
-    phone_bound_at: phoneBoundAt,
-    masked_phone: normalizeString(payload.maskedPhone) || current.masked_phone,
-    identity_type: normalizeString(payload.identityType) || current.identity_type,
-    openid_present: payload.openidPresent === true || current.openid_present,
-    unionid_present: payload.unionidPresent === true || current.unionid_present,
-  });
-}
-
 function markAuthGateCompleted(payload = {}) {
   const current = getAuthGateState();
   const now = new Date().toISOString();
@@ -147,14 +129,13 @@ function markAuthGateCompleted(payload = {}) {
     completed: true,
     agreed: true,
     privacy_authorized: payload.privacyAuthorized !== false || current.privacy_authorized,
-    phone_bound: payload.phoneBound !== false,
+    wechat_identity_bound: true,
     agreement_at: current.agreement_at || now,
-    phone_bound_at: current.phone_bound_at || now,
+    wechat_identity_bound_at: current.wechat_identity_bound_at || now,
     confirmed_at: now,
     identity_type: normalizeString(payload.identityType) || current.identity_type,
     openid_present: payload.openidPresent === true || current.openid_present,
     unionid_present: payload.unionidPresent === true || current.unionid_present,
-    masked_phone: normalizeString(payload.maskedPhone) || current.masked_phone,
   };
   return saveAuthGateState(nextState);
 }
@@ -187,7 +168,6 @@ module.exports = {
   getAuthGateState,
   hasCompletedAuthGate,
   markAuthGateAgreementAccepted,
-  markAuthGatePhoneBound,
   markAuthGateCompleted,
   normalizeTargetTab,
   redirectToAuthEntry,

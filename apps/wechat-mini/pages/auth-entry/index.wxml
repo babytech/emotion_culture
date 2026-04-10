@@ -3,7 +3,7 @@
     <view class="auth-profile-head">
       <view class="auth-profile-avatar">情</view>
       <view class="auth-profile-copy">
-        <view class="auth-profile-title">{{isLoggedIn ? maskedPhone : '未登录'}}</view>
+        <view class="auth-profile-title">{{statusTitle}}</view>
         <view class="auth-profile-subtitle">{{statusSubtitle}}</view>
       </view>
       <view class="auth-profile-chip">{{statusChip}}</view>
@@ -39,8 +39,8 @@
   <view class="auth-sheet">
     <view class="auth-sheet-handle"></view>
     <view class="auth-sheet-brand">情绪文化</view>
-    <view class="auth-sheet-title">申请获取并验证你的手机号</view>
-    <view class="auth-sheet-subtitle">完成后将以微信身份登录，并进入首页。</view>
+    <view class="auth-sheet-title">使用当前微信身份进入</view>
+    <view class="auth-sheet-subtitle">完成后将以当前微信身份进入首页。</view>
 
     <view class="auth-step-card">
       <view class="auth-step-row">
@@ -48,7 +48,7 @@
         <view class="auth-step-copy">
           <view class="auth-step-title">同意</view>
           <view class="auth-step-desc">
-            点击同意隐私授权后，才可继续绑定号码。
+            点击同意隐私授权后，才可继续进入首页。
           </view>
         </view>
         <button
@@ -69,15 +69,14 @@
     </view>
 
     <button
-      class="btn btn-primary auth-phone-btn"
-      open-type="getPhoneNumber"
-      bindgetphonenumber="handleGetPhoneNumber"
-      loading="{{isBindingPhone}}"
-      disabled="{{isBindingPhone || !agreed}}"
+      class="btn btn-primary auth-enter-btn"
+      bindtap="handleEnterWithWechat"
+      loading="{{isEnteringWechat}}"
+      disabled="{{isEnteringWechat || !agreed}}"
     >
-      微信绑定号码登录
+      使用当前微信身份进入
     </button>
 
-    <view class="auth-phone-hint">{{agreed ? phoneHint : '请先点击同意，再绑定号码'}}</view>
+    <view class="auth-enter-hint">{{agreed ? enterHint : '请先点击同意，再进入首页'}}</view>
   </view>
 </view>

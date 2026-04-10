@@ -1,4 +1,4 @@
-const { bindWechatPhone } = require("../../services/api");
+const { getBootstrap } = require("../../services/api");
 const {
   AUTH_LOGIN_STATES,
   getAuthGateState,
@@ -68,56 +68,45 @@ function requirePrivacyAuthorization() {
   });
 }
 
-function mapPhoneBindFailure(detail, options = {}) {
-  const errMsg = typeof detail.errMsg === "string" ? detail.errMsg : "";
-  const errno = Number(detail.errno);
-  const raw = `${errMsg} ${Number.isFinite(errno) ? errno : ""}`.toLowerCase();
-  const agreed = options.agreed === true;
-
-  if (!errMsg) {
-    return "微信号码授权失败，请重试";
+function buildBootstrapIdentityPayload(bootstrap) {
+  if (!bootstrap || typeof bootstrap !== "object") {
+    return null;
   }
-  if (raw.includes("user deny") || raw.includes("user cancel")) {
-    return "你已取消号码授权";
+  if (bootstrap.user_bound !== true) {
+    return null;
   }
-  if (raw.includes("privacy")) {
-    return agreed
-      ? "后台隐私指引未声明手机号，请到微信公众平台补充后再试"
-      : "请先点击同意，再绑定号码";
-  }
-  if (raw.includes("no permission") || raw.includes("jsapi has no permission")) {
-    return "当前小程序暂不具备手机号能力，请检查 AppID 主体和接口权限";
-  }
-  if (raw.includes("login") || raw.includes("wxlogin")) {
-    return "微信登录态未就绪，请稍后重试";
-  }
-  return "微信号码授权失败，请重试";
+  return {
+    identityType: (bootstrap && bootstrap.identity_type) || "wechat_direct_entry",
+    openidPresent: !!(bootstrap && bootstrap.openid_present),
+    unionidPresent: !!(bootstrap && bootstrap.unionid_present),
+    privacyAuthorized: true,
+  };
 }
 
 function buildPageState(rawState, extras = {}) {
   const state = rawState || getAuthGateState();
   const loginState = state.login_state || AUTH_LOGIN_STATES.LOGGED_OUT;
-  const maskedPhone = state.masked_phone || "";
   const isLoggedIn = loginState === AUTH_LOGIN_STATES.LOGGED_IN;
   const agreed = state.agreed === true;
   const privacyAuthorized = state.privacy_authorized === true;
 
   let statusTitle = "未登录";
-  let statusSubtitle = "登录后可查看绑定数据";
+  let statusSubtitle = "同意后使用当前微信身份进入首页";
   let statusChip = "未登录";
-  let phoneHint = agreed ? "点击按钮完成绑定" : "请先点击同意";
+  let enterHint = agreed ? "点击按钮后，将使用当前微信身份进入首页" : "请先点击同意";
 
-  if (loginState === AUTH_LOGIN_STATES.PHONE_PENDING) {
-    statusTitle = "待绑定号码";
-    statusSubtitle = "再完成一步即可进入首页";
+  if (loginState === AUTH_LOGIN_STATES.READY) {
+    statusTitle = "待进入";
+    statusSubtitle = "当前微信身份已可进入首页";
     statusChip = "待完成";
+    enterHint = "历史记录、会员、积分将绑定当前微信身份";
   }
 
   if (isLoggedIn) {
     statusTitle = "已登录";
-    statusSubtitle = "微信身份已完成绑定";
+    statusSubtitle = "当前微信身份已完成绑定";
     statusChip = "已登录";
-    phoneHint = maskedPhone || "微信号码已绑定";
+    enterHint = "历史记录、会员、积分已绑定当前微信身份";
   }
 
   return {
@@ -128,26 +117,24 @@ function buildPageState(rawState, extras = {}) {
     statusTitle,
     statusSubtitle,
     statusChip,
-    phoneHint,
-    maskedPhone,
+    enterHint,
     privacyContractName: extras.privacyContractName || "",
   };
 }
 
 Page({
   data: {
-    isBindingPhone: false,
     isAuthorizingPrivacy: false,
+    isEnteringWechat: false,
     privacyContractName: "",
     loginState: AUTH_LOGIN_STATES.LOGGED_OUT,
     agreed: false,
     privacyAuthorized: false,
     isLoggedIn: false,
     statusTitle: "未登录",
-    statusSubtitle: "登录后可查看绑定数据",
+    statusSubtitle: "同意后使用当前微信身份进入首页",
     statusChip: "未登录",
-    phoneHint: "请先点击同意",
-    maskedPhone: "",
+    enterHint: "请先点击同意",
     profileRows: [
       { key: "history", icon: "评", title: "我的记录", hint: "登录后查看" },
       { key: "favorites", icon: "藏", title: "我的收藏", hint: "登录后查看" },
@@ -180,6 +167,16 @@ Page({
     ensureWechatLogin().catch(() => {});
   },
 
+  syncBootstrapIdentity() {
+    getBootstrap()
+      .then((bootstrap) => {
+        const payload = buildBootstrapIdentityPayload(bootstrap);
+        if (!payload) return;
+        markAuthGateCompleted(payload);
+      })
+      .catch(() => {});
+  },
+
   openPrivacyContract() {
     if (typeof wx.openPrivacyContract !== "function") {
       wx.showToast({
@@ -205,13 +202,13 @@ Page({
     try {
       await requirePrivacyAuthorization();
       const nextState = markAuthGateAgreementAccepted({
-        identityType: "wechat_phone_pending",
+        identityType: "wechat_identity_ready",
         privacyAuthorized: true,
       });
       this.setData(buildPageState(nextState, { privacyContractName: this.data.privacyContractName }));
       this.warmupWechatLogin();
       wx.showToast({
-        title: "请继续绑定号码",
+        title: "请使用当前微信身份进入",
         icon: "none",
       });
     } catch (err) {
@@ -224,8 +221,8 @@ Page({
     }
   },
 
-  async handleGetPhoneNumber(event) {
-    if (this.data.isBindingPhone) return;
+  async handleEnterWithWechat() {
+    if (this.data.isEnteringWechat) return;
     if (!this.data.agreed) {
       wx.showToast({
         title: "请先点击同意",
@@ -234,61 +231,29 @@ Page({
       return;
     }
 
-    const detail = (event && event.detail) || {};
-    const errMsg = typeof detail.errMsg === "string" ? detail.errMsg : "";
-    const code = typeof detail.code === "string" ? detail.code.trim() : "";
-    console.info("auth-entry:getPhoneNumber", {
-      errMsg,
-      errno: detail.errno,
-      hasCode: !!code,
-      agreed: this.data.agreed,
-      privacyAuthorized: this.data.privacyAuthorized,
-    });
-
-    if (errMsg && !errMsg.endsWith(":ok")) {
-      wx.showToast({
-        title: mapPhoneBindFailure(detail, {
-          agreed: this.data.agreed,
-        }),
-        icon: "none",
-      });
-      return;
-    }
-
-    if (!code) {
-      wx.showToast({
-        title: "微信号码授权失败，请重试",
-        icon: "none",
-      });
-      return;
-    }
-
-    this.setData({ isBindingPhone: true });
+    this.setData({ isEnteringWechat: true });
     try {
-      const response = await bindWechatPhone({ code });
+      await ensureWechatLogin();
       const nextState = markAuthGateCompleted({
-        identityType: response.identity_type || "wechat_phone_bound",
-        openidPresent: response.openid_present === true,
-        unionidPresent: response.unionid_present === true,
-        maskedPhone: response.masked_phone_number || "",
-        phoneBound: response.phone_bound !== false,
+        identityType: "wechat_direct_entry",
         privacyAuthorized: true,
       });
       this.setData(buildPageState(nextState, { privacyContractName: this.data.privacyContractName }));
+      this.syncBootstrapIdentity();
       wx.showToast({
-        title: "已登录",
+        title: "已进入首页",
         icon: "success",
       });
       setTimeout(() => {
         this.finishEntry();
-      }, 320);
+      }, 260);
     } catch (err) {
       wx.showToast({
-        title: (err && err.message) || "绑定失败，请重试",
+        title: (err && err.message) || "微信身份初始化失败，请稍后重试",
         icon: "none",
       });
     } finally {
-      this.setData({ isBindingPhone: false });
+      this.setData({ isEnteringWechat: false });
     }
   },
 

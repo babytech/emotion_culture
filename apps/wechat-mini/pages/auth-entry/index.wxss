@@ -293,13 +293,13 @@
   color: #2f6fd2;
 }
 
-.auth-phone-btn {
+.auth-enter-btn {
   width: 100%;
   margin-top: 24rpx;
   min-height: 92rpx;
 }
 
-.auth-phone-hint {
+.auth-enter-hint {
   margin-top: 14rpx;
   text-align: center;
   font-size: 24rpx;

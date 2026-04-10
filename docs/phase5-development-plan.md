@@ -54,13 +54,19 @@
 
 #### 当前状态
 
-当前生产环境已经默认依赖微信云托管注入的 `x-wx-openid` 作为后端主身份，见：
+当前生产环境已经默认依赖微信云托管注入的微信自然身份作为后端主身份，策略为：
+
+- 有 `unionid` 时优先用 `unionid`
+- 无 `unionid` 时回落到 `openid`
+- 历史记录、留存、积分、后续会员权益统一绑定到这个微信身份主键
+
+相关实现见：
 
 - [config/index.js](/Users/babytech/github/emotion_culture/apps/wechat-mini/config/index.js)
 - [miniprogram-api.md](/Users/babytech/github/emotion_culture/services/wechat-api/miniprogram-api.md)
 - [user_identity.py](/Users/babytech/github/emotion_culture/services/wechat-api/app/core/user_identity.py)
 
-也就是说，从后端绑定历史记录、留存、配额、积分的角度，当前已经具备“按微信身份绑定”的基础。
+也就是说，从后端绑定历史记录、留存、配额、积分的角度，当前已经具备“按微信身份绑定”的基础；第五阶段要做的是把这层关系在前端登录门和产品表达上彻底说清楚。
 
 #### 当前问题
 
@@ -78,7 +84,7 @@
   - 隐私与数据使用说明
   - 微信身份授权确认
 - 授权成功后再进入首页
-- 后续历史、积分、会员、留存均统一绑定到当前微信身份
+- 后续历史、积分、会员、留存均统一绑定到当前微信身份主键（`unionid` 优先，`openid` 兜底）
 
 #### 设计边界
 

@@ -46,6 +46,7 @@
 - `services/wechat-api/app/core/user_identity.py`
 - 完成定义：
 - 接口可返回 `identity_type/openid_present/unionid_present`
+- 微信身份主键策略明确为 `unionid` 优先、`openid` 兜底
 - 可返回当前与首页启动相关的基础开关
 - 匿名或身份异常场景有明确返回语义
 
