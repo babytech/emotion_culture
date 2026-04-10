@@ -9,6 +9,7 @@ const {
   upsertFavorite,
 } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
+const { requestAnalyzeWorkspaceReset } = require("../../utils/analyze-workspace");
 const { ANALYZE_TAB, FAVORITES_TAB } = require("../../utils/tabbar");
 
 const DEFAULT_DAILY_SUGGESTION = "今天先做一件你能马上完成的小行动，逐步稳住状态。";
@@ -1347,6 +1348,7 @@ Page({
   },
 
   backHome() {
+    requestAnalyzeWorkspaceReset("result_reanalyze");
     wx.switchTab({
       url: ANALYZE_TAB,
       fail() {

@@ -1,5 +1,6 @@
 const { analyze, createAnalyzeTask, getAnalyzeTask } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
+const { consumeAnalyzeWorkspaceResetRequest } = require("../../utils/analyze-workspace");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { ANALYZE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 const { detectRuntimeEnv } = require("../../utils/runtime");
@@ -22,6 +23,23 @@ const ANALYZE_POLL_DEFAULT_INTERVAL_MS = 2500;
 const ANALYZE_POLL_TIMEOUT_MS = 240000;
 const ANALYZE_POLL_TRANSIENT_RETRY_LIMIT = 12;
 const PENDING_TASK_STORAGE_KEY = "ec_pending_analyze_task";
+
+function buildEmptyWorkspaceState() {
+  return {
+    text: "",
+    imageTempPath: "",
+    pendingSelfiePath: "",
+    audioTempPath: "",
+    isRecording: false,
+    isRecordBusy: false,
+    recordSeconds: 0,
+    isSubmitting: false,
+    submitStage: SUBMIT_STAGE.IDLE,
+    submitStatusText: "",
+    submitButtonText: "开始分析",
+    errorMsg: "",
+  };
+}
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -316,20 +334,9 @@ async function validateAudioBeforeUpload(audioTempPath, recordSeconds) {
 
 Page({
   data: {
-    text: "",
+    ...buildEmptyWorkspaceState(),
     textLength: 0,
-    imageTempPath: "",
-    pendingSelfiePath: "",
-    audioTempPath: "",
     readyInputCount: 0,
-    isRecording: false,
-    isRecordBusy: false,
-    recordSeconds: 0,
-    isSubmitting: false,
-    submitStage: SUBMIT_STAGE.IDLE,
-    submitStatusText: "",
-    submitButtonText: "开始分析",
-    errorMsg: "",
     isDevtools: false,
     isHarmonyOS: false,
     pendingTaskId: "",
@@ -371,6 +378,10 @@ Page({
   onShow() {
     if (ensurePhase5Auth(ANALYZE_TAB)) return;
     setTabBarSelected(this, ANALYZE_TAB);
+    if (this.consumeWorkspaceResetRequest()) {
+      return;
+    }
+    this.autoResumePendingAnalyzeTask();
   },
 
   onUnload() {
@@ -512,6 +523,44 @@ Page({
     });
   },
 
+  consumeWorkspaceResetRequest() {
+    const resetRequest = consumeAnalyzeWorkspaceResetRequest();
+    if (!resetRequest) return false;
+
+    this.rejectPendingRecorderStop(new Error("分析工作台已重置。"));
+    this.stopRecordTimer();
+    this.resetPendingSubmissionState();
+
+    this.setData(this.withWorkspaceMetrics(buildEmptyWorkspaceState()));
+
+    const app = getApp();
+    if (app && app.globalData) {
+      app.globalData.latestAnalyzeContext = null;
+    }
+    return true;
+  },
+
+  autoResumePendingAnalyzeTask() {
+    const pendingTaskId = (this.data.pendingTaskId || "").trim();
+    if (!pendingTaskId) return;
+    if (this.data.isSubmitting || this.data.isRecording || this.data.isRecordBusy) return;
+    if (this._autoResumePendingTask) return;
+
+    this._autoResumePendingTask = true;
+    this.setData({
+      submitStage: SUBMIT_STAGE.ANALYZING,
+      submitStatusText: "已恢复上次分析任务，正在继续查询结果...",
+      submitButtonText: "继续查询中...",
+      errorMsg: "",
+    });
+
+    Promise.resolve()
+      .then(() => this.submitAnalyze())
+      .finally(() => {
+        this._autoResumePendingTask = false;
+      });
+  },
+
   withWorkspaceMetrics(partial = {}) {
     const nextState = {
       ...this.data,
@@ -551,56 +600,34 @@ Page({
       return;
     }
 
-    let tempPath = "";
-    try {
-      const mediaRes = await wx.chooseMedia({
-        count: 1,
-        mediaType: ["image"],
-        sizeType: ["original"],
-        sourceType: ["camera"],
-        camera: "front",
-      });
-      tempPath = extractTempImagePath(mediaRes);
-    } catch (err) {
-      const message = (err && err.errMsg) || "";
-      if (!message.includes("cancel")) {
-        try {
-          const imageRes = await wx.chooseImage({
-            count: 1,
-            sizeType: ["original"],
-            sourceType: ["camera"],
-          });
-          tempPath = extractTempImagePath(imageRes);
-        } catch (fallbackErr) {
-          if ((fallbackErr.errMsg || "").includes("cancel")) return;
-          wx.showToast({
-            title: fallbackErr.message || "拍照失败",
-            icon: "none",
-          });
-          return;
-        }
-      } else {
-        return;
-      }
-    }
-
-    if (!tempPath) {
-      wx.showToast({
-        title: "未获取到自拍照片",
-        icon: "none",
-      });
-      return;
-    }
-
-    this.resetPendingSubmissionState();
-    this.setData(this.withWorkspaceMetrics({
-      imageTempPath: "",
-      pendingSelfiePath: tempPath,
-      submitStage: SUBMIT_STAGE.IDLE,
-      submitStatusText: "",
-      submitButtonText: "开始分析",
+    this.setData({
       errorMsg: "",
-    }));
+    });
+
+    wx.navigateTo({
+      url: "/pages/selfie-camera/index",
+      events: {
+        selfieCaptured: (payload) => {
+          const tempPath = (payload && payload.tempFilePath) || "";
+          if (!tempPath) return;
+          this.resetPendingSubmissionState();
+          this.setData(this.withWorkspaceMetrics({
+            imageTempPath: "",
+            pendingSelfiePath: tempPath,
+            submitStage: SUBMIT_STAGE.IDLE,
+            submitStatusText: "",
+            submitButtonText: "开始分析",
+            errorMsg: "",
+          }));
+        },
+      },
+      fail: (err) => {
+        wx.showToast({
+          title: (err && (err.errMsg || err.message)) || "打开自拍页失败",
+          icon: "none",
+        });
+      },
+    });
   },
 
   confirmSelfie() {

@@ -1,4 +1,5 @@
 const { deleteHistoryItem, getHistoryDetail } = require("../../services/api");
+const { requestAnalyzeWorkspaceReset } = require("../../utils/analyze-workspace");
 
 function toDisplayTime(value) {
   const raw = (value || "").trim();
@@ -114,6 +115,7 @@ Page({
   },
 
   backToAnalyze() {
+    requestAnalyzeWorkspaceReset("history_detail_to_analyze");
     wx.switchTab({ url: "/pages/analyze/index" });
   },
 });

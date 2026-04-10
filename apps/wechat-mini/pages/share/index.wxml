@@ -13,7 +13,7 @@
         </view>
         <view class="header-stamp">可保存</view>
       </view>
-      <view class="sub text-muted">生成基础分享图，可保存到相册后再转发给家人或朋友。</view>
+      <view class="sub text-muted">生成基础分享图，可保存到相册，也可通过右上角菜单分享到朋友圈。</view>
       <view class="meta-grid">
         <view class="meta-pill">主情绪：{{payload.emotionLabel}}</view>
         <view class="meta-pill">连续打卡：{{payload.currentStreak}} 天</view>
@@ -79,7 +79,7 @@
 
     <view class="card action-panel">
       <view class="content-kicker">导出操作</view>
-      <view class="action-note text-muted">建议先生成卡片并预览确认，再保存到相册或转发。</view>
+      <view class="action-note text-muted">建议先生成卡片并预览确认。转发给朋友可点下方按钮，分享到朋友圈请使用右上角菜单。</view>
       <view class="action-grid">
         <button
           class="btn btn-primary action-btn action-btn-grid"
@@ -91,8 +91,9 @@
         </button>
         <button class="btn btn-secondary action-btn action-btn-grid" bindtap="saveCardToAlbum">保存到相册</button>
         <button class="btn btn-secondary action-btn action-btn-grid" bindtap="previewGeneratedCard">预览生成图片</button>
-        <button class="btn btn-secondary action-btn action-btn-grid" open-type="share">转发小程序</button>
+        <button class="btn btn-secondary action-btn action-btn-grid" open-type="share">转发给微信好友</button>
       </view>
+      <view class="timeline-hint">分享到朋友圈：点击右上角“...”后选择“分享到朋友圈”</view>
     </view>
   </block>
 </view>

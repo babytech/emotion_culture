@@ -1,6 +1,18 @@
 const SHARE_PAYLOAD_STORAGE_KEY = "ec_share_payload";
 const CANVAS_WIDTH = 720;
 const CANVAS_HEIGHT = 1600;
+const SHARE_QUERY_FIELD_MAP = {
+  emotionLabel: "el",
+  emotionCode: "ec",
+  emotionOverview: "eo",
+  dailySuggestion: "ds",
+  poet: "pt",
+  poemText: "pm",
+  guochaoName: "gn",
+  comfort: "cf",
+  triggerTags: "tg",
+  generatedAt: "ga",
+};
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -11,6 +23,16 @@ function clampText(value, maxLen) {
   if (!text) return "";
   if (!maxLen || text.length <= maxLen) return text;
   return text.slice(0, maxLen);
+}
+
+function tryDecodeValue(value) {
+  const text = safeText(value);
+  if (!text) return "";
+  try {
+    return decodeURIComponent(text);
+  } catch (err) {
+    return text;
+  }
 }
 
 function normalizeTriggerTags(value) {
@@ -101,6 +123,71 @@ function normalizePayload(raw) {
   };
 }
 
+function buildPayloadFromOptions(options) {
+  if (!options || typeof options !== "object") return null;
+  const emotionLabel = clampText(tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.emotionLabel]), 16);
+  const emotionCode = clampText(tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.emotionCode]), 24);
+  const emotionOverview = clampText(tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.emotionOverview]), 88);
+  const dailySuggestion = clampText(tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.dailySuggestion]), 72);
+  const poet = clampText(tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.poet]), 16);
+  const poemText = clampText(tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.poemText]), 88);
+  const guochaoName = clampText(tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.guochaoName]), 16);
+  const comfort = clampText(tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.comfort]), 88);
+  const generatedAt = tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.generatedAt]);
+  const triggerTagsRaw = tryDecodeValue(options[SHARE_QUERY_FIELD_MAP.triggerTags]);
+  const triggerTags = triggerTagsRaw ? triggerTagsRaw.split(",").map((item) => item.trim()).filter(Boolean) : [];
+
+  if (!emotionLabel && !emotionOverview && !poemText && !comfort) {
+    return null;
+  }
+
+  return normalizePayload({
+    emotionLabel,
+    emotionCode,
+    emotionOverview,
+    dailySuggestion,
+    poet,
+    poemText,
+    guochaoName,
+    comfort,
+    triggerTags,
+    generatedAt,
+    userImageUrl: "",
+  });
+}
+
+function buildShareQuery(payload) {
+  const normalized = normalizePayload(payload);
+  if (!normalized) return "";
+
+  const queryParts = [];
+  const fields = {
+    [SHARE_QUERY_FIELD_MAP.emotionLabel]: clampText(normalized.emotionLabel, 16),
+    [SHARE_QUERY_FIELD_MAP.emotionCode]: clampText(normalized.emotionCode, 24),
+    [SHARE_QUERY_FIELD_MAP.emotionOverview]: clampText(normalized.emotionOverview, 88),
+    [SHARE_QUERY_FIELD_MAP.dailySuggestion]: clampText(normalized.dailySuggestion, 72),
+    [SHARE_QUERY_FIELD_MAP.poet]: clampText(normalized.poet, 16),
+    [SHARE_QUERY_FIELD_MAP.poemText]: clampText(normalized.poemText, 88),
+    [SHARE_QUERY_FIELD_MAP.guochaoName]: clampText(normalized.guochaoName, 16),
+    [SHARE_QUERY_FIELD_MAP.comfort]: clampText(normalized.comfort, 88),
+    [SHARE_QUERY_FIELD_MAP.triggerTags]: normalizeTriggerTags(normalized.triggerTags).slice(0, 3).join(","),
+    [SHARE_QUERY_FIELD_MAP.generatedAt]: safeText(normalized.generatedAt),
+  };
+
+  Object.keys(fields).forEach((key) => {
+    const value = safeText(fields[key]);
+    if (!value) return;
+    queryParts.push(`${key}=${encodeURIComponent(value)}`);
+  });
+  return queryParts.join("&");
+}
+
+function buildShareTitle(payload) {
+  const emotionLabel = safeText(payload && payload.emotionLabel) || "情绪复盘";
+  const suggestion = clampText(safeText(payload && payload.dailySuggestion), 22);
+  return suggestion ? `${emotionLabel}｜${suggestion}` : `我的情绪复盘：${emotionLabel}`;
+}
+
 function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines) {
   const content = safeText(text);
   if (!content) return y;
@@ -172,12 +259,22 @@ Page({
     saveStatus: "",
   },
 
-  onLoad() {
-    let payload = null;
+  onLoad(options) {
+    if (typeof wx.showShareMenu === "function") {
+      wx.showShareMenu({
+        menus: ["shareAppMessage", "shareTimeline"],
+      });
+    }
+
+    let payload = buildPayloadFromOptions(options);
     try {
-      payload = normalizePayload(wx.getStorageSync(SHARE_PAYLOAD_STORAGE_KEY));
+      if (!payload) {
+        payload = normalizePayload(wx.getStorageSync(SHARE_PAYLOAD_STORAGE_KEY));
+      }
     } catch (err) {
-      payload = null;
+      if (!payload) {
+        payload = null;
+      }
     }
     if (!payload) {
       payload = normalizePayload(buildPayloadFromContext());
@@ -405,10 +502,18 @@ Page({
 
   onShareAppMessage() {
     const payload = this.data.payload || {};
-    const emotionLabel = safeText(payload.emotionLabel) || "我的情绪复盘";
+    const query = buildShareQuery(payload);
     return {
-      title: `我的情绪复盘：${emotionLabel}`,
-      path: "/pages/home/index",
+      title: buildShareTitle(payload),
+      path: query ? `/pages/share/index?${query}` : "/pages/share/index",
+    };
+  },
+
+  onShareTimeline() {
+    const payload = this.data.payload || {};
+    return {
+      title: buildShareTitle(payload),
+      query: buildShareQuery(payload),
     };
   },
 });

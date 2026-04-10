@@ -1,0 +1,52 @@
+<view class="camera-page">
+  <view class="camera-topbar">
+    <view class="camera-title">前置自拍</view>
+    <view class="camera-subtitle">请把脸放在取景框中央，保持光线稳定</view>
+  </view>
+
+  <view class="camera-stage">
+    <image
+      wx:if="{{photoTempPath}}"
+      class="camera-preview"
+      mode="aspectFill"
+      src="{{photoTempPath}}"
+      style="height: {{stageHeightPx}}px;"
+    />
+
+    <camera
+      wx:elif="{{isCameraVisible}}"
+      class="camera-view"
+      device-position="front"
+      mode="normal"
+      resolution="{{cameraResolution}}"
+      flash="off"
+      bindinitdone="handleCameraInitDone"
+      bindstop="handleCameraStop"
+      binderror="handleCameraError"
+      style="height: {{stageHeightPx}}px;"
+    />
+
+    <view wx:else class="camera-placeholder" style="height: {{stageHeightPx}}px;">
+      正在打开前置摄像头...
+    </view>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="camera-error">{{errorMsg}}</view>
+  <view wx:elif="{{!photoTempPath && !isCameraReady}}" class="camera-warn">摄像头准备中，请稍等 1 秒再拍摄</view>
+
+  <view class="camera-actions">
+    <button wx:if="{{!photoTempPath}}" class="btn btn-secondary camera-side-btn" bindtap="closePage">取消</button>
+    <button
+      wx:if="{{!photoTempPath}}"
+      class="btn btn-primary camera-shot-btn"
+      loading="{{isCapturing}}"
+      disabled="{{isCapturing || !isCameraReady}}"
+      bindtap="takePhoto"
+    >
+      {{isCapturing ? "拍摄中..." : isCameraReady ? "拍一张" : "准备中..."}}
+    </button>
+
+    <button wx:if="{{photoTempPath}}" class="btn btn-secondary camera-side-btn" bindtap="retakePhoto">重拍</button>
+    <button wx:if="{{photoTempPath}}" class="btn btn-primary camera-shot-btn" bindtap="confirmPhoto">使用这张</button>
+  </view>
+</view>

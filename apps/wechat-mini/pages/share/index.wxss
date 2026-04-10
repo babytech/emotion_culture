@@ -230,6 +230,13 @@
   line-height: 1.68;
 }
 
+.timeline-hint {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.68;
+  color: #7b6657;
+}
+
 .action-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
