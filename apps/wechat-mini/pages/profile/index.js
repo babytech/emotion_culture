@@ -2,7 +2,7 @@ const { clearHistory, getSettings, updateSettings } = require("../../services/ap
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { ANALYZE_TAB, FAVORITES_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
-const FEEDBACK_EMAIL = "microbabytech@gmail.com";
+const FEEDBACK_EMAIL = "babytech@126.com";
 const QUICK_ACTIONS = [
   { key: "history", title: "历史记录", subtitle: "查看全部摘要与详情", badge: "轨迹", tone: "history" },
   { key: "favorites", title: "我的收藏", subtitle: "回看收藏过的内容", badge: "收藏", tone: "favorites" },

@@ -6,6 +6,7 @@ const {
   listHistory,
 } = require("../../services/api");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
+const { consumeTodayHistoryFocusRequest } = require("../../utils/today-history-focus");
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 function toMonthText(dateObj) {
@@ -172,6 +173,7 @@ Page({
   onShow() {
     if (ensurePhase5Auth(HOME_TAB)) return;
     setTabBarSelected(this, HOME_TAB);
+    this._todayHistoryFocusRequest = consumeTodayHistoryFocusRequest();
     this.loadDashboard();
   },
 
@@ -241,13 +243,20 @@ Page({
     }
 
     if (todayHistoryRes.status === "fulfilled") {
-      nextData.todayHistory = normalizeTodayHistory(todayHistoryRes.value);
+      const nextTodayHistory = normalizeTodayHistory(todayHistoryRes.value);
+      if (this._todayHistoryFocusRequest && nextTodayHistory.available) {
+        nextTodayHistory.expanded = true;
+        nextTodayHistory.statusText = "刚更新";
+      }
+      nextData.todayHistory = nextTodayHistory;
     } else {
       nextData.todayHistory = {
         ...buildTodayHistoryState(),
         statusText: "历史内容暂不可用",
       };
     }
+
+    this._todayHistoryFocusRequest = null;
 
     this.setData({
       ...nextData,

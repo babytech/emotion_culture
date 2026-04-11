@@ -2,6 +2,7 @@ const { analyze, createAnalyzeTask, getAnalyzeTask } = require("../../services/a
 const { uploadTempFile } = require("../../services/cloud");
 const { consumeAnalyzeWorkspaceResetRequest } = require("../../utils/analyze-workspace");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
+const { requestTodayHistoryFocus } = require("../../utils/today-history-focus");
 const { ANALYZE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 const { detectRuntimeEnv } = require("../../utils/runtime");
 
@@ -1201,6 +1202,7 @@ Page({
         }),
         response: result,
       };
+      requestTodayHistoryFocus("analyze_completed");
 
       this.resetPendingSubmissionState();
       submitSucceeded = true;

@@ -1,5 +1,6 @@
 const { getRetentionCalendar, getRetentionWeeklyReport, getTodayHistory, listHistory } = require("../../services/api");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
+const { consumeTodayHistoryFocusRequest } = require("../../utils/today-history-focus");
 const { JOURNEY_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 function toMonthText(dateObj) {
@@ -123,6 +124,7 @@ Page({
   onShow() {
     if (ensurePhase5Auth(JOURNEY_TAB)) return;
     setTabBarSelected(this, JOURNEY_TAB);
+    this._todayHistoryFocusRequest = consumeTodayHistoryFocusRequest();
     this.loadJourneyHub();
   },
 
@@ -181,13 +183,20 @@ Page({
     }
 
     if (todayHistoryRes.status === "fulfilled") {
-      nextData.todayHistory = normalizeTodayHistory(todayHistoryRes.value);
+      const nextTodayHistory = normalizeTodayHistory(todayHistoryRes.value);
+      if (this._todayHistoryFocusRequest && nextTodayHistory.available) {
+        nextTodayHistory.expanded = true;
+        nextTodayHistory.statusText = "刚更新";
+      }
+      nextData.todayHistory = nextTodayHistory;
     } else {
       nextData.todayHistory = {
         ...buildTodayHistoryState(),
         statusText: "历史内容暂不可用",
       };
     }
+
+    this._todayHistoryFocusRequest = null;
 
     this.setData({
       ...nextData,

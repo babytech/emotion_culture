@@ -112,7 +112,7 @@ Page({
   },
 
   copyFeedbackEmail() {
-    const target = "microbabytech@gmail.com";
+    const target = "babytech@126.com";
     wx.setClipboardData({
       data: target,
       success: () => {

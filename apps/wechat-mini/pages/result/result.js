@@ -10,7 +10,7 @@ const {
 } = require("../../services/api");
 const { uploadTempFile } = require("../../services/cloud");
 const { requestAnalyzeWorkspaceReset } = require("../../utils/analyze-workspace");
-const { ANALYZE_TAB, FAVORITES_TAB } = require("../../utils/tabbar");
+const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB } = require("../../utils/tabbar");
 
 const DEFAULT_DAILY_SUGGESTION = "今天先做一件你能马上完成的小行动，逐步稳住状态。";
 const FAVORITE_TYPE_POEM = "poem";
@@ -1359,6 +1359,24 @@ Page({
 
   goHistory() {
     wx.navigateTo({ url: "/pages/history/index" });
+  },
+
+  goHomeTab() {
+    wx.switchTab({
+      url: HOME_TAB,
+      fail() {
+        wx.reLaunch({ url: HOME_TAB });
+      },
+    });
+  },
+
+  goJourneyTab() {
+    wx.switchTab({
+      url: JOURNEY_TAB,
+      fail() {
+        wx.reLaunch({ url: JOURNEY_TAB });
+      },
+    });
   },
 
   goCalendar() {

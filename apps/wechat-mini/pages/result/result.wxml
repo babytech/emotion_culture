@@ -231,9 +231,11 @@
         </view>
       </view>
       <view class="action-grid">
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goHomeTab">首页</button>
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goJourneyTab">记录页</button>
         <button class="btn btn-secondary result-bottom-btn" bindtap="goCalendar">情绪日历</button>
         <button class="btn btn-secondary result-bottom-btn" bindtap="goReport">周报复盘</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goHistory">历史记录</button>
+        <button class="btn btn-secondary result-bottom-btn" bindtap="goHistory">全部历史</button>
         <button class="btn btn-secondary result-bottom-btn" bindtap="goFavorites">我的收藏</button>
       </view>
     </view>
