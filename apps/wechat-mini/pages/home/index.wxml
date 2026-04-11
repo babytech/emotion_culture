@@ -69,6 +69,40 @@
     </view>
   </view>
 
+  <view class="card section-card today-history-card">
+    <view class="section-head">
+      <view class="section-head-copy">
+        <view class="section-title">历史上的今天</view>
+      </view>
+      <view class="today-history-head-actions">
+        <view class="status-chip">{{todayHistory.statusText}}</view>
+        <view wx:if="{{todayHistory.available}}" class="today-history-toggle" bindtap="toggleTodayHistory">
+          {{todayHistory.expanded ? "收起" : "展开"}}
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{todayHistory.available}}" class="today-history-body">
+      <view class="today-history-topline">
+        <view class="today-history-date">{{todayHistory.monthDay}}</view>
+        <view wx:if="{{todayHistory.eventYear}}" class="today-history-year">{{todayHistory.eventYear}}</view>
+      </view>
+      <view class="today-history-headline">{{todayHistory.headline}}</view>
+      <view wx:if="{{todayHistory.expanded}}" class="today-history-summary">{{todayHistory.summary}}</view>
+      <view wx:if="{{todayHistory.expanded && todayHistory.optionalNote}}" class="today-history-note">
+        {{todayHistory.optionalNote}}
+      </view>
+      <view class="today-history-foot">
+        <view class="today-history-source">{{todayHistory.sourceLabel}}{{todayHistory.cacheHit ? " · 缓存" : ""}}</view>
+        <view class="today-history-footnote">{{todayHistory.expanded ? "轻补充，不打断主任务" : "点展开可查看摘要"}}</view>
+      </view>
+    </view>
+
+    <view wx:else class="today-history-empty">
+      历史事件内容正在整理，稍后回来这里会看到一条简短的历史片段。
+    </view>
+  </view>
+
   <view class="card section-card">
     <view class="section-head">
       <view class="section-head-copy">

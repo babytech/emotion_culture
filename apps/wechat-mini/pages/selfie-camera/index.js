@@ -17,14 +17,13 @@ Page({
       const systemInfo = wx.getSystemInfoSync();
       const model = `${systemInfo.model || ""}`.toLowerCase();
       const system = `${systemInfo.system || ""}`.toLowerCase();
-      const isIOS = system.includes("ios") || model.includes("iphone");
       const windowHeight = Number(systemInfo.windowHeight || 0);
       const windowWidth = Number(systemInfo.windowWidth || 0);
       const maxStageHeight = Math.max(360, windowHeight - 270);
       const portraitStageHeight = Math.round((windowWidth - 48) * 1.28);
       const stageHeightPx = Math.max(360, Math.min(maxStageHeight, portraitStageHeight));
       this.setData({
-        cameraResolution: isIOS ? "medium" : "high",
+        cameraResolution: "high",
         stageHeightPx,
       });
     } catch (err) {
@@ -33,7 +32,6 @@ Page({
   },
 
   onReady() {
-    this.cameraContext = wx.createCameraContext();
     setTimeout(() => {
       this.setData({
         isCameraVisible: true,
@@ -41,9 +39,14 @@ Page({
     }, 180);
   },
 
+  onUnload() {
+    this.cameraContext = null;
+  },
+
   handleCameraError(event) {
     const detail = (event && event.detail) || {};
     const message = (detail && (detail.errMsg || detail.message)) || "摄像头初始化失败";
+    this.cameraContext = null;
     this.setData({
       errorMsg: message,
       isCameraReady: false,
@@ -55,6 +58,7 @@ Page({
   },
 
   handleCameraInitDone() {
+    this.cameraContext = wx.createCameraContext();
     this.setData({
       isCameraReady: true,
       errorMsg: "",
@@ -62,6 +66,7 @@ Page({
   },
 
   handleCameraStop() {
+    this.cameraContext = null;
     this.setData({
       isCameraReady: false,
     });
@@ -121,22 +126,13 @@ Page({
   },
 
   retakePhoto() {
+    this.cameraContext = null;
     this.setData({
       photoTempPath: "",
+      isCameraVisible: true,
       isCameraReady: false,
       errorMsg: "",
     });
-    setTimeout(() => {
-      this.setData({
-        isCameraVisible: false,
-      });
-      setTimeout(() => {
-        this.cameraContext = wx.createCameraContext();
-        this.setData({
-          isCameraVisible: true,
-        });
-      }, 80);
-    }, 0);
   },
 
   confirmPhoto() {

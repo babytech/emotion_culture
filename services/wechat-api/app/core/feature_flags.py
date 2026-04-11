@@ -30,3 +30,7 @@ def is_retention_favorites_enabled() -> bool:
     if not is_retention_service_enabled():
         return False
     return env_bool_like("RETENTION_FAVORITES_ENABLED", True)
+
+
+def is_today_history_enabled() -> bool:
+    return env_bool_like("TODAY_HISTORY_ENABLED", True)

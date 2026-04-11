@@ -715,3 +715,103 @@
   font-weight: 700;
   color: #a1261b;
 }
+
+.today-history-head-actions {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.today-history-toggle {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #a1261b;
+}
+
+.today-history-body {
+  margin-top: 18rpx;
+  padding: 24rpx 22rpx 22rpx;
+  border-radius: 28rpx;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 160, 91, 0.18), transparent 34%),
+    linear-gradient(160deg, rgba(255, 251, 245, 0.98), rgba(246, 233, 214, 0.92));
+  border: 2rpx solid rgba(147, 37, 29, 0.08);
+  box-shadow: 0 14rpx 30rpx rgba(124, 76, 40, 0.08);
+}
+
+.today-history-topline {
+  display: flex;
+  align-items: center;
+  gap: 14rpx;
+}
+
+.today-history-date,
+.today-history-year {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10rpx 16rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.today-history-date {
+  background: linear-gradient(135deg, rgba(166, 38, 29, 0.96), rgba(210, 92, 68, 0.92));
+  color: #fff8f1;
+}
+
+.today-history-year {
+  background: rgba(247, 230, 199, 0.84);
+  color: #84592f;
+}
+
+.today-history-headline {
+  margin-top: 16rpx;
+  font-size: 30rpx;
+  line-height: 1.38;
+  font-weight: 700;
+  color: #533220;
+}
+
+.today-history-summary {
+  margin-top: 14rpx;
+  font-size: 24rpx;
+  line-height: 1.74;
+  color: #6f5a4a;
+}
+
+.today-history-note {
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 2rpx solid rgba(147, 37, 29, 0.06);
+  font-size: 22rpx;
+  line-height: 1.7;
+  color: #8a715d;
+}
+
+.today-history-foot {
+  margin-top: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.today-history-source,
+.today-history-footnote {
+  font-size: 21rpx;
+  color: #9a816f;
+}
+
+.today-history-empty {
+  margin-top: 18rpx;
+  padding: 24rpx 22rpx;
+  border-radius: 26rpx;
+  background: rgba(255, 248, 239, 0.82);
+  border: 2rpx dashed rgba(147, 37, 29, 0.12);
+  font-size: 23rpx;
+  line-height: 1.72;
+  color: #8d7667;
+}

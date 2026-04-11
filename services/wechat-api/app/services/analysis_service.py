@@ -287,9 +287,11 @@ def _validate_face_quality(image: np.ndarray) -> None:
             message="图片无效，请重新拍摄。",
         )
 
-    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    gray = cv2.GaussianBlur(gray, (3, 3), 0)
-    gray = cv2.equalizeHist(gray)
+    gray_raw = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    gray_blurred = cv2.GaussianBlur(gray_raw, (3, 3), 0)
+    gray = cv2.equalizeHist(gray_blurred)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    gray_clahe = clahe.apply(gray_blurred)
 
     face_cascade = cv2.CascadeClassifier(
         cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
@@ -336,47 +338,76 @@ def _validate_face_quality(image: np.ndarray) -> None:
             if area_ratio >= min_candidate_ratio:
                 candidates.append((x, y, w, h))
 
+    detection_sources = [gray, gray_clahe, gray_raw]
     candidate_faces: list[tuple[int, int, int, int]] = []
-    _append_candidate_faces(
-        candidate_faces,
-        face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=6, minSize=(40, 40)),
-    )
-    _append_candidate_faces(
-        candidate_faces,
-        face_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(30, 30)),
-    )
-    _append_candidate_faces(
-        candidate_faces,
-        face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=3, minSize=(24, 24)),
-    )
-    _append_candidate_faces(
-        candidate_faces,
-        face_alt_cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=4, minSize=(30, 30)),
-    )
-    _append_candidate_faces(
-        candidate_faces,
-        face_alt2_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30)),
-    )
+    for detection_gray in detection_sources:
+        _append_candidate_faces(
+            candidate_faces,
+            face_cascade.detectMultiScale(
+                detection_gray,
+                scaleFactor=1.1,
+                minNeighbors=6,
+                minSize=(40, 40),
+            ),
+        )
+        _append_candidate_faces(
+            candidate_faces,
+            face_cascade.detectMultiScale(
+                detection_gray,
+                scaleFactor=1.08,
+                minNeighbors=4,
+                minSize=(30, 30),
+            ),
+        )
+        _append_candidate_faces(
+            candidate_faces,
+            face_cascade.detectMultiScale(
+                detection_gray,
+                scaleFactor=1.05,
+                minNeighbors=3,
+                minSize=(24, 24),
+            ),
+        )
+        _append_candidate_faces(
+            candidate_faces,
+            face_alt_cascade.detectMultiScale(
+                detection_gray,
+                scaleFactor=1.08,
+                minNeighbors=4,
+                minSize=(30, 30),
+            ),
+        )
+        _append_candidate_faces(
+            candidate_faces,
+            face_alt2_cascade.detectMultiScale(
+                detection_gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(30, 30),
+            ),
+        )
 
-    profile_faces = face_profile_cascade.detectMultiScale(
-        gray,
-        scaleFactor=1.08,
-        minNeighbors=3,
-        minSize=(24, 24),
-    )
-    _append_candidate_faces(candidate_faces, profile_faces)
+        profile_faces = face_profile_cascade.detectMultiScale(
+            detection_gray,
+            scaleFactor=1.08,
+            minNeighbors=3,
+            minSize=(24, 24),
+        )
+        _append_candidate_faces(candidate_faces, profile_faces)
 
-    flipped_gray = cv2.flip(gray, 1)
-    profile_faces_flipped = face_profile_cascade.detectMultiScale(
-        flipped_gray,
-        scaleFactor=1.08,
-        minNeighbors=3,
-        minSize=(24, 24),
-    )
-    mapped_flipped_faces: list[tuple[int, int, int, int]] = []
-    for (fx, fy, fw, fh) in profile_faces_flipped:
-        mapped_flipped_faces.append((int(image_width - (int(fx) + int(fw))), int(fy), int(fw), int(fh)))
-    _append_candidate_faces(candidate_faces, mapped_flipped_faces)
+        flipped_gray = cv2.flip(detection_gray, 1)
+        profile_faces_flipped = face_profile_cascade.detectMultiScale(
+            flipped_gray,
+            scaleFactor=1.08,
+            minNeighbors=3,
+            minSize=(24, 24),
+        )
+        mapped_flipped_faces: list[tuple[int, int, int, int]] = []
+        for (fx, fy, fw, fh) in profile_faces_flipped:
+            mapped_flipped_faces.append(
+                (int(image_width - (int(fx) + int(fw))), int(fy), int(fw), int(fh))
+            )
+        _append_candidate_faces(candidate_faces, mapped_flipped_faces)
 
     dedupe_iou = _env_float("FACE_DEDUPE_IOU_THRESHOLD", 0.3)
     faces = _dedupe_overlapped_faces(candidate_faces, dedupe_iou)
@@ -460,7 +491,12 @@ def _validate_face_quality(image: np.ndarray) -> None:
             message="光线过暗，请在更明亮环境重新拍摄。",
         )
 
-    min_laplacian_var = _env_float("FACE_MIN_LAPLACIAN_VAR", 30.0)
+    min_laplacian_var = _env_float("FACE_MIN_LAPLACIAN_VAR", 24.0)
+    if face_area_ratio >= _env_float("FACE_LARGE_FACE_AREA_RATIO", 0.10):
+        min_laplacian_var = min(
+            min_laplacian_var,
+            _env_float("FACE_LARGE_FACE_MIN_LAPLACIAN_VAR", 14.0),
+        )
     laplacian_var = float(cv2.Laplacian(roi, cv2.CV_64F).var())
     if laplacian_var < min_laplacian_var:
         raise FaceQualityRejectError(
@@ -475,13 +511,13 @@ def _load_image_numpy(image_path: str) -> np.ndarray:
         # orientation metadata; without this, face detection may run on a sideways image.
         normalized = ImageOps.exif_transpose(image)
         rgb = normalized.convert("RGB")
-        max_edge = _env_int("ANALYZE_IMAGE_MAX_EDGE", 896)
+        max_edge = _env_int("ANALYZE_IMAGE_MAX_EDGE", 1280)
         width, height = rgb.size
         longest = max(width, height)
         if longest > max_edge:
             scale = max_edge / float(longest)
             new_size = (max(1, int(width * scale)), max(1, int(height * scale)))
-            resampling = getattr(getattr(Image, "Resampling", Image), "BILINEAR", Image.BILINEAR)
+            resampling = getattr(getattr(Image, "Resampling", Image), "LANCZOS", Image.BICUBIC)
             rgb = rgb.resize(new_size, resampling)
         return np.array(rgb)
 

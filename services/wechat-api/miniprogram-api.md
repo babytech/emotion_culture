@@ -712,14 +712,54 @@ Feature-flag guard:
 }
 ```
 
-## 9) Error codes
+## 9) Today History API
+
+`GET /api/today-history?date=2026-04-11`
+
+- `date` optional, format `YYYY-MM-DD`
+- if omitted, backend uses current date
+
+Response example:
+
+```json
+{
+  "date": "2026-04-11",
+  "month_day": "04-11",
+  "available": true,
+  "collapsed_default": true,
+  "status": "ok",
+  "status_message": "可展开查看",
+  "cache_hit": false,
+  "entry": {
+    "month_day": "04-11",
+    "event_year": "1970",
+    "headline": "阿波罗 13 号从佛罗里达发射升空",
+    "summary": "1970 年 4 月 11 日，阿波罗 13 号自肯尼迪航天中心发射...",
+    "optional_note": "很多历史节点并不按计划发生，却常常因临场应对而被记住。",
+    "source_label": "历史资料"
+  }
+}
+```
+
+Response status semantics:
+
+- `ok`: live or seed content available
+- `degraded`: current request fell back to cached content
+- `empty`: no safe content available for this date
+- `filtered`: content was suppressed by moderation rules
+
+Feature-flag guard:
+
+- If `TODAY_HISTORY_ENABLED=off`, API returns `503` with `[TODAY_HISTORY_DISABLED]`.
+
+## 10) Error codes
 
 - `200`: success
 - `400`: bad request / missing env / invalid file id / resolver failure
 - `409`: retention write disabled for current user (for example favorites upsert)
 - `422`: schema validation error
 - `500`: internal server error
-- `503`: feature disabled by admin config (retention/week report/favorites)
+- `503`: feature disabled by admin config (retention/week report/favorites/today-history)
 
 Voice quality reject details (`400`, from BE-011):
 
@@ -758,14 +798,14 @@ Face quality reject details (`400`, from BE-012):
 - `[FACE_TOO_DARK]`: low-light image
 - `[FACE_TOO_BLUR]`: blurred image
 
-## 10) Frontend integration flow (recommended)
+## 11) Frontend integration flow (recommended)
 
 1. Upload media from mini program via `wx.cloud.uploadFile`, keep returned `fileID` and `tempFileURL`.
 2. Call `/api/analyze` with `text + image/audio` via `wx.cloud.callContainer`.
 3. Render `result_card` as primary UI payload.
 4. If user sends email, call `/api/send-email` via `wx.cloud.callContainer`.
 
-## 11) Minimal mini program request snippet
+## 12) Minimal mini program request snippet
 
 ```js
 wx.cloud.callContainer({

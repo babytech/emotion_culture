@@ -150,6 +150,15 @@ Optional:
 - `RETENTION_FAVORITES_ENABLED` (`on` | `off`, default `on`; favorites switch, depends on retention switch)
 - `FAVORITES_MAX_ITEMS` (default `500`, max favorites per user)
 - `WEEKLY_REPORT_CACHE_MAX_ITEMS` (default `32`, max cached weekly report snapshots per user)
+- `TODAY_HISTORY_ENABLED` (`on` | `off`, default `on`; “历史上的今天”功能开关)
+- `TODAY_HISTORY_PROVIDER` (`auto` | `http` | `seed` | `mock`, default `auto`)
+- `TODAY_HISTORY_HTTP_ENDPOINT` (optional external AI/search gateway endpoint)
+- `TODAY_HISTORY_HTTP_METHOD` (`GET` | `POST`, default `POST`)
+- `TODAY_HISTORY_HTTP_TIMEOUT_SEC` (default `12`)
+- `TODAY_HISTORY_HTTP_HEADERS_JSON` (optional JSON headers for gateway auth)
+- `TODAY_HISTORY_CACHE_PATH` (default `/tmp/emotion_culture/today_history_cache.json`)
+- `TODAY_HISTORY_CACHE_TTL_SEC` (default `1209600`, 14 days)
+- `TODAY_HISTORY_SENSITIVE_KEYWORDS` (optional comma-separated moderation keywords override)
 - `MEDIA_GEN_PROVIDER` (`local_mock` | `static_pool`, default `local_mock`)
 - Third-party dynamic image providers (`http` / `qwen` / `hunyuan` / `liblib`) are removed from current codebase.
 - `MEDIA_GEN_PROVIDER_MAX_RETRIES` (default `1`, provider retry count on retryable failure)
@@ -181,7 +190,9 @@ Optional:
 - `FACE_MULTI_MIN_RATIO` (default `0.8`, secondary/primary face size ratio for multi-face reject)
 - `FACE_MULTI_SECONDARY_ABS_RATIO_FACTOR` (default `0.75`, secondary absolute size factor)
 - `FACE_MIN_BRIGHTNESS` (default `50`, minimum face brightness)
-- `FACE_MIN_LAPLACIAN_VAR` (default `30`, minimum face sharpness)
+- `FACE_MIN_LAPLACIAN_VAR` (default `24`, minimum face sharpness)
+- `FACE_LARGE_FACE_AREA_RATIO` (default `0.10`, large-face selfie threshold)
+- `FACE_LARGE_FACE_MIN_LAPLACIAN_VAR` (default `14`, relaxed sharpness threshold for close-up large-face selfies)
 
 ### STT endpoint examples
 

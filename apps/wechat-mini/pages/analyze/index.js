@@ -6,9 +6,9 @@ const { ANALYZE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 const { detectRuntimeEnv } = require("../../utils/runtime");
 
 const recorder = wx.getRecorderManager();
-const IMAGE_COMPRESS_SKIP_BYTES = 900 * 1024;
-const IMAGE_COMPRESS_MEDIUM_BYTES = 2 * 1024 * 1024;
-const IMAGE_COMPRESS_HEAVY_BYTES = 4 * 1024 * 1024;
+const IMAGE_COMPRESS_SKIP_BYTES = 2 * 1024 * 1024;
+const IMAGE_COMPRESS_MEDIUM_BYTES = 4 * 1024 * 1024;
+const IMAGE_COMPRESS_HEAVY_BYTES = 6 * 1024 * 1024;
 const AUDIO_ALLOWED_EXTENSIONS = [".wav", ".mp3", ".m4a", ".aac", ".flac", ".ogg", ".webm"];
 const AUDIO_MIN_SECONDS = 1;
 const AUDIO_MIN_FILE_SIZE_BYTES = 6000;
@@ -253,9 +253,9 @@ async function prepareImageForUpload(path) {
     return { path, compressed: false, sizeBefore, sizeAfter: sizeBefore };
   }
 
-  let quality = 82;
-  if (sizeBefore >= IMAGE_COMPRESS_HEAVY_BYTES) quality = 68;
-  else if (sizeBefore >= IMAGE_COMPRESS_MEDIUM_BYTES) quality = 76;
+  let quality = 90;
+  if (sizeBefore >= IMAGE_COMPRESS_HEAVY_BYTES) quality = 80;
+  else if (sizeBefore >= IMAGE_COMPRESS_MEDIUM_BYTES) quality = 86;
 
   try {
     const compressedPath = await compressImage(path, quality);

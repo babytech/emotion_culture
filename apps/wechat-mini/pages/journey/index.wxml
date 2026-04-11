@@ -44,6 +44,38 @@
   <view class="card section-card">
     <view class="section-head">
       <view class="section-head-copy">
+        <view class="section-title">历史上的今天</view>
+      </view>
+      <view class="today-history-head-actions">
+        <view class="status-chip">{{todayHistory.statusText}}</view>
+        <view wx:if="{{todayHistory.available}}" class="today-history-toggle" bindtap="toggleTodayHistory">
+          {{todayHistory.expanded ? "收起" : "展开"}}
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{todayHistory.available}}" class="journey-today-card">
+      <view class="today-history-topline">
+        <view class="today-history-date">{{todayHistory.monthDay}}</view>
+        <view wx:if="{{todayHistory.eventYear}}" class="today-history-year">{{todayHistory.eventYear}}</view>
+      </view>
+      <view class="journey-today-headline">{{todayHistory.headline}}</view>
+      <view wx:if="{{todayHistory.expanded}}" class="journey-today-summary">{{todayHistory.summary}}</view>
+      <view wx:if="{{todayHistory.expanded && todayHistory.optionalNote}}" class="journey-today-note">
+        {{todayHistory.optionalNote}}
+      </view>
+      <view class="journey-today-foot">
+        <view class="journey-today-source">{{todayHistory.sourceLabel}}{{todayHistory.cacheHit ? " · 缓存" : ""}}</view>
+        <view class="journey-today-tip">{{todayHistory.expanded ? "默认收起，不打断你的回看主线" : "点展开可查看摘要"}}</view>
+      </view>
+    </view>
+
+    <view wx:else class="empty-copy">今日历史内容还在整理中，稍后会在这里补上一条简短历史片段。</view>
+  </view>
+
+  <view class="card section-card">
+    <view class="section-head">
+      <view class="section-head-copy">
         <view class="section-title">继续查看</view>
       </view>
     </view>

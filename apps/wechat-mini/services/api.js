@@ -382,6 +382,18 @@ function getRetentionWeeklyReport(weekStart) {
   return callViaContainer(`/api/retention/weekly-report${query}`, "GET");
 }
 
+function getTodayHistory(date) {
+  const query = date ? `?date=${encodeURIComponent(date)}` : "";
+  return callViaContainer(`/api/today-history${query}`, "GET", undefined, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 250,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 1,
+    transientHttpRetryDelayMs: 450,
+  });
+}
+
 function deleteRetentionWeeklyReport(weekStart) {
   const query = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : "";
   return callViaContainer(`/api/retention/weekly-report${query}`, "DELETE");
@@ -454,6 +466,7 @@ module.exports = {
   getMediaGenerateTask,
   getRetentionCalendar,
   getRetentionWeeklyReport,
+  getTodayHistory,
   getRetentionWriteSettings,
   getSettings,
   listHistory,

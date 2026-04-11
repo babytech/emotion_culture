@@ -1,6 +1,7 @@
 const {
   getRetentionCalendar,
   getRetentionWeeklyReport,
+  getTodayHistory,
   listFavorites,
   listHistory,
 } = require("../../services/api");
@@ -11,6 +12,13 @@ function toMonthText(dateObj) {
   const yyyy = dateObj.getFullYear();
   const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
   return `${yyyy}-${mm}`;
+}
+
+function toDateText(dateObj) {
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const dd = String(dateObj.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function safeText(value) {
@@ -92,6 +100,44 @@ function buildMetrics(values) {
   ];
 }
 
+function buildTodayHistoryState() {
+  return {
+    available: false,
+    expanded: false,
+    collapsedDefault: true,
+    monthDay: "",
+    eventYear: "",
+    headline: "历史上的今天",
+    summary: "",
+    optionalNote: "",
+    status: "empty",
+    statusText: "整理中",
+    sourceLabel: "",
+    cacheHit: false,
+  };
+}
+
+function normalizeTodayHistory(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const entry = source.entry && typeof source.entry === "object" ? source.entry : {};
+  const collapsedDefault = source.collapsed_default !== false;
+  const expanded = !collapsedDefault;
+  return {
+    available: !!source.available && !!safeText(entry.headline) && !!safeText(entry.summary),
+    expanded,
+    collapsedDefault,
+    monthDay: safeText(source.month_day) || safeText(entry.month_day) || "",
+    eventYear: safeText(entry.event_year),
+    headline: safeText(entry.headline) || "历史上的今天",
+    summary: safeText(entry.summary),
+    optionalNote: safeText(entry.optional_note),
+    status: safeText(source.status) || "empty",
+    statusText: safeText(source.status_message) || (!!source.available ? "可展开查看" : "整理中"),
+    sourceLabel: safeText(entry.source_label),
+    cacheHit: !!source.cache_hit,
+  };
+}
+
 function toHeroTheme(emotionCode, emotionLabel) {
   const code = safeText(emotionCode).toLowerCase();
   const label = safeText(emotionLabel);
@@ -120,6 +166,7 @@ Page({
     favoritePreview: [],
     recentRecord: null,
     recentRecordStatus: "还没有最近一次结果",
+    todayHistory: buildTodayHistoryState(),
   },
 
   onShow() {
@@ -131,11 +178,12 @@ Page({
   async loadDashboard() {
     this.setData({ isRefreshing: true });
 
-    const [calendarRes, reportRes, historyRes, favoritesRes] = await Promise.allSettled([
+    const [calendarRes, reportRes, historyRes, favoritesRes, todayHistoryRes] = await Promise.allSettled([
       getRetentionCalendar(toMonthText(new Date())),
       getRetentionWeeklyReport(),
       listHistory({ limit: 5, offset: 0 }),
       listFavorites({ limit: 3, offset: 0 }),
+      getTodayHistory(toDateText(new Date())),
     ]);
 
     const nextData = {};
@@ -192,6 +240,15 @@ Page({
       nextData.favoritePreview = [];
     }
 
+    if (todayHistoryRes.status === "fulfilled") {
+      nextData.todayHistory = normalizeTodayHistory(todayHistoryRes.value);
+    } else {
+      nextData.todayHistory = {
+        ...buildTodayHistoryState(),
+        statusText: "历史内容暂不可用",
+      };
+    }
+
     this.setData({
       ...nextData,
       metrics: buildMetrics(nextMetrics),
@@ -216,6 +273,17 @@ Page({
 
   openFavoritesTab() {
     wx.switchTab({ url: FAVORITES_TAB });
+  },
+
+  toggleTodayHistory() {
+    const current = this.data.todayHistory || buildTodayHistoryState();
+    if (!current.available) return;
+    this.setData({
+      todayHistory: {
+        ...current,
+        expanded: !current.expanded,
+      },
+    });
   },
 
   openProfileTab() {
