@@ -14,11 +14,11 @@
 
 配套文档：
 
-- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase5-task-breakdown.md)
-- [phase5-week1-priority-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-week1-priority-plan.md)
-- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-implementation-checklist.md)
-- [phase5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase5-qa-regression-report.md)
-- [phase5-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase5-acceptance-report.md)
+- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-task-breakdown.md)
+- [phase5-week1-priority-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-week1-priority-plan.md)
+- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-implementation-checklist.md)
+- [phase5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-qa-regression-report.md)
+- [phase5-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-acceptance-report.md)
 
 ## 与第四阶段的边界
 

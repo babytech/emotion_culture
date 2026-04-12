@@ -14,9 +14,9 @@
 
 配套文档：
 
-- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase4-development-plan.md)
-- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase4-task-breakdown.md)
-- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase4-implementation-checklist.md)
+- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-development-plan.md)
+- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-task-breakdown.md)
+- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-implementation-checklist.md)
 
 ## 分任务汇总
 
@@ -81,7 +81,7 @@
 ## QA-403 封板回归与文档收口
 
 执行时间：2026-04-09  
-执行方式：对照 [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase4-task-breakdown.md)、[phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase4-implementation-checklist.md)、[phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md) 完成封板一致性复核。
+执行方式：对照 [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-task-breakdown.md)、[phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-implementation-checklist.md)、[phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-acceptance-report.md) 完成封板一致性复核。
 
 ### 场景 1：实施清单与任务分解一致
 

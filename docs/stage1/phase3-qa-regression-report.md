@@ -170,7 +170,7 @@
 执行方式：仓库根目录执行 `./.venv/bin/python tools/phase3_qa_regression.py`。  
 详细自动化用例明细见：
 
-- [phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-m5-qa-regression-report.md)
+- [phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-m5-qa-regression-report.md)
 
 ### 场景 1：`DATA-301` 生命周期治理
 

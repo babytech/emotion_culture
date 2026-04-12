@@ -8,7 +8,7 @@
 - 最终全量回归：`PASS`（`21/21`）
 
 最终回归详情见：
-- [phase1-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase1-qa-regression-report.md)
+- [phase1-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase1-qa-regression-report.md)
 
 ## 缺口补齐明细
 
@@ -67,4 +67,4 @@
 ## 文档同步结果
 
 - 已更新第一阶段实施清单状态为完成：
-  - [phase1-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase1-implementation-checklist.md)
+  - [phase1-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase1-implementation-checklist.md)

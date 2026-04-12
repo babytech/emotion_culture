@@ -8,7 +8,7 @@
 - 当前回归结论：`PASS`（`20/20`）
 
 最终回归详情见：
-- [phase2-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase2-qa-regression-report.md)
+- [phase2-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase2-qa-regression-report.md)
 
 ## 缺口补齐明细
 
@@ -89,8 +89,8 @@
 ## 文档同步结果
 
 - 第二阶段核心文档：
-  - [phase2-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase2-development-plan.md)
-  - [phase2-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase2-task-breakdown.md)
-  - [phase2-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase2-implementation-checklist.md)
+  - [phase2-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase2-development-plan.md)
+  - [phase2-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase2-task-breakdown.md)
+  - [phase2-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase2-implementation-checklist.md)
 - 本次新增回归脚本：
   - [phase2_qa_regression.py](/Users/babytech/github/emotion_culture/tools/phase2_qa_regression.py)

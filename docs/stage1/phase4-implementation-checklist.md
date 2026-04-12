@@ -1,6 +1,6 @@
 # 第四阶段实施清单（M1-M4）
 
-最近一次第四阶段封板结论见：[phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md)。
+最近一次第四阶段封板结论见：[phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-acceptance-report.md)。
 
 ## 文档目的
 
@@ -9,8 +9,8 @@
 
 配套文档：
 
-- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase4-development-plan.md)
-- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase4-task-breakdown.md)
+- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-development-plan.md)
+- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-task-breakdown.md)
 
 ## M1：壳层与一级导航稳定
 

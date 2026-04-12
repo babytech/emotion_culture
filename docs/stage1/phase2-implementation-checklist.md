@@ -6,7 +6,7 @@
 
 本清单以“方案 B（平衡留存优先）”为当前执行范围。
 
-最近一次自动化回归见：[phase2-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase2-qa-regression-report.md)。
+最近一次自动化回归见：[phase2-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase2-qa-regression-report.md)。
 
 ## 实施原则
 

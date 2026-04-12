@@ -10,8 +10,8 @@
 
 最终回归详情见：
 
-- [phase3-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-qa-regression-report.md)
-- [phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-m5-qa-regression-report.md)
+- [phase3-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-qa-regression-report.md)
+- [phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-m5-qa-regression-report.md)
 
 ## 缺口补齐明细
 
@@ -53,8 +53,8 @@
   - 弱网项以本地失败/回退模拟为准，M3/M4 真机专项继续沿用已完成的体验版验证
 - 变更文件：
   - [phase3_qa_regression.py](/Users/babytech/github/emotion_culture/tools/phase3_qa_regression.py)
-  - [phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-m5-qa-regression-report.md)
-  - [phase3-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-qa-regression-report.md)
+  - [phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-m5-qa-regression-report.md)
+  - [phase3-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-qa-regression-report.md)
 - 回归验证：
   - `QA-302-1` 弱网下 URL 失败可回退 file_id/本地素材：`PASS`
   - `QA-302-2` 风格图空池失败不阻塞主分析与邮件：`PASS`
@@ -69,8 +69,8 @@
   - `M4` UI 重构真机观感回归已通过
   - `M5` 自动化收口通过后，第三阶段实施清单已全部勾选
 - 关联文档：
-  - [phase3-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase3-implementation-checklist.md)
-  - [phase3-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-qa-regression-report.md)
+  - [phase3-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-implementation-checklist.md)
+  - [phase3-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-qa-regression-report.md)
 
 ## 最终回归结果
 
@@ -84,11 +84,11 @@
 ## 文档同步结果
 
 - 第三阶段核心文档：
-  - [phase3-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase3-development-plan.md)
-  - [phase3-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase3-task-breakdown.md)
-  - [phase3-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase3-implementation-checklist.md)
-  - [phase3-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-qa-regression-report.md)
+  - [phase3-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-development-plan.md)
+  - [phase3-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-task-breakdown.md)
+  - [phase3-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-implementation-checklist.md)
+  - [phase3-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-qa-regression-report.md)
 - 本次新增/更新产物：
   - [phase3_qa_regression.py](/Users/babytech/github/emotion_culture/tools/phase3_qa_regression.py)
-  - [phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-m5-qa-regression-report.md)
-  - [phase3-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase3-acceptance-report.md)
+  - [phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-m5-qa-regression-report.md)
+  - [phase3-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-acceptance-report.md)

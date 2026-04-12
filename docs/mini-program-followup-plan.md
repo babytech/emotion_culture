@@ -13,13 +13,13 @@
 
 ### 已完成阶段
 
-- 第一阶段能力补齐已完成，文字 / 语音 / 自拍分析、邮件、历史、设置等基础闭环已经落地，见 [phase1-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase1-implementation-checklist.md)
-- 第二阶段留存底座已完成，日历、周报、收藏、基础分享卡片已经落地，见 [phase2-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase2-implementation-checklist.md)
-- 第三阶段 `M2-M5` 已于 `2026-04-01` 验收封板，风控、静态风格图、UI 重构首轮、全量回归均已完成，见 [phase3-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase3-acceptance-report.md)
+- 第一阶段能力补齐已完成，文字 / 语音 / 自拍分析、邮件、历史、设置等基础闭环已经落地，见 [phase1-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase1-implementation-checklist.md)
+- 第二阶段留存底座已完成，日历、周报、收藏、基础分享卡片已经落地，见 [phase2-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase2-implementation-checklist.md)
+- 第三阶段 `M2-M5` 已于 `2026-04-01` 验收封板，风控、静态风格图、UI 重构首轮、全量回归均已完成，见 [phase3-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-acceptance-report.md)
 
 ### 当前所在阶段
 
-- 第四阶段“前端壳层重构阶段”已于 `2026-04-09` 正式封板，见 [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md)
+- 第四阶段“前端壳层重构阶段”已于 `2026-04-09` 正式封板，见 [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-acceptance-report.md)
 - `custom-tab-bar`、首页、记录页、分析页、收藏页、我的页、结果页的重构与状态统一已形成正式闭环
 - 当前项目已进入“Phase5 启动前准备 / 按新阶段需求推进”的状态
 
@@ -90,7 +90,7 @@
 
 #### 5. 结果页仍承担过多次级操作，主次层级还不够稳定
 
-第四阶段计划中已经明确写到“结果页要避免像功能集合页”，见 [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase4-development-plan.md)。
+第四阶段计划中已经明确写到“结果页要避免像功能集合页”，见 [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-development-plan.md)。
 
 从当前结果页状态可以看到它同时承载了：
 
@@ -134,7 +134,7 @@
 - QA 回归报告
 - 验收报告
 
-但第四阶段目前只有开发计划文档，尚未形成同等严格的封板闭环，见 [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase4-development-plan.md)。
+但第四阶段目前只有开发计划文档，尚未形成同等严格的封板闭环，见 [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-development-plan.md)。
 
 这会影响两个动作：
 
@@ -156,7 +156,7 @@
 
 #### 9. “按住说话转文字”仍应维持 deferred 状态
 
-该能力在 [product-consensus.md](/Users/babytech/github/emotion_culture/docs/product-consensus.md) 和 [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase4-development-plan.md) 中都已经被明确标记为“当前不纳入正式交付”。
+该能力在 [product-consensus.md](/Users/babytech/github/emotion_culture/docs/product-consensus.md) 和 [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-development-plan.md) 中都已经被明确标记为“当前不纳入正式交付”。
 
 结合当前代码状态，这个判断仍然成立：
 
@@ -277,7 +277,7 @@
 ## 推荐执行顺序
 
 1. 先完成迭代 A，正式封掉第四阶段
-2. 第五阶段正式承接身份收口、稳定性增强、分享与内容增强、视觉升级，见 [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
+2. 第五阶段正式承接身份收口、稳定性增强、分享与内容增强、视觉升级，见 [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-development-plan.md)
 3. 原迭代 B 的“数据底座与接口收口”作为第五阶段底层专项推进
 4. 原迭代 C 的“留存收益强化”作为第五阶段中后段能力推进
 

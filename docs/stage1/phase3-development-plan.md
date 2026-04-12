@@ -7,8 +7,8 @@
 
 配套文档：
 
-- [phase3-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase3-task-breakdown.md)
-- [phase3-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase3-implementation-checklist.md)
+- [phase3-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-task-breakdown.md)
+- [phase3-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-implementation-checklist.md)
 
 ## 第三阶段目标（Must）
 

@@ -2,7 +2,7 @@
 
 ## 使用方式
 
-本文件用于将 [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md) 中已经达成共识的里程碑继续下钻到可执行任务层。  
+本文件用于将 [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-development-plan.md) 中已经达成共识的里程碑继续下钻到可执行任务层。  
 编号规则如下：
 
 - `BE`：后端接口与服务

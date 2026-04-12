@@ -10,10 +10,10 @@
 
 配套文档：
 
-- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
-- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase5-task-breakdown.md)
-- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-implementation-checklist.md)
-- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
+- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-development-plan.md)
+- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-task-breakdown.md)
+- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-implementation-checklist.md)
+- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-m1-device-smoke-checklist.md)
 
 ## 分任务汇总（已完成）
 
@@ -54,7 +54,7 @@
 
 配套说明：
 
-- 上述结果与 [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md) 中最新复测项一致
+- 上述结果与 [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-m1-device-smoke-checklist.md) 中最新复测项一致
 - 自拍页“重拍 / 使用这张”真机链路此前也已通过
 - 自拍清晰度与 `FACE_TOO_BLUR / FACE_NOT_FOUND` 调优已在最新体验版 + 最新后端上完成专项回归
 - `QA-532` 已完成展示链路 + 三项专项边界回归（9/9）
@@ -69,7 +69,7 @@
 - 自拍权限拒绝后可恢复
 - 录音中提交场景行为符合预期
 - 建议先执行一轮最小真机冒烟清单：
-- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
+- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-m1-device-smoke-checklist.md)
 
 ### QA-521 5G / 弱网主链路回归
 

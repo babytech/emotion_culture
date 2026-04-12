@@ -6,7 +6,7 @@
 
 本文件只覆盖第一阶段“必须做”的能力，不包含第二阶段增强项。
 
-最近一次自动化回归见：[phase1-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase1-qa-regression-report.md)（QA-001 ~ QA-004）。
+最近一次自动化回归见：[phase1-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase1-qa-regression-report.md)（QA-001 ~ QA-004）。
 
 ## 实施原则
 
@@ -263,7 +263,7 @@
 
 当本清单中的“必须做”项基本完成后，再进入下一步文档：
 
-- `docs/phase1-development-plan.md`
+- `docs/stage1/phase1-development-plan.md`
 - `docs/requirements.md`
 - `docs/architecture.md`
 - `docs/performance-and-quality.md`

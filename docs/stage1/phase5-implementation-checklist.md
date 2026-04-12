@@ -7,8 +7,8 @@
 
 配套文档：
 
-- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
-- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase5-task-breakdown.md)
+- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-development-plan.md)
+- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-task-breakdown.md)
 
 ## M1：首次授权门与微信身份收口
 

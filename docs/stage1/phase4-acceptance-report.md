@@ -9,7 +9,7 @@
 
 最终回归详情见：
 
-- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase4-qa-regression-report.md)
+- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-qa-regression-report.md)
 
 ## 文档说明
 
@@ -17,9 +17,9 @@
 
 配套文档：
 
-- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase4-development-plan.md)
-- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase4-task-breakdown.md)
-- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase4-implementation-checklist.md)
+- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-development-plan.md)
+- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-task-breakdown.md)
+- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-implementation-checklist.md)
 
 ## 封板完成明细
 
@@ -81,11 +81,11 @@
 ## 文档同步结果
 
 - 已更新核心文档：
-- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase4-development-plan.md)
-- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase4-task-breakdown.md)
-- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase4-implementation-checklist.md)
-- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase4-qa-regression-report.md)
-- [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md)
+- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-development-plan.md)
+- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-task-breakdown.md)
+- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-implementation-checklist.md)
+- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-qa-regression-report.md)
+- [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-acceptance-report.md)
 - Phase5 承接文档：
-- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
-- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase5-task-breakdown.md)
+- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-development-plan.md)
+- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-task-breakdown.md)

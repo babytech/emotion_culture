@@ -6,10 +6,10 @@
 
 配套文档：
 
-- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
-- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase5-task-breakdown.md)
-- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-implementation-checklist.md)
-- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
+- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-development-plan.md)
+- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-task-breakdown.md)
+- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-implementation-checklist.md)
+- [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-m1-device-smoke-checklist.md)
 
 ## 本周总原则
 
@@ -22,7 +22,7 @@
 补充执行建议：
 
 - `M1` 第一轮代码落地后，先执行一轮最小真机冒烟，再继续展开 `M2`
-- 冒烟清单见：[phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
+- 冒烟清单见：[phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-m1-device-smoke-checklist.md)
 
 ## 为什么本周不建议同时做 M3 / M4
 

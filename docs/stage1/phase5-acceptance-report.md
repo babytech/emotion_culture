@@ -9,7 +9,7 @@
 
 最终回归详情见：
 
-- [phase5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase5-qa-regression-report.md)
+- [phase5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-qa-regression-report.md)
 
 ## 文档说明
 
@@ -17,9 +17,9 @@
 
 配套文档：
 
-- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
-- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase5-task-breakdown.md)
-- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-implementation-checklist.md)
+- [phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-development-plan.md)
+- [phase5-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-task-breakdown.md)
+- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-implementation-checklist.md)
 
 ## 预期验收范围
 
@@ -58,6 +58,6 @@
 
 ## 文档同步结果
 
-- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-implementation-checklist.md) 已勾选全量完成
-- [phase5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase5-qa-regression-report.md) 已更新全量通过结论
+- [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-implementation-checklist.md) 已勾选全量完成
+- [phase5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-qa-regression-report.md) 已更新全量通过结论
 - 本验收报告已从模板升级为正式封板报告

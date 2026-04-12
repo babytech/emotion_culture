@@ -5,7 +5,7 @@
 本文件基于以下文档拆解：
 
 - [product-consensus.md](/Users/babytech/github/emotion_culture/docs/product-consensus.md)
-- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase4-development-plan.md)
+- [phase4-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-development-plan.md)
 
 任务按 `MINI`（小程序前端）与 `QA`（回归）编号。  
 第四阶段不新增后端 schema，不引入新的核心依赖接口，因此本阶段以小程序壳层重构与真机收口为主。
@@ -153,8 +153,8 @@
 - 目标：输出第四阶段 QA 回归报告与验收报告，完成封板闭环。
 - 依赖：`QA-401`、`QA-402`。
 - 目标文件：
-- 新增 [docs/phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase4-qa-regression-report.md)
-- 新增 [docs/phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md)
+- 新增 [docs/stage1/phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-qa-regression-report.md)
+- 新增 [docs/stage1/phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-acceptance-report.md)
 - 完成定义：
 - 第四阶段实施清单可勾选
 - 回归报告可归档

@@ -5,8 +5,8 @@
 本文件基于以下三份文档拆解：
 
 - [product-consensus.md](/Users/babytech/github/emotion_culture/docs/product-consensus.md)
-- [phase1-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase1-implementation-checklist.md)
-- [phase1-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase1-development-plan.md)
+- [phase1-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase1-implementation-checklist.md)
+- [phase1-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase1-development-plan.md)
 
 任务按 `BE`（后端）、`MINI`（小程序）、`PC`（桌面端）、`DATA`（数据与隐私）、`QA`（回归）编号。  
 每个任务均包含：目标、依赖、目标文件、完成定义。

@@ -4,10 +4,10 @@
 
 配套文档：
 
-- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase4-task-breakdown.md)
-- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase4-implementation-checklist.md)
-- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase4-qa-regression-report.md)
-- [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md)
+- [phase4-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-task-breakdown.md)
+- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-implementation-checklist.md)
+- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-qa-regression-report.md)
+- [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-acceptance-report.md)
 
 第四阶段定义为“前端壳层重构阶段”。
 
@@ -106,9 +106,9 @@
 
 封板详情见：
 
-- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase4-implementation-checklist.md)
-- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase4-qa-regression-report.md)
-- [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/phase4-acceptance-report.md)
+- [phase4-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-implementation-checklist.md)
+- [phase4-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-qa-regression-report.md)
+- [phase4-acceptance-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase4-acceptance-report.md)
 
 ## 第四阶段暂不纳入事项
 
@@ -229,7 +229,7 @@
 - “历史上的今天”内容模块
 - UI 视觉二次升级
 
-对应文档见：[phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase5-development-plan.md)
+对应文档见：[phase5-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase5-development-plan.md)
 
 ## 文档对齐
 

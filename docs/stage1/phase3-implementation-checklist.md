@@ -1,6 +1,6 @@
 # 第三阶段实施清单（M2-M5）
 
-最近一次 `M5` 自动化回归见：[phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/phase3-m5-qa-regression-report.md)。
+最近一次 `M5` 自动化回归见：[phase3-m5-qa-regression-report.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-m5-qa-regression-report.md)。
 
 ## 文档目的
 
@@ -9,8 +9,8 @@
 
 配套文档：
 
-- [phase3-development-plan.md](/Users/babytech/github/emotion_culture/docs/phase3-development-plan.md)
-- [phase3-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase3-task-breakdown.md)
+- [phase3-development-plan.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-development-plan.md)
+- [phase3-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase3-task-breakdown.md)
 
 ## M2：成本与风控闭环（硬约束）
 

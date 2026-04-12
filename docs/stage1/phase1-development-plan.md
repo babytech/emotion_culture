@@ -2,11 +2,11 @@
 
 ## 文档目的
 
-本文件用于将 [第一阶段实施清单](/Users/babytech/github/emotion_culture/docs/phase1-implementation-checklist.md) 进一步拆解为可执行的开发顺序、依赖关系、阶段里程碑与验收方式。
+本文件用于将 [第一阶段实施清单](/Users/babytech/github/emotion_culture/docs/stage1/phase1-implementation-checklist.md) 进一步拆解为可执行的开发顺序、依赖关系、阶段里程碑与验收方式。
 
 本计划严格遵循 [产品共识文档](/Users/babytech/github/emotion_culture/docs/product-consensus.md) 中已经封板的第一阶段范围。
 
-配套任务级拆分见：[phase1-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/phase1-task-breakdown.md)。
+配套任务级拆分见：[phase1-task-breakdown.md](/Users/babytech/github/emotion_culture/docs/stage1/phase1-task-breakdown.md)。
 
 ## 第一阶段目标
 
