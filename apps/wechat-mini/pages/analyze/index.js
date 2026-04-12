@@ -23,6 +23,9 @@ const SUBMIT_STAGE = {
 const ANALYZE_POLL_DEFAULT_INTERVAL_MS = 2500;
 const ANALYZE_POLL_TIMEOUT_MS = 240000;
 const ANALYZE_POLL_TRANSIENT_RETRY_LIMIT = 12;
+const UPLOAD_MAX_RETRIES = 2;
+const UPLOAD_TEMP_URL_MAX_RETRIES = 1;
+const UPLOAD_RETRY_DELAY_MS = 360;
 const PENDING_TASK_STORAGE_KEY = "ec_pending_analyze_task";
 
 function buildEmptyWorkspaceState() {
@@ -282,8 +285,20 @@ function buildRecoverableAnalyzeError(err) {
   }
 
   const lowerMsg = message.toLowerCase();
+  const isNetworkLike =
+    lowerMsg.includes("request:fail") ||
+    lowerMsg.includes("request task fail") ||
+    lowerMsg.includes("network") ||
+    lowerMsg.includes("failed to connect") ||
+    lowerMsg.includes("connection reset") ||
+    lowerMsg.includes("econnreset") ||
+    lowerMsg.includes("econnaborted") ||
+    lowerMsg.includes("socket hang up");
   if (message.includes("102002") || message.includes("请求超时") || lowerMsg.includes("timeout")) {
     return "云端请求超时，请检查网络后重试。若连续超时，可先仅用文字输入提交。";
+  }
+  if (isNetworkLike) {
+    return "网络波动导致请求中断，已保留当前输入。请检查网络后重试。";
   }
   if (message.includes("[VOICE_")) {
     return `${message} 可重新录音，或改用文字输入后再次提交。`;
@@ -292,6 +307,13 @@ function buildRecoverableAnalyzeError(err) {
     return `${message} 可重新自拍后再次提交。`;
   }
   return `${message} 可直接重试，原输入已保留。`;
+}
+
+function buildUploadRetryStatus(category, info = {}) {
+  const label = category === "images" ? "自拍上传" : "语音上传";
+  const nextAttempt = Number(info.nextAttempt) || 2;
+  const maxAttempts = Number(info.maxAttempts) || 3;
+  return `网络波动：${label}重试中（${nextAttempt}/${maxAttempts}）...`;
 }
 
 async function validateAudioBeforeUpload(audioTempPath, recordSeconds) {
@@ -849,7 +871,7 @@ Page({
         }
         this.setData({
           submitStage: SUBMIT_STAGE.ANALYZING,
-          submitStatusText: "结果查询中断，正在自动重试...",
+          submitStatusText: `结果查询短暂中断，正在自动重试（${transientErrorCount}/${ANALYZE_POLL_TRANSIENT_RETRY_LIMIT}）...`,
           submitButtonText: "分析中...",
           errorMsg: "",
         });
@@ -1011,6 +1033,17 @@ Page({
       return;
     }
 
+    const submitStartAt = Date.now();
+    const submitMetrics = {
+      hasText: !!text,
+      hasImage: !!imageTempPath,
+      hasAudio: !!audioTempPath,
+      usedAudioFallback: false,
+      uploadMs: 0,
+      createTaskMs: 0,
+      pollMs: 0,
+      totalMs: 0,
+    };
     let submitSucceeded = false;
     let shouldKeepPendingState = false;
     try {
@@ -1041,9 +1074,12 @@ Page({
 
       const runAnalyzeOnce = async (payloadForAnalyze) => {
         let asyncCreate = null;
+        const createStartAt = Date.now();
         try {
           asyncCreate = await createAnalyzeTask(payloadForAnalyze);
+          submitMetrics.createTaskMs += Date.now() - createStartAt;
         } catch (err) {
+          submitMetrics.createTaskMs += Date.now() - createStartAt;
           const rawMessage = ((err && err.message) || "").toLowerCase();
           const asyncApiUnavailable =
             rawMessage.includes("404") || rawMessage.includes("not found") || rawMessage.includes("501");
@@ -1068,14 +1104,17 @@ Page({
           submitButtonText: "分析中...",
           errorMsg: "",
         });
+        const pollStartAt = Date.now();
         try {
           const polledResult = await this.pollAnalyzeTaskResult(taskId, {
             pollIntervalMs: Number(asyncCreate && asyncCreate.poll_after_ms) || ANALYZE_POLL_DEFAULT_INTERVAL_MS,
             timeoutMs: ANALYZE_POLL_TIMEOUT_MS,
           });
+          submitMetrics.pollMs += Date.now() - pollStartAt;
           this.persistPendingTaskState("", "");
           return polledResult;
         } catch (err) {
+          submitMetrics.pollMs += Date.now() - pollStartAt;
           const message = ((err && err.message) || "").trim();
           const stillProcessing = message.includes("分析任务仍在处理中");
           if (!stillProcessing) {
@@ -1086,10 +1125,12 @@ Page({
       };
 
       if (pendingTaskId) {
+        const pollStartAt = Date.now();
         result = await this.pollAnalyzeTaskResult(pendingTaskId, {
           pollIntervalMs: ANALYZE_POLL_DEFAULT_INTERVAL_MS,
           timeoutMs: ANALYZE_POLL_TIMEOUT_MS,
         });
+        submitMetrics.pollMs += Date.now() - pollStartAt;
         this.persistPendingTaskState("", "");
       } else {
         const uploadLabel =
@@ -1107,11 +1148,24 @@ Page({
         });
 
         const uploadTasks = [];
+        const uploadStartAt = Date.now();
         if (imageTempPath) {
           uploadTasks.push(
             (async () => {
               const preparedImage = await prepareImageForUpload(imageTempPath);
-              const uploadedImage = await uploadTempFile(preparedImage.path, "images");
+              const uploadedImage = await uploadTempFile(preparedImage.path, "images", {
+                maxRetries: UPLOAD_MAX_RETRIES,
+                tempUrlMaxRetries: UPLOAD_TEMP_URL_MAX_RETRIES,
+                retryDelayMs: UPLOAD_RETRY_DELAY_MS,
+                onRetry: (info) => {
+                  this.setData({
+                    submitStage: SUBMIT_STAGE.UPLOADING,
+                    submitStatusText: buildUploadRetryStatus("images", info),
+                    submitButtonText: "上传中...",
+                    errorMsg: "",
+                  });
+                },
+              });
               imageFileId = (uploadedImage && uploadedImage.fileID) || "";
               imageTempUrl = (uploadedImage && uploadedImage.tempFileURL) || "";
             })()
@@ -1121,7 +1175,19 @@ Page({
         if (audioTempPath) {
           uploadTasks.push(
             (async () => {
-              const uploadedAudio = await uploadTempFile(audioTempPath, "audio");
+              const uploadedAudio = await uploadTempFile(audioTempPath, "audio", {
+                maxRetries: UPLOAD_MAX_RETRIES,
+                tempUrlMaxRetries: UPLOAD_TEMP_URL_MAX_RETRIES,
+                retryDelayMs: UPLOAD_RETRY_DELAY_MS,
+                onRetry: (info) => {
+                  this.setData({
+                    submitStage: SUBMIT_STAGE.UPLOADING,
+                    submitStatusText: buildUploadRetryStatus("audio", info),
+                    submitButtonText: "上传中...",
+                    errorMsg: "",
+                  });
+                },
+              });
               audioFileId = (uploadedAudio && uploadedAudio.fileID) || "";
               audioTempUrl = (uploadedAudio && uploadedAudio.tempFileURL) || "";
             })()
@@ -1129,6 +1195,7 @@ Page({
         }
         if (uploadTasks.length > 0) {
           await Promise.all(uploadTasks);
+          submitMetrics.uploadMs += Date.now() - uploadStartAt;
         }
 
         this.setData({
@@ -1165,6 +1232,7 @@ Page({
           }
 
           analyzeUsedAudio = false;
+          submitMetrics.usedAudioFallback = true;
           requestToken = createAnalyzeRequestToken();
           effectivePayload = buildAnalyzePayload({
             includeAudio: false,
@@ -1206,10 +1274,14 @@ Page({
 
       this.resetPendingSubmissionState();
       submitSucceeded = true;
+      submitMetrics.totalMs = Date.now() - submitStartAt;
+      console.info("analyze_submit_metrics", submitMetrics);
       wx.navigateTo({
         url: "/pages/result/result",
       });
     } catch (err) {
+      submitMetrics.totalMs = Date.now() - submitStartAt;
+      console.warn("analyze_submit_metrics_failed", submitMetrics, err);
       const rawMessage = ((err && err.message) || "").trim();
       const isPendingProcessing = rawMessage.includes("分析任务仍在处理中");
       shouldKeepPendingState = isPendingProcessing && !!(this.data.pendingTaskId || "").trim();

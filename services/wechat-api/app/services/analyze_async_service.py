@@ -81,6 +81,51 @@ def _task_max_items() -> int:
     return _env_int("ANALYZE_ASYNC_TASK_MAX_ITEMS", _DEFAULT_MAX_TASKS)
 
 
+def _dynamic_poll_after_ms(status: str, queue_wait_ms: Optional[int], run_elapsed_ms: Optional[int]) -> int:
+    base = _poll_after_ms()
+    if status == "queued":
+        if queue_wait_ms is not None and queue_wait_ms >= 25000:
+            return max(base, 3200)
+        if queue_wait_ms is not None and queue_wait_ms >= 8000:
+            return max(base, 2800)
+        return base
+    if status == "running":
+        if run_elapsed_ms is not None and run_elapsed_ms >= 45000:
+            return max(base, 3200)
+        if run_elapsed_ms is not None and run_elapsed_ms >= 15000:
+            return max(base, 2800)
+    return base
+
+
+def _dynamic_status_message(
+    task: dict[str, Any],
+    *,
+    status: str,
+    queue_wait_ms: Optional[int],
+    run_elapsed_ms: Optional[int],
+) -> str:
+    stored = str(task.get("status_message") or "").strip()
+    if status == "queued":
+        if queue_wait_ms is not None and queue_wait_ms >= 25000:
+            return "排队中：云端较忙，任务已保留，可稍后回来继续查询。"
+        if queue_wait_ms is not None and queue_wait_ms >= 8000:
+            return "排队中：请求已接收，云端正在排队处理。"
+        return stored or "排队中：已收到请求，正在进入云端队列。"
+
+    if status == "running":
+        if run_elapsed_ms is not None and run_elapsed_ms >= 45000:
+            return "分析中：自拍或录音仍在云端处理，可保持当前页，也可稍后回来继续查询。"
+        if run_elapsed_ms is not None and run_elapsed_ms >= 15000:
+            return "分析中：云端正在整理文字、自拍和语音，请再稍等一下。"
+        return stored or "分析中：正在生成情绪结果。"
+
+    if status == "succeeded":
+        return "分析完成"
+    if status == "failed":
+        return stored or "分析失败"
+    return stored or "分析中"
+
+
 def _executor() -> ThreadPoolExecutor:
     global _EXECUTOR
     if _EXECUTOR is None:
@@ -122,11 +167,41 @@ def run_analysis_sync_for_user(payload: AnalyzeRequest, user_id: str) -> Analyze
 def _classify_failure(exc: Exception) -> tuple[str, bool]:
     if isinstance(exc, (FaceQualityRejectError, VoiceQualityRejectError)):
         return exc.to_client_message(), False
+    if isinstance(exc, TimeoutError):
+        return "[ANALYZE_TIMEOUT] 云端处理超时，请稍后重试。", True
     if isinstance(exc, NotImplementedError):
         return str(exc), False
     if isinstance(exc, ValueError):
         return str(exc), False
+
+    message = str(exc or "").strip()
+    lowered = message.lower()
+    transient_signals = (
+        "timeout",
+        "timed out",
+        "network",
+        "connection reset",
+        "econnreset",
+        "econnaborted",
+        "502",
+        "503",
+        "504",
+        "temporarily unavailable",
+    )
+    if any(signal in lowered for signal in transient_signals):
+        return f"[ANALYZE_UPSTREAM_TRANSIENT] {message or '网络波动，请稍后重试。'}", True
+
     return f"analysis failed: {exc}", True
+
+
+def _build_failed_status_message(detail: str, retryable: bool) -> str:
+    normalized = (detail or "").strip()
+    lowered = normalized.lower()
+    if "[ANALYZE_TIMEOUT]" in normalized or "timeout" in lowered:
+        return "分析超时：云端处理较慢，可稍后重试。"
+    if retryable:
+        return "分析失败：网络波动，可稍后重试。"
+    return "分析失败"
 
 
 def _cleanup_finished_tasks_locked(now_ts: float) -> None:
@@ -177,6 +252,13 @@ def _task_snapshot(task: dict[str, Any]) -> dict[str, Any]:
 
     run_elapsed_ms = _duration_ms(started_at, finished_at if finished_at else None) if started_at else None
     total_elapsed_ms = _duration_ms(accepted_at, finished_at if finished_at else None)
+    status_message = _dynamic_status_message(
+        task,
+        status=status,
+        queue_wait_ms=queue_wait_ms,
+        run_elapsed_ms=run_elapsed_ms,
+    )
+    poll_after_ms = _dynamic_poll_after_ms(status, queue_wait_ms, run_elapsed_ms)
 
     snapshot = {
         "task_id": task.get("task_id"),
@@ -184,10 +266,10 @@ def _task_snapshot(task: dict[str, Any]) -> dict[str, Any]:
         "accepted_at": accepted_at,
         "started_at": started_at or None,
         "finished_at": finished_at or None,
-        "poll_after_ms": task.get("poll_after_ms", _poll_after_ms()),
+        "poll_after_ms": poll_after_ms,
         "retryable": bool(task.get("retryable", False)),
         "error_detail": task.get("error_detail"),
-        "status_message": task.get("status_message") or "",
+        "status_message": status_message,
         "queue_wait_ms": queue_wait_ms,
         "run_elapsed_ms": run_elapsed_ms,
         "total_elapsed_ms": total_elapsed_ms,
@@ -237,7 +319,7 @@ def _run_task(task_id: str) -> None:
             if not current:
                 return
             current["status"] = "failed"
-            current["status_message"] = "分析失败"
+            current["status_message"] = _build_failed_status_message(detail, retryable)
             current["finished_at"] = _iso_now_utc()
             current["retryable"] = retryable
             current["error_detail"] = detail

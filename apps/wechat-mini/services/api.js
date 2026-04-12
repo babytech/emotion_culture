@@ -89,6 +89,23 @@ function isTimeoutLikeError(errMsg) {
   );
 }
 
+function isNetworkLikeError(errMsg) {
+  if (typeof errMsg !== "string") return false;
+  const text = errMsg.toLowerCase();
+  return (
+    text.includes("request:fail") ||
+    text.includes("request task fail") ||
+    text.includes("network") ||
+    text.includes("failed to connect") ||
+    text.includes("connection reset") ||
+    text.includes("econnreset") ||
+    text.includes("econnaborted") ||
+    text.includes("socket hang up") ||
+    text.includes("连接") ||
+    text.includes("断开")
+  );
+}
+
 function extractHttpStatusCode(err) {
   if (err && typeof err.statusCode === "number") {
     return err.statusCode;
@@ -162,6 +179,9 @@ async function callViaContainer(path, method, data, options = {}) {
   const retryOnTransientHttp = Boolean(options.retryOnTransientHttp);
   const transientHttpRetryCount = Math.max(0, Number(options.transientHttpRetryCount) || 0);
   const transientHttpRetryDelayMs = Math.max(0, Number(options.transientHttpRetryDelayMs) || 500);
+  const retryOnNetwork = Boolean(options.retryOnNetwork);
+  const networkRetryCount = Math.max(0, Number(options.networkRetryCount) || 0);
+  const networkRetryDelayMs = Math.max(0, Number(options.networkRetryDelayMs) || 420);
 
   const preferredEnv = config.containerEnv || config.cloudEnv;
   const envCandidates = [];
@@ -179,6 +199,7 @@ async function callViaContainer(path, method, data, options = {}) {
     for (const currentPath of pathCandidates) {
       let timeoutRetried = 0;
       let transientHttpRetried = 0;
+      let networkRetried = 0;
       while (true) {
         try {
           return await callContainerOnce(currentPath, method, data, env);
@@ -192,6 +213,8 @@ async function callViaContainer(path, method, data, options = {}) {
             retryOnTransientHttp &&
             isTransientHttpStatus(statusCode) &&
             transientHttpRetried < transientHttpRetryCount;
+          const canRetryNetwork =
+            retryOnNetwork && isNetworkLikeError(message) && networkRetried < networkRetryCount;
 
           if (canRetryTimeout) {
             timeoutRetried += 1;
@@ -202,6 +225,13 @@ async function callViaContainer(path, method, data, options = {}) {
           if (canRetryTransientHttp) {
             transientHttpRetried += 1;
             const backoff = transientHttpRetryDelayMs * transientHttpRetried;
+            await sleep(backoff);
+            continue;
+          }
+
+          if (canRetryNetwork) {
+            networkRetried += 1;
+            const backoff = networkRetryDelayMs * networkRetried;
             await sleep(backoff);
             continue;
           }
@@ -238,6 +268,9 @@ function analyze(payload) {
     retryOnTimeout: true,
     timeoutRetryCount: 1,
     timeoutRetryDelayMs: 350,
+    retryOnNetwork: true,
+    networkRetryCount: 2,
+    networkRetryDelayMs: 360,
     retryOnTransientHttp: true,
     transientHttpRetryCount: 2,
     transientHttpRetryDelayMs: 500,
@@ -249,6 +282,9 @@ function getBootstrap() {
     retryOnTimeout: true,
     timeoutRetryCount: 1,
     timeoutRetryDelayMs: 250,
+    retryOnNetwork: true,
+    networkRetryCount: 1,
+    networkRetryDelayMs: 300,
     retryOnTransientHttp: true,
     transientHttpRetryCount: 2,
     transientHttpRetryDelayMs: 400,
@@ -270,6 +306,9 @@ function createAnalyzeTask(payload) {
     retryOnTimeout: true,
     timeoutRetryCount: 1,
     timeoutRetryDelayMs: 350,
+    retryOnNetwork: true,
+    networkRetryCount: 2,
+    networkRetryDelayMs: 360,
     retryOnTransientHttp: true,
     transientHttpRetryCount: 2,
     transientHttpRetryDelayMs: 500,
@@ -285,6 +324,9 @@ function getAnalyzeTask(taskId) {
     retryOnTimeout: true,
     timeoutRetryCount: 2,
     timeoutRetryDelayMs: 250,
+    retryOnNetwork: true,
+    networkRetryCount: 3,
+    networkRetryDelayMs: 320,
     retryOnTransientHttp: true,
     transientHttpRetryCount: 3,
     transientHttpRetryDelayMs: 450,
@@ -306,6 +348,9 @@ function createMediaGenerateTask(payload) {
     retryOnTimeout: true,
     timeoutRetryCount: 1,
     timeoutRetryDelayMs: 350,
+    retryOnNetwork: true,
+    networkRetryCount: 2,
+    networkRetryDelayMs: 360,
     retryOnTransientHttp: true,
     transientHttpRetryCount: 2,
     transientHttpRetryDelayMs: 500,
@@ -321,6 +366,9 @@ function getMediaGenerateTask(taskId) {
     retryOnTimeout: true,
     timeoutRetryCount: 2,
     timeoutRetryDelayMs: 250,
+    retryOnNetwork: true,
+    networkRetryCount: 3,
+    networkRetryDelayMs: 320,
     retryOnTransientHttp: true,
     transientHttpRetryCount: 3,
     transientHttpRetryDelayMs: 450,
@@ -334,6 +382,9 @@ function sendEmail(payload) {
     retryOnTimeout: true,
     timeoutRetryCount: 1,
     timeoutRetryDelayMs: 450,
+    retryOnNetwork: true,
+    networkRetryCount: 1,
+    networkRetryDelayMs: 420,
     retryOnTransientHttp: true,
     transientHttpRetryCount: 1,
     transientHttpRetryDelayMs: 700,
