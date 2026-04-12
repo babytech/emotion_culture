@@ -748,6 +748,11 @@ Response status semantics:
 - `empty`: no safe content available for this date
 - `filtered`: content was suppressed by moderation rules
 
+Content-layer semantics:
+
+- `entry.summary`: factual layer only (historical fact summary)
+- `entry.optional_note`: optional companion layer (light emotional copy); may be empty on sensitive or strictly factual outputs
+
 Feature-flag guard:
 
 - If `TODAY_HISTORY_ENABLED=off`, API returns `503` with `[TODAY_HISTORY_DISABLED]`.

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -24,6 +25,20 @@ _DEFAULT_SENSITIVE_KEYWORDS = (
     "大屠杀",
     "刺杀",
 )
+_DEFAULT_EMOTION_HINTS = (
+    "愿你",
+    "你可以",
+    "不妨",
+    "提醒我们",
+    "也许",
+    "值得",
+    "感受",
+    "心情",
+    "情绪",
+    "治愈",
+    "安慰",
+)
+_SENTENCE_SPLIT_PATTERN = re.compile(r"[。！？!?；;\n]+")
 
 
 def _safe_text(value: object, max_len: int) -> str:
@@ -125,6 +140,17 @@ def _http_headers() -> dict[str, str]:
     return headers
 
 
+def _http_payload_json() -> dict[str, Any]:
+    raw = (os.getenv("TODAY_HISTORY_HTTP_PAYLOAD_JSON", "") or "").strip()
+    if not raw:
+        return {}
+    try:
+        payload = json.loads(raw)
+    except Exception:
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -206,6 +232,15 @@ def _sensitive_keywords() -> tuple[str, ...]:
     return custom or _DEFAULT_SENSITIVE_KEYWORDS
 
 
+def _emotion_hints() -> tuple[str, ...]:
+    raw = (os.getenv("TODAY_HISTORY_EMOTION_HINTS", "") or "").strip()
+    if not raw:
+        return _DEFAULT_EMOTION_HINTS
+    parts = [item.strip() for item in raw.split(",")]
+    custom = tuple(item for item in parts if item)
+    return custom or _DEFAULT_EMOTION_HINTS
+
+
 def _is_sensitive(entry: TodayHistoryEntry) -> bool:
     haystack = " ".join(
         filter(
@@ -220,6 +255,101 @@ def _is_sensitive(entry: TodayHistoryEntry) -> bool:
     return any(keyword.lower() in haystack for keyword in _sensitive_keywords())
 
 
+def _looks_like_emotion_sentence(text: str) -> bool:
+    normalized = _safe_text(text, 200)
+    if not normalized:
+        return False
+    haystack = normalized.lower()
+    return any(hint.lower() in haystack for hint in _emotion_hints())
+
+
+def _split_sentences(text: str) -> list[str]:
+    normalized = _safe_text(text, 400)
+    if not normalized:
+        return []
+    return [item.strip() for item in _SENTENCE_SPLIT_PATTERN.split(normalized) if item and item.strip()]
+
+
+def _layer_fact_and_note(raw_summary: str) -> tuple[str, Optional[str]]:
+    sentences = _split_sentences(raw_summary)
+    if not sentences:
+        return "", None
+    factual: list[str] = []
+    emotion_like: list[str] = []
+    for sentence in sentences:
+        if _looks_like_emotion_sentence(sentence):
+            emotion_like.append(sentence)
+        else:
+            factual.append(sentence)
+    if not factual:
+        factual.append(sentences[0])
+        emotion_like = sentences[1:]
+    summary = _safe_text("；".join(factual), 140)
+    note = _safe_text("；".join(emotion_like), 60) or None
+    return summary, note
+
+
+def _coalesce_text(raw: dict[str, Any], keys: tuple[str, ...], max_len: int) -> str:
+    for key in keys:
+        value = raw.get(key)
+        text = _safe_text(value, max_len)
+        if text:
+            return text
+    return ""
+
+
+def _parse_json_from_text(raw_text: str) -> Optional[Any]:
+    text = _safe_text(raw_text, 5000)
+    if not text:
+        return None
+    candidates = [text]
+    fenced = re.findall(r"```(?:json)?\s*([\s\S]+?)```", text)
+    candidates.extend(fenced)
+    for item in candidates:
+        candidate = item.strip()
+        if not candidate:
+            continue
+        try:
+            return json.loads(candidate)
+        except Exception:
+            continue
+    return None
+
+
+def _walk_candidates(raw: Any, output: list[dict[str, Any]], depth: int = 0) -> None:
+    if depth > 5:
+        return
+    if isinstance(raw, dict):
+        output.append(raw)
+        for key in ("data", "result", "entry", "item", "event", "payload"):
+            value = raw.get(key)
+            if isinstance(value, (dict, list, str)):
+                _walk_candidates(value, output, depth + 1)
+        for key in ("items", "events", "results", "records", "candidates", "list"):
+            value = raw.get(key)
+            if isinstance(value, list):
+                for element in value[:8]:
+                    _walk_candidates(element, output, depth + 1)
+        choices = raw.get("choices")
+        if isinstance(choices, list):
+            for choice in choices[:3]:
+                if not isinstance(choice, dict):
+                    continue
+                message = choice.get("message")
+                if isinstance(message, dict):
+                    _walk_candidates(message.get("content"), output, depth + 1)
+                _walk_candidates(choice.get("text"), output, depth + 1)
+        return
+    if isinstance(raw, list):
+        for item in raw[:8]:
+            _walk_candidates(item, output, depth + 1)
+        return
+    if isinstance(raw, str):
+        parsed = _parse_json_from_text(raw)
+        if parsed is not None:
+            _walk_candidates(parsed, output, depth + 1)
+
+
 def _normalize_entry(
     raw: dict[str, Any],
     *,
@@ -228,10 +358,26 @@ def _normalize_entry(
 ) -> Optional[TodayHistoryEntry]:
     if not isinstance(raw, dict):
         return None
-    headline = _safe_text(raw.get("headline") or raw.get("title"), 48)
-    summary = _safe_text(raw.get("summary") or raw.get("description"), 140)
-    optional_note = _safe_text(raw.get("optional_note") or raw.get("note"), 60) or None
-    event_year = _safe_text(raw.get("event_year") or raw.get("year"), 24) or None
+    headline = _coalesce_text(raw, ("headline", "title", "event_title"), 48)
+    raw_summary = _coalesce_text(
+        raw,
+        (
+            "fact_summary",
+            "factual_summary",
+            "summary",
+            "description",
+            "history_summary",
+            "event_summary",
+        ),
+        320,
+    )
+    summary, derived_note = _layer_fact_and_note(raw_summary)
+    optional_note = _coalesce_text(
+        raw,
+        ("optional_note", "note", "emotion_note", "companion_note", "reflection"),
+        60,
+    ) or derived_note
+    event_year = _coalesce_text(raw, ("event_year", "year"), 24) or None
     final_source = _safe_text(raw.get("source_label") or source_label, 24) or source_label
     if not headline or not summary:
         return None
@@ -253,18 +399,6 @@ def _seed_entry(month_day: str) -> Optional[TodayHistoryEntry]:
     return _normalize_entry(raw, month_day=month_day, source_label="历史资料")
 
 
-def _extract_candidate_payload(raw: Any) -> dict[str, Any]:
-    if isinstance(raw, dict):
-        if isinstance(raw.get("data"), dict):
-            return raw.get("data") or {}
-        items = raw.get("items")
-        if isinstance(items, list) and items:
-            first = items[0]
-            return first if isinstance(first, dict) else {}
-        return raw
-    return {}
-
-
 def _fetch_http_entry(date_key: str, month_day: str) -> Optional[TodayHistoryEntry]:
     endpoint = _http_endpoint()
     if not endpoint:
@@ -274,8 +408,9 @@ def _fetch_http_entry(date_key: str, month_day: str) -> Optional[TodayHistoryEnt
         "date": date_key,
         "month_day": month_day,
         "locale": "zh-CN",
-        "max_items": 1,
+        "max_items": 3,
     }
+    payload.update(_http_payload_json())
     headers = _http_headers()
     method = _http_method()
     timeout = _http_timeout_sec()
@@ -286,12 +421,21 @@ def _fetch_http_entry(date_key: str, month_day: str) -> Optional[TodayHistoryEnt
         else:
             response = requests.post(endpoint, json=payload, headers=headers, timeout=timeout)
         response.raise_for_status()
-        raw = response.json()
+        try:
+            raw: Any = response.json()
+        except Exception:
+            raw = response.text
     except Exception:
         return None
 
-    candidate = _extract_candidate_payload(raw)
-    return _normalize_entry(candidate, month_day=month_day, source_label="AI 检索")
+    candidates: list[dict[str, Any]] = []
+    _walk_candidates(raw, candidates)
+
+    for candidate in candidates:
+        entry = _normalize_entry(candidate, month_day=month_day, source_label="AI 检索")
+        if entry:
+            return entry
+    return None
 
 
 def _build_response(

@@ -156,9 +156,11 @@ Optional:
 - `TODAY_HISTORY_HTTP_METHOD` (`GET` | `POST`, default `POST`)
 - `TODAY_HISTORY_HTTP_TIMEOUT_SEC` (default `12`)
 - `TODAY_HISTORY_HTTP_HEADERS_JSON` (optional JSON headers for gateway auth)
+- `TODAY_HISTORY_HTTP_PAYLOAD_JSON` (optional JSON object merged into gateway request payload, for provider-specific params)
 - `TODAY_HISTORY_CACHE_PATH` (default `/tmp/emotion_culture/today_history_cache.json`)
 - `TODAY_HISTORY_CACHE_TTL_SEC` (default `1209600`, 14 days)
 - `TODAY_HISTORY_SENSITIVE_KEYWORDS` (optional comma-separated moderation keywords override)
+- `TODAY_HISTORY_EMOTION_HINTS` (optional comma-separated hints for separating companion copy from factual summary)
 - `MEDIA_GEN_PROVIDER` (`local_mock` | `static_pool`, default `local_mock`)
 - Third-party dynamic image providers (`http` / `qwen` / `hunyuan` / `liblib`) are removed from current codebase.
 - `MEDIA_GEN_PROVIDER_MAX_RETRIES` (default `1`, provider retry count on retryable failure)
