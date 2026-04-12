@@ -7,7 +7,7 @@ const {
 } = require("../../services/api");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { consumeTodayHistoryFocusRequest } = require("../../utils/today-history-focus");
-const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
+const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 function toMonthText(dateObj) {
   const yyyy = dateObj.getFullYear();
@@ -20,6 +20,14 @@ function toDateText(dateObj) {
   const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
   const dd = String(dateObj.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function toTodayLabel(dateObj) {
+  const source = dateObj instanceof Date ? dateObj : new Date();
+  const month = source.getMonth() + 1;
+  const day = source.getDate();
+  const weekday = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][source.getDay()];
+  return `${month}月${day}日 · ${weekday}`;
 }
 
 function safeText(value) {
@@ -155,6 +163,7 @@ function toHeroTheme(emotionCode, emotionLabel) {
 Page({
   data: {
     isRefreshing: false,
+    todayLabel: toTodayLabel(new Date()),
     heroEmotion: "还没有今天的记录",
     heroTheme: "warm",
     heroStreak: "0 天",
@@ -282,6 +291,10 @@ Page({
 
   openFavoritesTab() {
     wx.switchTab({ url: FAVORITES_TAB });
+  },
+
+  openJourneyTab() {
+    wx.switchTab({ url: JOURNEY_TAB });
   },
 
   toggleTodayHistory() {
