@@ -55,27 +55,6 @@
     </view>
   </view>
 
-  <view class="card home-fastlane-card">
-    <view class="home-fastlane-head">
-      <view class="home-fastlane-title">快速入口</view>
-      <view class="home-fastlane-sub">按你现在想做的事直接走</view>
-    </view>
-    <view class="home-fastlane-grid">
-      <button class="btn home-fastlane-btn home-fastlane-btn-journey" bindtap="openJourneyTab">
-        <view class="home-fastlane-btn-title">去记录页</view>
-        <view class="home-fastlane-btn-sub">看轨迹中枢</view>
-      </button>
-      <button class="btn home-fastlane-btn home-fastlane-btn-favorites" bindtap="openFavoritesTab">
-        <view class="home-fastlane-btn-title">看收藏</view>
-        <view class="home-fastlane-btn-sub">回看诗词与国潮</view>
-      </button>
-      <button class="btn home-fastlane-btn home-fastlane-btn-profile" bindtap="openProfileTab">
-        <view class="home-fastlane-btn-title">我的设置</view>
-        <view class="home-fastlane-btn-sub">管理偏好与隐私</view>
-      </button>
-    </view>
-  </view>
-
   <view class="metric-grid home-metric-grid">
     <view wx:for="{{metrics}}" wx:key="label" class="card metric-card home-summary-card">
       <view class="home-summary-copy">

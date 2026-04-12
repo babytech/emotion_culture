@@ -245,6 +245,12 @@ function drawBlockTitle(ctx, title, y) {
   return y + 48;
 }
 
+function normalizeErrorMessage(err, fallback) {
+  const fallbackText = safeText(fallback) || "操作失败，请稍后重试。";
+  const message = safeText(err && err.errMsg) || safeText(err && err.message);
+  return message || fallbackText;
+}
+
 Page({
   data: {
     hasData: false,
@@ -255,8 +261,8 @@ Page({
     imageTempPath: "",
     generatedPreviewExpanded: false,
     selfiePreviewExpanded: false,
-    errorMsg: "",
-    saveStatus: "",
+    noticeText: "",
+    noticeTone: "info",
   },
 
   onLoad(options) {
@@ -283,7 +289,8 @@ Page({
     if (!payload) {
       this.setData({
         hasData: false,
-        errorMsg: "未找到可分享的结果，请先完成一次分析。",
+        noticeText: "未找到可分享的结果，请先完成一次分析。",
+        noticeTone: "error",
       });
       return;
     }
@@ -293,7 +300,15 @@ Page({
       payload,
       triggerTagsText: normalizeTriggerTags(payload.triggerTags).join("、"),
       generatedAtText: formatGeneratedAt(payload.generatedAt),
-      errorMsg: "",
+      noticeText: "可先生成卡片，再预览确认后保存或转发。",
+      noticeTone: "info",
+    });
+  },
+
+  setActionNotice(tone, text) {
+    this.setData({
+      noticeTone: tone || "info",
+      noticeText: safeText(text),
     });
   },
 
@@ -406,9 +421,8 @@ Page({
     if (this.data.isGenerating || !this.data.hasData) return;
     this.setData({
       isGenerating: true,
-      errorMsg: "",
-      saveStatus: "",
     });
+    this.setActionNotice("info", "正在生成卡片，请稍候。");
     wx.showLoading({ title: "生成卡片中..." });
     try {
       await this.drawShareCardCanvas();
@@ -417,12 +431,11 @@ Page({
         imageTempPath: safeText(exported && exported.tempFilePath),
         generatedPreviewExpanded: false,
         selfiePreviewExpanded: false,
-        saveStatus: "卡片已生成，可保存到相册。",
       });
+      this.setActionNotice("success", "卡片已生成，可保存到相册或直接转发。");
       wx.showToast({ title: "生成成功", icon: "none" });
     } catch (err) {
-      const message = safeText(err && err.errMsg) || safeText(err && err.message) || "卡片生成失败";
-      this.setData({ errorMsg: message });
+      this.setActionNotice("error", normalizeErrorMessage(err, "卡片生成失败，请重试。"));
       wx.showToast({ title: "生成失败", icon: "none" });
     } finally {
       wx.hideLoading();
@@ -446,7 +459,7 @@ Page({
           fail: reject,
         });
       });
-      this.setData({ saveStatus: "已保存到相册。" });
+      this.setActionNotice("success", "已保存到相册。");
       wx.showToast({ title: "保存成功", icon: "none" });
     } catch (err) {
       const message = safeText(err && err.errMsg) || "";
@@ -462,7 +475,7 @@ Page({
           },
         });
       }
-      this.setData({ errorMsg: "保存失败，请检查相册权限后重试。" });
+      this.setActionNotice("error", "保存失败，请检查相册权限后重试。");
       wx.showToast({ title: "保存失败", icon: "none" });
     }
   },
@@ -470,6 +483,7 @@ Page({
   previewGeneratedCard() {
     const filePath = safeText(this.data.imageTempPath);
     if (!filePath) {
+      this.setActionNotice("error", "请先生成卡片，再进行预览。");
       wx.showToast({ title: "请先生成卡片", icon: "none" });
       return;
     }
@@ -477,6 +491,7 @@ Page({
       current: filePath,
       urls: [filePath],
     });
+    this.setActionNotice("info", "已打开预览，可检查后再保存或转发。");
   },
 
   toggleGeneratedPreview() {
@@ -500,17 +515,28 @@ Page({
     });
   },
 
+  handleShareFriendTap() {
+    this.setActionNotice("info", "已调起微信好友转发面板。");
+  },
+
   onShareAppMessage() {
     const payload = this.data.payload || {};
     const query = buildShareQuery(payload);
     return {
       title: buildShareTitle(payload),
       path: query ? `/pages/share/index?${query}` : "/pages/share/index",
+      success: () => {
+        this.setActionNotice("success", "已完成微信好友转发。");
+      },
+      fail: () => {
+        this.setActionNotice("error", "转发未成功，请稍后重试。");
+      },
     };
   },
 
   onShareTimeline() {
     const payload = this.data.payload || {};
+    this.setActionNotice("info", "请在右上角菜单继续分享到朋友圈。");
     return {
       title: buildShareTitle(payload),
       query: buildShareQuery(payload),

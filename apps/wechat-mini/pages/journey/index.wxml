@@ -2,7 +2,9 @@
   <view class="card shell-hero">
     <view class="section-head">
       <view class="section-head-copy">
+        <view class="section-kicker">Journey Hub</view>
         <view class="shell-title">记录轨迹</view>
+        <view class="section-sub journey-hero-sub">把最近记录、周摘要和历史片段放在同一条回看路径里。</view>
       </view>
       <view class="shell-badge journey-hero-badge">
         <view class="journey-hero-badge-dot"></view>
@@ -32,6 +34,7 @@
     <view class="section-head">
       <view class="section-head-copy">
         <view class="section-title">本周回看</view>
+        <view class="section-sub">从周视角看你最近的情绪节奏。</view>
       </view>
       <view class="status-chip">{{weekInsightStatus}}</view>
     </view>
@@ -45,6 +48,7 @@
     <view class="section-head">
       <view class="section-head-copy">
         <view class="section-title">历史上的今天</view>
+        <view class="section-sub">默认收起，按需展开，不打断主线回看。</view>
       </view>
       <view class="today-history-head-actions">
         <view class="status-chip">{{todayHistory.statusText}}</view>
@@ -77,7 +81,9 @@
     <view class="section-head">
       <view class="section-head-copy">
         <view class="section-title">继续查看</view>
+        <view class="section-sub">按你当前关注点切到对应板块继续回看。</view>
       </view>
+      <view class="status-chip">快捷入口</view>
     </view>
     <view class="journey-entry-grid">
       <view
@@ -101,6 +107,7 @@
     <view class="section-head">
       <view class="section-head-copy">
         <view class="section-title">最近记录轨迹</view>
+        <view class="section-sub">默认展示最近 3 条记录，点击可直达详情。</view>
       </view>
       <view class="status-chip">{{recentStatus}}</view>
     </view>
@@ -124,6 +131,6 @@
       </view>
     </view>
 
-    <view wx:else class="empty-copy">完成更多记录后，这里会展示最近 3 条轨迹。</view>
+    <view wx:else class="empty-copy journey-empty-copy">完成更多记录后，这里会展示最近 3 条轨迹。</view>
   </view>
 </view>

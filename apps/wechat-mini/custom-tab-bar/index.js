@@ -19,8 +19,13 @@ Component({
   lifetimes: {
     attached() {
       try {
-        const windowInfo = typeof wx.getWindowInfo === "function" ? wx.getWindowInfo() : wx.getSystemInfoSync();
-        const windowWidth = Number(windowInfo && windowInfo.windowWidth) || Number(windowInfo && windowInfo.screenWidth) || 0;
+        const windowInfo = typeof wx.getWindowInfo === "function" ? wx.getWindowInfo() : {};
+        const deviceInfo = typeof wx.getDeviceInfo === "function" ? wx.getDeviceInfo() : {};
+        const windowWidth =
+          Number(windowInfo && windowInfo.windowWidth) ||
+          Number(windowInfo && windowInfo.screenWidth) ||
+          Number(deviceInfo && deviceInfo.screenWidth) ||
+          0;
         this.setData({
           isCompact: windowWidth > 0 && windowWidth <= 360,
         });

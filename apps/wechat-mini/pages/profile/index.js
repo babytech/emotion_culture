@@ -57,6 +57,7 @@ Page({
     errorMsg: "",
     quickActions: QUICK_ACTIONS,
     privacyCards: PRIVACY_CARDS,
+    privacyExpanded: false,
     feedbackEmail: FEEDBACK_EMAIL,
   },
 
@@ -193,6 +194,12 @@ Page({
     if (key === "settings") {
       this.goSettingsDetail();
     }
+  },
+
+  togglePrivacyExpanded() {
+    this.setData({
+      privacyExpanded: !this.data.privacyExpanded,
+    });
   },
 
   goHistory() {

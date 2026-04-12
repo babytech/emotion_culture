@@ -44,10 +44,14 @@ function detectRuntimeEnv() {
   const userAgent = getNavigatorUASafe();
 
   const isDevtools = platform === "devtools";
+  // Official HarmonyOS adaptation:
+  // 1) device: wx.getDeviceInfo().platform === "ohos"
+  // 2) devtools simulation: platform is "devtools" and system can be "HarmonyOS"
   const isOhosPlatform = platform === "ohos";
+  const isHarmonyDevtools = isDevtools && system === "HarmonyOS";
   const isHarmonySystem = systemLower.includes("harmonyos") || systemLower.includes("openharmony");
   const isOpenHarmonyUA = /openharmony/i.test(userAgent);
-  const isHarmonyOS = isOhosPlatform || isHarmonySystem || isOpenHarmonyUA;
+  const isHarmonyOS = isOhosPlatform || isHarmonyDevtools || isHarmonySystem || isOpenHarmonyUA;
 
   const clientPlatform = isHarmonyOS ? "mp-weixin-ohos" : "mp-weixin";
 

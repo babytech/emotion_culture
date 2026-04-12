@@ -1,3 +1,7 @@
+.journey-hero-sub {
+  margin-top: 14rpx;
+}
+
 .journey-hero-badge {
   position: relative;
   z-index: 1;
@@ -418,4 +422,24 @@
 .journey-today-tip {
   font-size: 21rpx;
   color: #9a816f;
+}
+
+.journey-empty-copy {
+  margin-top: 18rpx;
+  border: 2rpx dashed rgba(147, 37, 29, 0.12);
+  background: rgba(255, 248, 239, 0.7);
+}
+
+@media (max-width: 360px) {
+  .journey-hero-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .journey-entry-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .journey-entry-card-featured {
+    grid-column: auto;
+  }
 }

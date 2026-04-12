@@ -14,11 +14,10 @@ Page({
       this.openerEventChannel = this.getOpenerEventChannel();
     }
     try {
-      const systemInfo = wx.getSystemInfoSync();
-      const model = `${systemInfo.model || ""}`.toLowerCase();
-      const system = `${systemInfo.system || ""}`.toLowerCase();
-      const windowHeight = Number(systemInfo.windowHeight || 0);
-      const windowWidth = Number(systemInfo.windowWidth || 0);
+      const windowInfo = typeof wx.getWindowInfo === "function" ? wx.getWindowInfo() : {};
+      const deviceInfo = typeof wx.getDeviceInfo === "function" ? wx.getDeviceInfo() : {};
+      const windowHeight = Number(windowInfo.windowHeight || windowInfo.screenHeight || deviceInfo.screenHeight || 0);
+      const windowWidth = Number(windowInfo.windowWidth || windowInfo.screenWidth || deviceInfo.screenWidth || 0);
       const maxStageHeight = Math.max(360, windowHeight - 270);
       const portraitStageHeight = Math.round((windowWidth - 48) * 1.28);
       const stageHeightPx = Math.max(360, Math.min(maxStageHeight, portraitStageHeight));

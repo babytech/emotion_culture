@@ -2,7 +2,9 @@
   <view class="card shell-hero profile-hero">
     <view class="section-head">
       <view class="section-head-copy">
+        <view class="section-kicker">My Space</view>
         <view class="shell-title">我的空间</view>
+        <view class="section-sub profile-hero-sub">管理保存偏好、数据说明与反馈入口，减少来回跳转。</view>
       </view>
       <view class="shell-badge profile-hero-badge">
         <view class="profile-hero-badge-dot"></view>
@@ -34,7 +36,9 @@
     <view class="section-head">
       <view class="section-head-copy">
         <view class="section-title">快捷入口</view>
+        <view class="section-sub">常用操作放在一屏完成，避免多层跳转。</view>
       </view>
+      <view class="status-chip">4 项</view>
     </view>
 
     <view class="profile-quick-grid">
@@ -59,7 +63,9 @@
     <view class="section-head">
       <view class="section-head-copy">
         <view class="section-title">历史保存</view>
+        <view class="section-sub">开关、清空与最近更新时间统一放在这里。</view>
       </view>
+      <view class="status-chip">{{saveHistory ? "已开启" : "已关闭"}}</view>
     </view>
 
     <view class="profile-switch-row">
@@ -75,7 +81,7 @@
       />
     </view>
 
-    <view wx:if="{{errorMsg}}" class="state-panel state-panel-muted">{{errorMsg}}</view>
+    <view wx:if="{{errorMsg}}" class="state-panel state-panel-muted profile-error-panel">{{errorMsg}}</view>
 
     <button class="btn profile-clear-btn" bindtap="handleClearHistory">清空全部历史</button>
   </view>
@@ -84,14 +90,21 @@
     <view class="section-head">
       <view class="section-head-copy">
         <view class="section-title">隐私与数据说明</view>
+        <view class="section-sub">提前说明保存边界，避免“保存了什么”的误解。</view>
+      </view>
+      <view class="profile-expand-toggle" bindtap="togglePrivacyExpanded">
+        {{privacyExpanded ? "收起" : "展开"}}
       </view>
     </view>
-    <view class="profile-privacy-grid">
+    <view wx:if="{{privacyExpanded}}" class="profile-privacy-grid">
       <view wx:for="{{privacyCards}}" wx:key="key" class="profile-privacy-card">
         <view class="profile-privacy-badge">{{item.badge}}</view>
         <view class="profile-privacy-title">{{item.title}}</view>
         <view class="profile-privacy-body">{{item.body}}</view>
       </view>
+    </view>
+    <view wx:else class="profile-privacy-collapsed text-muted">
+      已收起隐私说明，点击右上角“展开”可查看数据保存与删除边界。
     </view>
   </view>
 
@@ -99,6 +112,7 @@
     <view class="section-head">
       <view class="section-head-copy">
         <view class="section-title">反馈与支持</view>
+        <view class="section-sub">遇到问题时，直接把页面路径和操作步骤发给我们。</view>
       </view>
     </view>
     <view class="profile-support-card">

@@ -1,3 +1,7 @@
+.profile-hero-sub {
+  margin-top: 14rpx;
+}
+
 .profile-hero-badge {
   position: relative;
   z-index: 1;
@@ -274,6 +278,19 @@
   margin-top: 18rpx;
 }
 
+.profile-error-panel {
+  margin-top: 16rpx;
+  border: 2rpx dashed rgba(147, 37, 29, 0.18);
+  background: rgba(255, 244, 241, 0.86);
+}
+
+.profile-expand-toggle {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #a1261b;
+}
+
 .profile-privacy-grid {
   margin-top: 18rpx;
   display: grid;
@@ -314,6 +331,16 @@
   font-size: 23rpx;
   line-height: 1.68;
   color: #756252;
+}
+
+.profile-privacy-collapsed {
+  margin-top: 16rpx;
+  padding: 18rpx 16rpx;
+  border-radius: 18rpx;
+  border: 2rpx dashed rgba(147, 37, 29, 0.12);
+  background: rgba(255, 248, 239, 0.74);
+  font-size: 23rpx;
+  line-height: 1.65;
 }
 
 .profile-support-card {
@@ -376,4 +403,19 @@
   font-size: 22rpx;
   line-height: 1.56;
   color: #8e7867;
+}
+
+@media (max-width: 360px) {
+  .profile-hero-stage {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-quick-grid,
+  .profile-privacy-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-support-email {
+    font-size: 28rpx;
+  }
 }

@@ -1,29 +1,31 @@
 <view class="container page-root">
-  <view wx:if="{{!hasData}}" class="error card">
-    <view>{{errorMsg}}</view>
+  <view wx:if="{{!hasData}}" class="card error share-empty">
+    <view>{{noticeText}}</view>
     <button class="btn btn-secondary back-btn" bindtap="goBack">返回</button>
   </view>
 
   <block wx:if="{{hasData}}">
-    <view class="card header">
-      <view class="header-head">
-        <view>
-          <view class="header-kicker">导出工作台</view>
-          <view class="title">分享卡片导出</view>
+    <view class="card share-hero">
+      <view class="share-hero-head">
+        <view class="share-hero-copy">
+          <view class="share-hero-kicker">传播工作台</view>
+          <view class="share-hero-title">把今天的情绪卡片发出去</view>
+          <view class="share-hero-sub text-muted">先生成、再检查、最后保存或分享，整个路径一屏完成。</view>
         </view>
-        <view class="header-stamp">可保存</view>
+        <view class="share-hero-badge {{isGenerating ? 'share-hero-badge-live' : ''}}">
+          {{isGenerating ? "生成中" : "待分享"}}
+        </view>
       </view>
-      <view class="sub text-muted">生成基础分享图，可保存到相册，也可通过右上角菜单分享到朋友圈。</view>
-      <view class="meta-grid">
-        <view class="meta-pill">主情绪：{{payload.emotionLabel}}</view>
-        <view class="meta-pill">连续打卡：{{payload.currentStreak}} 天</view>
-        <view class="meta-pill">本月打卡：{{payload.monthCheckinDays}} 天</view>
+      <view class="share-meta-grid">
+        <view class="share-meta-pill">主情绪：{{payload.emotionLabel}}</view>
+        <view class="share-meta-pill">连续打卡：{{payload.currentStreak}} 天</view>
+        <view class="share-meta-pill">本月打卡：{{payload.monthCheckinDays}} 天</view>
       </view>
-      <view wx:if="{{generatedAtText}}" class="meta text-muted">生成时间：{{generatedAtText}}</view>
-      <view class="export-steps">
-        <view class="export-step">1 生成卡片</view>
-        <view class="export-step">2 预览检查</view>
-        <view class="export-step">3 保存或转发</view>
+      <view wx:if="{{generatedAtText}}" class="share-generated-at text-muted">生成时间：{{generatedAtText}}</view>
+      <view class="share-step-row">
+        <view class="share-step">1 生成卡片</view>
+        <view class="share-step">2 预览确认</view>
+        <view class="share-step">3 保存或转发</view>
       </view>
     </view>
 
@@ -31,69 +33,73 @@
       <canvas canvas-id="shareCardCanvas" class="render-canvas" />
     </view>
 
-    <view class="card content-wrap content-paper">
-      <view class="content-kicker">卡片文案</view>
-      <view class="content-line">
+    <view class="card share-content">
+      <view class="share-section-kicker">卡片文案</view>
+      <view class="share-content-line">
         主情绪：{{payload.emotionLabel}}
         <text wx:if="{{payload.emotionCode}}">（{{payload.emotionCode}}）</text>
       </view>
-      <view wx:if="{{triggerTagsText}}" class="content-line">触发标签：{{triggerTagsText}}</view>
+      <view wx:if="{{triggerTagsText}}" class="share-content-line">触发标签：{{triggerTagsText}}</view>
 
-      <view class="content-section-title">情绪概述</view>
-      <view class="content-text">{{payload.emotionOverview || "暂无情绪概述。"}}</view>
+      <view class="share-section-title">情绪概述</view>
+      <view class="share-content-text">{{payload.emotionOverview || "暂无情绪概述。"}}</view>
 
-      <view class="content-section-title">诗词回应</view>
-      <view class="content-sub">{{payload.poet || "诗词回应"}}</view>
-      <view class="content-text">{{payload.poemText || "暂无诗词内容。"}}</view>
+      <view class="share-section-title">诗词回应</view>
+      <view class="share-content-sub">{{payload.poet || "诗词回应"}}</view>
+      <view class="share-content-text">{{payload.poemText || "暂无诗词内容。"}}</view>
 
-      <view class="content-section-title">国潮慰藉</view>
-      <view class="content-sub">{{payload.guochaoName || "国潮伙伴"}}</view>
-      <view class="content-text">{{payload.comfort || "暂无慰藉内容。"}}</view>
+      <view class="share-section-title">国潮慰藉</view>
+      <view class="share-content-sub">{{payload.guochaoName || "国潮伙伴"}}</view>
+      <view class="share-content-text">{{payload.comfort || "暂无慰藉内容。"}}</view>
 
-      <view class="content-section-title">今日建议</view>
-      <view class="content-text">{{payload.dailySuggestion || "保持稳定作息，照顾好自己。"}}</view>
+      <view class="share-section-title">今日建议</view>
+      <view class="share-content-text">{{payload.dailySuggestion || "保持稳定作息，照顾好自己。"}}</view>
     </view>
 
-    <view wx:if="{{payload.userImageUrl}}" class="card preview-wrap preview-selfie">
-      <view class="preview-head" bindtap="toggleSelfiePreview">
-        <view class="preview-title">用户自拍图片预览</view>
-        <view class="preview-toggle">{{selfiePreviewExpanded ? '收起' : '展开'}}</view>
+    <view wx:if="{{payload.userImageUrl}}" class="card share-preview-card share-preview-selfie">
+      <view class="share-preview-head" bindtap="toggleSelfiePreview">
+        <view class="share-preview-title">自拍原图预览</view>
+        <view class="share-preview-toggle">{{selfiePreviewExpanded ? "收起" : "展开"}}</view>
       </view>
-      <view class="preview-sub">这里展示的是用户原始自拍，不会覆盖已生成的卡片内容。</view>
+      <view class="share-preview-sub">用于核对原图，不会覆盖你生成的分享卡片。</view>
       <view wx:if="{{selfiePreviewExpanded}}" class="selfie-box">
         <image class="selfie-image" mode="aspectFit" src="{{payload.userImageUrl}}" />
       </view>
     </view>
 
-    <view wx:if="{{imageTempPath}}" class="card preview-wrap preview-generated">
-      <view class="preview-head" bindtap="toggleGeneratedPreview">
-        <view class="preview-title">已生成卡片预览</view>
-        <view class="preview-toggle">{{generatedPreviewExpanded ? '收起' : '展开'}}</view>
+    <view wx:if="{{imageTempPath}}" class="card share-preview-card share-preview-generated">
+      <view class="share-preview-head" bindtap="toggleGeneratedPreview">
+        <view class="share-preview-title">已生成卡片预览</view>
+        <view class="share-preview-toggle">{{generatedPreviewExpanded ? "收起" : "展开"}}</view>
       </view>
-      <view class="preview-sub">建议先展开检查版面和内容，再决定保存或转发。</view>
+      <view class="share-preview-sub">建议先展开检查版面和文案，再决定保存或转发。</view>
       <image wx:if="{{generatedPreviewExpanded}}" class="preview-image" mode="widthFix" src="{{imageTempPath}}" />
     </view>
 
-    <view wx:if="{{errorMsg}}" class="error card">{{errorMsg}}</view>
-    <view wx:if="{{saveStatus}}" class="status card">{{saveStatus}}</view>
+    <view wx:if="{{noticeText}}" class="card share-notice share-notice-{{noticeTone}}">{{noticeText}}</view>
 
-    <view class="card action-panel">
-      <view class="content-kicker">导出操作</view>
-      <view class="action-note text-muted">建议先生成卡片并预览确认。转发给朋友可点下方按钮，分享到朋友圈请使用右上角菜单。</view>
-      <view class="action-grid">
+    <view class="card share-action-panel">
+      <view class="share-section-kicker">导出操作</view>
+      <view class="share-action-note text-muted">生成卡片是主动作。朋友圈分享请从右上角“...”进入。</view>
+      <view class="share-action-grid">
         <button
-          class="btn btn-primary action-btn action-btn-grid"
+          class="btn btn-primary share-action-btn share-action-btn-main"
           loading="{{isGenerating}}"
           disabled="{{isGenerating}}"
           bindtap="generateCard"
         >
           生成分享卡片
         </button>
-        <button class="btn btn-secondary action-btn action-btn-grid" bindtap="saveCardToAlbum">保存到相册</button>
-        <button class="btn btn-secondary action-btn action-btn-grid" bindtap="previewGeneratedCard">预览生成图片</button>
-        <button class="btn btn-secondary action-btn action-btn-grid" open-type="share">转发给微信好友</button>
+        <button class="btn btn-secondary share-action-btn" bindtap="saveCardToAlbum">保存到相册</button>
+        <button class="btn btn-secondary share-action-btn" bindtap="previewGeneratedCard">预览生成图片</button>
+        <button class="btn btn-secondary share-action-btn" open-type="share" bindtap="handleShareFriendTap">
+          转发给微信好友
+        </button>
       </view>
-      <view class="timeline-hint">分享到朋友圈：点击右上角“...”后选择“分享到朋友圈”</view>
+      <view class="share-timeline-tip">
+        <view class="share-timeline-tip-title">分享到朋友圈</view>
+        <view class="share-timeline-tip-sub">点击右上角“...”后，选择“分享到朋友圈”。</view>
+      </view>
     </view>
   </block>
 </view>
