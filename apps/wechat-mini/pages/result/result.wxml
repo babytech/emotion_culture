@@ -228,15 +228,35 @@
       <view class="section-head">
         <view class="section-head-copy">
           <view class="section-title">继续查看</view>
+          <view class="section-sub result-card-sub">切换到对应板块继续回看，不用返回上一步。</view>
         </view>
+        <view class="section-action-badge">导航</view>
       </view>
       <view class="action-grid">
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goHomeTab">首页</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goJourneyTab">记录页</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goCalendar">情绪日历</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goReport">周报复盘</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goHistory">全部历史</button>
-        <button class="btn btn-secondary result-bottom-btn" bindtap="goFavorites">我的收藏</button>
+        <button class="btn btn-secondary result-bottom-btn result-bottom-btn-home" bindtap="goHomeTab">
+          <view class="result-nav-btn-title">首页</view>
+          <view class="result-nav-btn-sub">看今日摘要</view>
+        </button>
+        <button class="btn btn-secondary result-bottom-btn result-bottom-btn-journey" bindtap="goJourneyTab">
+          <view class="result-nav-btn-title">记录页</view>
+          <view class="result-nav-btn-sub">看轨迹中枢</view>
+        </button>
+        <button class="btn btn-secondary result-bottom-btn result-bottom-btn-calendar" bindtap="goCalendar">
+          <view class="result-nav-btn-title">情绪日历</view>
+          <view class="result-nav-btn-sub">看月视图</view>
+        </button>
+        <button class="btn btn-secondary result-bottom-btn result-bottom-btn-report" bindtap="goReport">
+          <view class="result-nav-btn-title">周报复盘</view>
+          <view class="result-nav-btn-sub">看本周洞察</view>
+        </button>
+        <button class="btn btn-secondary result-bottom-btn result-bottom-btn-history" bindtap="goHistory">
+          <view class="result-nav-btn-title">全部历史</view>
+          <view class="result-nav-btn-sub">看详情列表</view>
+        </button>
+        <button class="btn btn-secondary result-bottom-btn result-bottom-btn-favorites" bindtap="goFavorites">
+          <view class="result-nav-btn-title">我的收藏</view>
+          <view class="result-nav-btn-sub">看已收藏内容</view>
+        </button>
       </view>
     </view>
   </block>
@@ -287,24 +307,28 @@
     <view class="result-action-bar-head">
       <view class="result-action-bar-copy">
         <view class="result-action-bar-badge">快捷动作</view>
-        <view class="result-action-bar-title">接下来想怎么继续</view>
+        <view class="result-action-bar-title">下一步直接做什么</view>
       </view>
       <view class="result-action-bar-sub">保留本次结果</view>
     </view>
+    <view class="result-action-guide">
+      <view class="result-action-guide-pill">先再次分析，再看历史趋势</view>
+      <view class="result-action-guide-pill">或直接生成分享卡</view>
+    </view>
     <view class="result-action-grid">
-      <button class="result-action-btn result-action-btn-primary" bindtap="backHome">
+      <button class="result-action-btn result-action-btn-primary result-action-btn-reanalyze" bindtap="backHome">
         <view class="result-action-btn-title">再次分析</view>
         <view class="result-action-btn-sub">回到工作台</view>
       </button>
-      <button class="result-action-btn" bindtap="goStyleStudio">
+      <button class="result-action-btn result-action-btn-style" bindtap="goStyleStudio">
         <view class="result-action-btn-title">换风格</view>
         <view class="result-action-btn-sub">去风格页</view>
       </button>
-      <button class="result-action-btn" bindtap="openEmailSheet">
+      <button class="result-action-btn result-action-btn-email" bindtap="openEmailSheet">
         <view class="result-action-btn-title">发邮箱</view>
         <view class="result-action-btn-sub">发送结果</view>
       </button>
-      <button class="result-action-btn" bindtap="goShareCard">
+      <button class="result-action-btn result-action-btn-share" bindtap="goShareCard">
         <view class="result-action-btn-title">分享</view>
         <view class="result-action-btn-sub">生成分享卡</view>
       </button>
