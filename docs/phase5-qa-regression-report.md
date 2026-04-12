@@ -2,7 +2,7 @@
 
 - 执行时间(UTC+8): `2026-04-12`
 - 代码仓库: `/Users/babytech/github/emotion_culture`
-- 总体结果: **执行中（主链路真机回归已补齐，专项边界验证待继续）**
+- 总体结果: **已通过（Phase5 全量真机回归通过）**
 
 ## 文档说明
 
@@ -15,14 +15,14 @@
 - [phase5-implementation-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-implementation-checklist.md)
 - [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md)
 
-## 分任务汇总（执行中）
+## 分任务汇总（已完成）
 
 | QA 任务 | 通过/总数 | 结果 |
 |---|---:|---|
 | QA-511 | 核心项通过 | 已通过 |
 | QA-521 | 8/8 | 已通过 |
 | QA-531 | 4/4 | 本轮新增用例通过 |
-| QA-532 | 6/9（展示链路通过，专项边界待测） | 执行中 |
+| QA-532 | 9/9 | 已通过 |
 | QA-541 | 25/25（结果页 + 首页 + 分享页 + 记录/我的四轮） | 已通过 |
 
 ## 最新真机进展（截至 2026-04-12）
@@ -50,13 +50,14 @@
 - 分享页传播感与动作区视觉回归通过（`CASE-543-S1` ~ `CASE-543-S7` 全部 PASS）
 - 记录页 / 我的页视觉细节统一真机回归通过（`CASE-544-P1` ~ `CASE-544-P6` 全部 PASS）
 - 后端已补“历史上的今天”AI 网关候选解析与事实/轻文案分层（`BE-532/BE-533` 代码完成）
+- `CASE-532-H7` ~ `CASE-532-H9` 专项边界回归通过（缓存命中 / 搜索失败降级 / 审核拦截）
 
 配套说明：
 
 - 上述结果与 [phase5-m1-device-smoke-checklist.md](/Users/babytech/github/emotion_culture/docs/phase5-m1-device-smoke-checklist.md) 中最新复测项一致
 - 自拍页“重拍 / 使用这张”真机链路此前也已通过
 - 自拍清晰度与 `FACE_TOO_BLUR / FACE_NOT_FOUND` 调优已在最新体验版 + 最新后端上完成专项回归
-- `QA-532` 当前已完成展示主链路（6/9），缓存命中 / 搜索失败降级 / 审核拦截专项回归仍待继续补测
+- `QA-532` 已完成展示链路 + 三项专项边界回归（9/9）
 - `QA-541` 已完成四轮视觉真机回归并通过（结果页 + 首页 + 分享页 + 记录/我的页）
 
 ## 计划回归范围
@@ -121,9 +122,9 @@
 | CASE-532-H4 | QA-532 | 结果页展示“首页 / 记录页”直达入口 | PASS | TBD | 真机已通过 |
 | CASE-532-H5 | QA-532 | `2026-04-12` 在 `seed` 模式下展示当天历史内容 | PASS | TBD | 真机已通过 |
 | CASE-532-H6 | QA-532 | 分析完成后切至首页 / 记录页自动展开历史上的今天 | PASS | TBD | 真机已通过 |
-| CASE-532-H7 | QA-532 | 同日二次请求命中缓存，状态含 `cache_hit=true` | PENDING | TBD | 待专项复测 |
-| CASE-532-H8 | QA-532 | AI 检索失败时返回 `degraded/empty`，首页不卡主链路 | PENDING | TBD | 待专项复测 |
-| CASE-532-H9 | QA-532 | 敏感关键词命中时返回 `filtered`，不向前端暴露内容正文 | PENDING | TBD | 待专项复测 |
+| CASE-532-H7 | QA-532 | 同日二次请求命中缓存，状态含 `cache_hit=true` | PASS | TBD | 真机已通过 |
+| CASE-532-H8 | QA-532 | AI 检索失败时返回 `degraded/empty`，首页不卡主链路 | PASS | TBD | 真机已通过 |
+| CASE-532-H9 | QA-532 | 敏感关键词命中时返回 `filtered`，不向前端暴露内容正文 | PASS | TBD | 真机已通过 |
 | CASE-522-S1 | QA-521 | 自拍清晰度与人脸质检调优回归 | PASS | TBD | 真机已通过 |
 | CASE-541-R1 | QA-541 | 结果页“继续查看”导航区层级清晰 | PASS | TBD | 真机已通过 |
 | CASE-541-R2 | QA-541 | 结果页“快捷动作”层级与强调正确 | PASS | TBD | 真机已通过 |
