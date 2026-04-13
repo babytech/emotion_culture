@@ -1,3 +1,6 @@
+from enum import Enum
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 from app.schemas.analyze import ConfidenceLevel, InputMode, ResultCard
@@ -52,3 +55,35 @@ class DeleteHistoryResponse(BaseModel):
     success: bool
     deleted_count: int = 0
     message: str
+
+
+class HistoryTimelineType(str, Enum):
+    ALL = "all"
+    EMOTION = "emotion"
+    QUIZ = "quiz"
+
+
+class HistoryTimelineItemType(str, Enum):
+    EMOTION = "emotion"
+    QUIZ = "quiz"
+
+
+class HistoryTimelineItem(BaseModel):
+    timeline_id: str
+    item_type: HistoryTimelineItemType
+    occurred_at: str
+    title: str
+    subtitle: str = ""
+    emotion_history_id: Optional[str] = None
+    quiz_record_id: Optional[str] = None
+    emotion_code: Optional[str] = None
+    emotion_label: Optional[str] = None
+    quiz_course: Optional[str] = None
+    quiz_score: Optional[int] = None
+    quiz_grade: Optional[str] = None
+
+
+class HistoryTimelineResponse(BaseModel):
+    timeline_type: HistoryTimelineType = HistoryTimelineType.ALL
+    items: list[HistoryTimelineItem] = Field(default_factory=list)
+    total: int = 0

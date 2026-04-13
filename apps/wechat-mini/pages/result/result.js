@@ -196,6 +196,35 @@ function mapInputModeLabel(mode) {
   return safeText(mode) || "输入";
 }
 
+function buildStudyQuizLinkInfo(request) {
+  const source = safeText(request && (request.analysis_source || request.source));
+  const quizRecordId = safeText(request && request.study_quiz_record_id);
+  if (source !== "study_quiz" && !quizRecordId) {
+    return {
+      linked: false,
+      title: "",
+      text: "",
+    };
+  }
+
+  const rawCourse = safeText(request && request.study_quiz_course).toLowerCase();
+  const courseLabel = rawCourse === "english" ? "英语" : "学习";
+  const score = Number(request && request.study_quiz_score);
+  const grade = safeText(request && request.study_quiz_grade);
+  let scoreText = "已完成";
+  if (Number.isFinite(score) && score > 0) {
+    scoreText = `${score} 分${grade ? `（${grade}）` : ""}`;
+  } else if (grade) {
+    scoreText = `等级 ${grade}`;
+  }
+
+  return {
+    linked: true,
+    title: "学习节奏联动",
+    text: `你刚完成${courseLabel}小测（${scoreText}）。这次建议先做 20 分钟可完成的小任务，再进入更难内容。`,
+  };
+}
+
 function buildResultViewModel(response) {
   const resultCard = pickResultCard(response);
   const systemFields = pickSystemFields(response);
@@ -535,6 +564,9 @@ Page({
     guochaoFavoriteBadgeText: "",
     requestTextPreview: "",
     inputModeBadges: [],
+    studyQuizLinked: false,
+    studyQuizHintTitle: "",
+    studyQuizHintText: "",
   },
 
   onLoad() {
@@ -549,6 +581,7 @@ Page({
 
     this._analysisContext = context;
     const request = pickRequest(context);
+    const studyQuizLink = buildStudyQuizLinkInfo(request);
     const userImagePreviewUrl = pickUserImageUrl(request) || pickUserImageTempPath(request);
     const viewModel = buildResultViewModel(response);
     const poemFavoriteTargetId = buildFavoriteTargetId(FAVORITE_TYPE_POEM, [
@@ -625,6 +658,9 @@ Page({
       guochaoFavoriteBadgeText: "",
       requestTextPreview: safeText(request.text),
       inputModeBadges: Array.isArray(request.input_modes) ? request.input_modes.map(mapInputModeLabel) : [],
+      studyQuizLinked: !!studyQuizLink.linked,
+      studyQuizHintTitle: studyQuizLink.title,
+      studyQuizHintText: studyQuizLink.text,
     });
     this.refreshRetentionSnapshot();
     this.refreshFavoriteStatus();

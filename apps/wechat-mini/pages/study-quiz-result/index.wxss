@@ -1,0 +1,136 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.loading-card,
+.error-card {
+  padding: 20rpx;
+}
+
+.error-card {
+  color: #8f1f1f;
+  border-color: rgba(180, 33, 33, 0.35);
+  background: #fff0ef;
+}
+
+.result-hero {
+  padding: 24rpx 22rpx;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 160, 91, 0.2), transparent 32%),
+    linear-gradient(160deg, rgba(255, 251, 245, 0.98), rgba(246, 233, 214, 0.92));
+  border: 2rpx solid rgba(147, 37, 29, 0.08);
+}
+
+.result-hero-good {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(189, 230, 176, 0.26), transparent 32%),
+    linear-gradient(160deg, rgba(245, 253, 241, 0.98), rgba(225, 244, 216, 0.92));
+}
+
+.result-hero-normal {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 221, 164, 0.25), transparent 32%),
+    linear-gradient(160deg, rgba(255, 251, 245, 0.98), rgba(247, 236, 217, 0.92));
+}
+
+.result-hero-low {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 187, 178, 0.24), transparent 34%),
+    linear-gradient(160deg, rgba(255, 245, 244, 0.98), rgba(251, 228, 225, 0.92));
+}
+
+.result-kicker {
+  font-size: 22rpx;
+  letter-spacing: 2rpx;
+  color: #8b7462;
+}
+
+.result-score {
+  margin-top: 8rpx;
+  font-size: 58rpx;
+  line-height: 1.06;
+  font-weight: 700;
+  color: #5a3520;
+}
+
+.result-grade {
+  margin-top: 8rpx;
+  font-size: 28rpx;
+  color: #7a5540;
+}
+
+.result-meta {
+  margin-top: 10rpx;
+  font-size: 23rpx;
+  color: #8f7869;
+}
+
+.result-pill-row {
+  margin-top: 16rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.section-card {
+  padding: 22rpx 20rpx;
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #4f2f21;
+}
+
+.summary-line {
+  margin-top: 10rpx;
+  font-size: 25rpx;
+  color: #4c392b;
+}
+
+.hint-line {
+  color: #7a5c45;
+  line-height: 1.72;
+}
+
+.wrong-list {
+  margin-top: 12rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.wrong-item {
+  padding: 14rpx 14rpx 12rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid rgba(147, 37, 29, 0.09);
+  background: rgba(255, 248, 239, 0.84);
+}
+
+.wrong-stem {
+  font-size: 25rpx;
+  line-height: 1.66;
+  color: #4d3628;
+}
+
+.wrong-line {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  line-height: 1.56;
+  color: #7d6959;
+}
+
+.empty-copy {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #8c7867;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12rpx;
+  margin-top: 4rpx;
+}

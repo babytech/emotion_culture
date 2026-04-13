@@ -1,0 +1,157 @@
+.page-root {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.quiz-hero {
+  padding: 24rpx 22rpx;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 160, 91, 0.2), transparent 32%),
+    linear-gradient(160deg, rgba(255, 251, 245, 0.98), rgba(246, 233, 214, 0.92));
+  border: 2rpx solid rgba(147, 37, 29, 0.08);
+}
+
+.quiz-kicker {
+  font-size: 22rpx;
+  letter-spacing: 2rpx;
+  color: #8b7462;
+}
+
+.quiz-title {
+  margin-top: 8rpx;
+  font-size: 40rpx;
+  line-height: 1.16;
+  font-weight: 700;
+  color: #5a3520;
+}
+
+.quiz-sub {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  line-height: 1.7;
+  color: #7d6959;
+}
+
+.quiz-meta-row {
+  margin-top: 14rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+}
+
+.quiz-action-row {
+  margin-top: 18rpx;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12rpx;
+}
+
+.loading-card,
+.error-card {
+  padding: 20rpx;
+}
+
+.error-card {
+  color: #8f1f1f;
+  border-color: rgba(180, 33, 33, 0.35);
+  background: #fff0ef;
+}
+
+.question-card {
+  padding: 24rpx 22rpx;
+}
+
+.question-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+
+.question-index {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: #643d25;
+}
+
+.question-type {
+  font-size: 21rpx;
+  color: #8f6d56;
+  background: rgba(247, 230, 199, 0.6);
+  border-radius: 999rpx;
+  padding: 8rpx 14rpx;
+}
+
+.question-stem {
+  margin-top: 14rpx;
+  font-size: 28rpx;
+  line-height: 1.7;
+  color: #433225;
+}
+
+.option-list {
+  margin-top: 14rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.option-chip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10rpx;
+  padding: 14rpx 16rpx;
+  border-radius: 16rpx;
+  border: 2rpx solid rgba(147, 37, 29, 0.08);
+  background: rgba(255, 249, 239, 0.86);
+}
+
+.option-chip-active {
+  border-color: rgba(161, 38, 27, 0.34);
+  background: rgba(251, 237, 214, 0.95);
+  box-shadow: 0 8rpx 18rpx rgba(147, 37, 29, 0.08);
+}
+
+.option-item {
+  font-size: 24rpx;
+  color: #8a5c33;
+  min-width: 36rpx;
+}
+
+.option-content {
+  flex: 1;
+  font-size: 25rpx;
+  line-height: 1.6;
+  color: #4a3426;
+}
+
+.fill-list {
+  margin-top: 14rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.fill-row {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.fill-label {
+  width: 84rpx;
+  font-size: 23rpx;
+  color: #7a6556;
+}
+
+.fill-input {
+  flex: 1;
+  height: 72rpx;
+  border-radius: 14rpx;
+  border: 2rpx solid rgba(147, 37, 29, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 0 16rpx;
+  font-size: 26rpx;
+  color: #412f22;
+}

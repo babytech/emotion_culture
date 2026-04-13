@@ -1,11 +1,4 @@
-const { clearHistory, deleteHistoryItem, listHistory } = require("../../services/api");
-
-const INPUT_MODE_LABELS = {
-  text: "文字",
-  voice: "语音",
-  selfie: "自拍",
-  pc_camera: "摄像头",
-};
+const { clearHistory, deleteHistoryItem, getHistoryTimeline } = require("../../services/api");
 
 function formatDateTime(value) {
   const raw = (value || "").trim();
@@ -25,67 +18,49 @@ function formatDateTime(value) {
   return raw.replace("T", " ").replace("Z", "");
 }
 
-function toModeText(modes) {
-  if (!Array.isArray(modes) || modes.length === 0) {
-    return "未知输入";
-  }
-
-  const labels = [];
-  modes.forEach((mode) => {
-    const label = INPUT_MODE_LABELS[mode] || mode;
-    if (!labels.includes(label)) labels.push(label);
-  });
-  return labels.join(" / ");
-}
-
-function toSecondaryText(items) {
-  if (!Array.isArray(items) || items.length === 0) {
-    return "暂无";
-  }
-  const labels = [];
-  items.forEach((item) => {
-    const label = (item && item.label) || (item && item.code) || "";
-    if (label && !labels.includes(label)) {
-      labels.push(label);
-    }
-  });
-  return labels.length ? labels.join("、") : "暂无";
-}
-
 Page({
   data: {
     items: [],
     total: 0,
+    timelineType: "all",
+    filterTabs: [
+      { key: "all", label: "全部" },
+      { key: "emotion", label: "情绪分析" },
+      { key: "quiz", label: "伴学小测" },
+    ],
     isLoading: false,
     isClearing: false,
     errorMsg: "",
   },
 
   onShow() {
-    this.loadHistory();
+    this.loadTimeline();
   },
 
-  async loadHistory() {
+  async loadTimeline() {
     this.setData({
       isLoading: true,
       errorMsg: "",
     });
 
     try {
-      const result = await listHistory({ limit: 50, offset: 0 });
+      const result = await getHistoryTimeline({
+        type: this.data.timelineType,
+        limit: 80,
+        offset: 0,
+      });
       const rawItems = (result && result.items) || [];
-
       const items = rawItems.map((item) => ({
-        historyId: item.history_id || "",
-        requestId: item.request_id || "",
-        analyzedAt: item.analyzed_at || "",
-        displayTime: formatDateTime(item.analyzed_at),
-        primaryEmotionLabel:
-          (item.primary_emotion && (item.primary_emotion.label || item.primary_emotion.code)) || "未识别",
-        secondaryEmotionText: toSecondaryText(item.secondary_emotions),
-        emotionOverviewSummary: item.emotion_overview_summary || "暂无概述",
-        inputModesText: toModeText(item.input_modes),
-        mailSent: !!item.mail_sent,
+        timelineId: item.timeline_id || "",
+        itemType: item.item_type || "emotion",
+        displayTime: formatDateTime(item.occurred_at),
+        title: item.title || "未命名记录",
+        subtitle: item.subtitle || "",
+        emotionHistoryId: item.emotion_history_id || "",
+        quizRecordId: item.quiz_record_id || "",
+        quizScore: Number(item.quiz_score) || 0,
+        quizGrade: item.quiz_grade || "",
+        quizCourse: item.quiz_course || "",
       }));
 
       this.setData({
@@ -101,16 +76,41 @@ Page({
     }
   },
 
+  handleFilterChange(event) {
+    const nextType = ((event && event.currentTarget && event.currentTarget.dataset.type) || "").trim();
+    if (!nextType || nextType === this.data.timelineType) return;
+    this.setData({ timelineType: nextType }, () => {
+      this.loadTimeline();
+    });
+  },
+
   openDetail(event) {
-    const historyId = (event && event.currentTarget && event.currentTarget.dataset.id) || "";
-    if (!historyId) return;
+    const itemType = (event && event.currentTarget && event.currentTarget.dataset.type) || "";
+    const emotionHistoryId = (event && event.currentTarget && event.currentTarget.dataset.emotionId) || "";
+    const quizRecordId = (event && event.currentTarget && event.currentTarget.dataset.quizId) || "";
+
+    if (itemType === "quiz" && quizRecordId) {
+      wx.navigateTo({
+        url: `/pages/study-quiz-result/index?quiz_record_id=${encodeURIComponent(quizRecordId)}&from=history`,
+      });
+      return;
+    }
+    if (!emotionHistoryId) return;
     wx.navigateTo({
-      url: `/pages/history/detail?id=${encodeURIComponent(historyId)}`,
+      url: `/pages/history/detail?id=${encodeURIComponent(emotionHistoryId)}`,
     });
   },
 
   async handleDeleteItem(event) {
-    const historyId = (event && event.currentTarget && event.currentTarget.dataset.id) || "";
+    const itemType = (event && event.currentTarget && event.currentTarget.dataset.type) || "";
+    const historyId = (event && event.currentTarget && event.currentTarget.dataset.emotionId) || "";
+    if (itemType !== "emotion") {
+      wx.showToast({
+        title: "小测记录暂不支持单条删除",
+        icon: "none",
+      });
+      return;
+    }
     if (!historyId) return;
 
     const confirmed = await new Promise((resolve) => {
@@ -133,7 +133,7 @@ Page({
     try {
       await deleteHistoryItem(historyId);
       wx.showToast({ title: "已删除", icon: "none" });
-      await this.loadHistory();
+      await this.loadTimeline();
     } catch (err) {
       wx.showToast({
         title: (err && err.message) || "删除失败",
@@ -147,9 +147,9 @@ Page({
 
     const confirmed = await new Promise((resolve) => {
       wx.showModal({
-        title: "清空历史",
-        content: "将删除全部历史记录，是否继续？",
-        confirmText: "清空",
+        title: "清空情绪历史",
+        content: "将删除全部情绪分析历史记录，是否继续？",
+        confirmText: "清空情绪历史",
         cancelText: "取消",
         success(res) {
           resolve(!!(res && res.confirm));
@@ -167,10 +167,10 @@ Page({
       const result = await clearHistory();
       const deletedCount = Number(result && result.deleted_count) || 0;
       wx.showToast({
-        title: deletedCount > 0 ? `已清空 ${deletedCount} 条` : "历史记录已为空",
+        title: deletedCount > 0 ? `已清空 ${deletedCount} 条情绪记录` : "情绪历史已为空",
         icon: "none",
       });
-      await this.loadHistory();
+      await this.loadTimeline();
     } catch (err) {
       wx.showToast({
         title: (err && err.message) || "清空失败",

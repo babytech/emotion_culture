@@ -1,0 +1,77 @@
+<view class="container page-root">
+  <view class="card quiz-hero">
+    <view class="quiz-kicker">Study Quiz</view>
+    <view class="quiz-title">{{paperTitle || "英语伴学小测"}}</view>
+    <view class="quiz-sub">完成小测后可直接进入情绪分析，形成“学习节奏 + 情绪节奏”的连续复盘。</view>
+    <view class="quiz-meta-row">
+      <view class="status-chip">已答 {{answeredQuestions}} / {{totalQuestions}}</view>
+      <view class="status-chip">课程：英语</view>
+      <view wx:if="{{paperVersion}}" class="status-chip">版本 {{paperVersion}}</view>
+    </view>
+    <view class="quiz-action-row">
+      <button class="btn btn-primary" bindtap="submitQuiz" loading="{{isSubmitting}}" disabled="{{isSubmitting || isLoading}}">
+        提交并查看成绩
+      </button>
+      <button class="btn btn-secondary" bindtap="goAnalyzeDirectly">直接去情绪分析</button>
+    </view>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="card error-card">{{errorMsg}}</view>
+  <view wx:if="{{isLoading}}" class="card loading-card">试卷加载中...</view>
+
+  <block wx:if="{{!isLoading}}">
+    <view wx:for="{{questions}}" wx:key="questionId" wx:for-item="question" wx:for-index="qIndex" class="card question-card">
+      <view class="question-head">
+        <view class="question-index">第 {{qIndex + 1}} 题</view>
+        <view class="question-type">
+          {{question.type === "radio" ? "单选" : question.type === "check" ? "多选" : "填空"}}
+        </view>
+      </view>
+      <view class="question-stem">{{question.stem}}</view>
+
+      <view wx:if="{{question.type === 'radio'}}" class="option-list">
+        <view
+          wx:for="{{question.options}}"
+          wx:key="item"
+          wx:for-item="option"
+          class="option-chip {{option.item === question.selectedRadio ? 'option-chip-active' : ''}}"
+          data-qid="{{question.questionId}}"
+          data-option="{{option.item}}"
+          bindtap="handleRadioChange"
+        >
+          <text class="option-item">{{option.item}}.</text>
+          <text class="option-content">{{option.content}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{question.type === 'check'}}" class="option-list">
+        <view
+          wx:for="{{question.options}}"
+          wx:key="item"
+          wx:for-item="option"
+          class="option-chip {{option.selected ? 'option-chip-active' : ''}}"
+          data-qid="{{question.questionId}}"
+          data-option="{{option.item}}"
+          bindtap="handleCheckToggle"
+        >
+          <text class="option-item">{{option.item}}.</text>
+          <text class="option-content">{{option.content}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{question.type === 'fill'}}" class="fill-list">
+        <view wx:for="{{question.fillValues}}" wx:key="index" wx:for-item="fillValue" wx:for-index="fillIndex" class="fill-row">
+          <view class="fill-label">空 {{fillIndex + 1}}</view>
+          <input
+            class="fill-input"
+            placeholder="请输入答案"
+            value="{{fillValue}}"
+            data-qid="{{question.questionId}}"
+            data-idx="{{fillIndex}}"
+            bindinput="handleFillInput"
+          />
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

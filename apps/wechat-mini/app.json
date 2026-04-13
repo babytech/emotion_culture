@@ -3,6 +3,8 @@
     "pages/auth-entry/index",
     "pages/selfie-camera/index",
     "pages/home/index",
+    "pages/study-quiz/index",
+    "pages/study-quiz-result/index",
     "pages/journey/index",
     "pages/analyze/index",
     "pages/favorites/index",

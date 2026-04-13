@@ -27,6 +27,7 @@ const UPLOAD_MAX_RETRIES = 2;
 const UPLOAD_TEMP_URL_MAX_RETRIES = 1;
 const UPLOAD_RETRY_DELAY_MS = 360;
 const PENDING_TASK_STORAGE_KEY = "ec_pending_analyze_task";
+const ANALYZE_ENTRY_CONTEXT_STORAGE_KEY = "ec_analyze_entry_context_v1";
 
 function buildEmptyWorkspaceState() {
   return {
@@ -368,6 +369,12 @@ Page({
     uploadedImageTempUrl: "",
     uploadedAudioFileId: "",
     uploadedAudioTempUrl: "",
+    entrySource: "",
+    entryQuizRecordId: "",
+    entryQuizScore: 0,
+    entryQuizGrade: "",
+    entryQuizCourse: "",
+    entryHint: "",
   },
 
   onLoad() {
@@ -401,6 +408,7 @@ Page({
   onShow() {
     if (ensurePhase5Auth(ANALYZE_TAB)) return;
     setTabBarSelected(this, ANALYZE_TAB);
+    this.consumeAnalyzeEntryContext();
     if (this.consumeWorkspaceResetRequest()) {
       return;
     }
@@ -555,12 +563,51 @@ Page({
     this.resetPendingSubmissionState();
 
     this.setData(this.withWorkspaceMetrics(buildEmptyWorkspaceState()));
+    this.setData({
+      entrySource: "",
+      entryQuizRecordId: "",
+      entryQuizScore: 0,
+      entryQuizGrade: "",
+      entryQuizCourse: "",
+      entryHint: "",
+    });
 
     const app = getApp();
     if (app && app.globalData) {
       app.globalData.latestAnalyzeContext = null;
     }
     return true;
+  },
+
+  consumeAnalyzeEntryContext() {
+    let context = null;
+    try {
+      context = wx.getStorageSync(ANALYZE_ENTRY_CONTEXT_STORAGE_KEY);
+      wx.removeStorageSync(ANALYZE_ENTRY_CONTEXT_STORAGE_KEY);
+    } catch (err) {
+      context = null;
+    }
+    if (!context || typeof context !== "object") {
+      return;
+    }
+    const source = ((context && context.source) || "").trim();
+    if (source !== "study_quiz") {
+      return;
+    }
+    const quizScore = Number(context && context.quiz_score) || 0;
+    const quizGrade = ((context && context.quiz_grade) || "").trim();
+    const quizCourse = ((context && context.quiz_course) || "").trim();
+    const quizRecordId = ((context && context.quiz_record_id) || "").trim();
+    const scoreText = Number.isFinite(quizScore) ? `${quizScore} 分` : "未评分";
+    const gradeText = quizGrade ? `（${quizGrade}）` : "";
+    this.setData({
+      entrySource: "study_quiz",
+      entryQuizRecordId: quizRecordId,
+      entryQuizScore: quizScore,
+      entryQuizGrade: quizGrade,
+      entryQuizCourse: quizCourse,
+      entryHint: `已完成伴学小测：${scoreText}${gradeText}。现在开始情绪分析。`,
+    });
   },
 
   autoResumePendingAnalyzeTask() {
@@ -940,6 +987,11 @@ Page({
       return {
         text,
         input_modes: modes,
+        analysis_source: this.data.entrySource || "",
+        study_quiz_record_id: this.data.entryQuizRecordId || "",
+        study_quiz_score: this.data.entryQuizScore || 0,
+        study_quiz_grade: this.data.entryQuizGrade || "",
+        study_quiz_course: this.data.entryQuizCourse || "",
         image:
           imageFileId || imageTempUrl
             ? { url: imageTempUrl || undefined, file_id: imageFileId || undefined }
@@ -1012,6 +1064,8 @@ Page({
           version: "0.1.0",
           runtime_platform: runtimeEnv.platform || "",
           system: runtimeEnv.system || "",
+          source: this.data.entrySource || undefined,
+          study_quiz_record_id: this.data.entryQuizRecordId || undefined,
         },
       };
     };
@@ -1270,6 +1324,14 @@ Page({
         }),
         response: result,
       };
+      this.setData({
+        entrySource: "",
+        entryQuizRecordId: "",
+        entryQuizScore: 0,
+        entryQuizGrade: "",
+        entryQuizCourse: "",
+        entryHint: "",
+      });
       requestTodayHistoryFocus("analyze_completed");
 
       this.resetPendingSubmissionState();

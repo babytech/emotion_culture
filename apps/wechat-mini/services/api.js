@@ -397,6 +397,14 @@ function listHistory(options = {}) {
   return callViaContainer(`/api/history?limit=${limit}&offset=${offset}`, "GET");
 }
 
+function getHistoryTimeline(options = {}) {
+  const limit = Math.max(1, Math.min(Number(options.limit) || 20, 100));
+  const offset = Math.max(0, Number(options.offset) || 0);
+  const timelineType = String(options.type || options.timelineType || "all").trim().toLowerCase();
+  const normalizedType = timelineType === "emotion" || timelineType === "quiz" ? timelineType : "all";
+  return callViaContainer(`/api/history/timeline?type=${normalizedType}&limit=${limit}&offset=${offset}`, "GET");
+}
+
 function getHistoryDetail(historyId) {
   if (!historyId) {
     return Promise.reject(new Error("historyId is required"));
@@ -413,6 +421,45 @@ function deleteHistoryItem(historyId) {
 
 function clearHistory() {
   return callViaContainer("/api/history", "DELETE");
+}
+
+function getStudyQuizPaper(course = "english") {
+  const normalizedCourse = (course || "english").trim().toLowerCase() || "english";
+  return callViaContainer(`/api/study-quiz/paper?course=${encodeURIComponent(normalizedCourse)}`, "GET");
+}
+
+function submitStudyQuiz(payload) {
+  return callViaContainer("/api/study-quiz/submit", "POST", payload || {}, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 300,
+    retryOnNetwork: true,
+    networkRetryCount: 2,
+    networkRetryDelayMs: 320,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 2,
+    transientHttpRetryDelayMs: 500,
+  });
+}
+
+function listStudyQuizHistory(options = {}) {
+  const limit = Math.max(1, Math.min(Number(options.limit) || 20, 100));
+  const offset = Math.max(0, Number(options.offset) || 0);
+  return callViaContainer(`/api/study-quiz/history?limit=${limit}&offset=${offset}`, "GET");
+}
+
+function getStudyQuizHistoryDetail(quizRecordId) {
+  const value = (quizRecordId || "").trim();
+  if (!value) {
+    return Promise.reject(new Error("quizRecordId is required"));
+  }
+  return callViaContainer(`/api/study-quiz/history/${encodeURIComponent(value)}`, "GET");
+}
+
+function getStudyQuizWrongbook(options = {}) {
+  const limit = Math.max(1, Math.min(Number(options.limit) || 20, 100));
+  const offset = Math.max(0, Number(options.offset) || 0);
+  return callViaContainer(`/api/study-quiz/wrongbook?limit=${limit}&offset=${offset}`, "GET");
 }
 
 function getSettings() {
@@ -514,16 +561,22 @@ module.exports = {
   getAnalyzeTask,
   getFavoriteStatus,
   getHistoryDetail,
+  getHistoryTimeline,
   getMediaGenerateTask,
   getRetentionCalendar,
   getRetentionWeeklyReport,
+  getStudyQuizPaper,
+  getStudyQuizHistoryDetail,
+  getStudyQuizWrongbook,
   getTodayHistory,
   getRetentionWriteSettings,
   getSettings,
   listHistory,
+  listStudyQuizHistory,
   listFavorites,
   normalizeAssetUrl,
   createMediaGenerateTask,
+  submitStudyQuiz,
   sendEmail,
   upsertFavorite,
   updateRetentionWriteSettings,

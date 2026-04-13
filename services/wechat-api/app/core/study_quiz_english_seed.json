@@ -1,0 +1,271 @@
+{
+  "course": "english",
+  "title": "英语伴学小测（试点）",
+  "version": "2026.04.13",
+  "questions": [
+    {
+      "question_id": "eng_001",
+      "type": "radio",
+      "stem": "Read and choose different kind of word.",
+      "audio": "no",
+      "answer": "B",
+      "options": [
+        {
+          "item": "A",
+          "content": "two"
+        },
+        {
+          "item": "B",
+          "content": "too"
+        },
+        {
+          "item": "C",
+          "content": "ten"
+        },
+        {
+          "item": "D",
+          "content": "seven"
+        }
+      ],
+      "fills": [],
+      "tags": [
+        "词汇"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "eng_002",
+      "type": "radio",
+      "stem": "Read and choose different kind of word.",
+      "audio": "no",
+      "answer": "A",
+      "options": [
+        {
+          "item": "A",
+          "content": "good"
+        },
+        {
+          "item": "B",
+          "content": "run"
+        },
+        {
+          "item": "C",
+          "content": "hop"
+        },
+        {
+          "item": "D",
+          "content": "swim"
+        }
+      ],
+      "fills": [],
+      "tags": [
+        "词汇"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "eng_003",
+      "type": "radio",
+      "stem": "The elephant ___ tall.",
+      "audio": "no",
+      "answer": "C",
+      "options": [
+        {
+          "item": "A",
+          "content": "are"
+        },
+        {
+          "item": "B",
+          "content": "am"
+        },
+        {
+          "item": "C",
+          "content": "is"
+        }
+      ],
+      "fills": [],
+      "tags": [
+        "语法"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "eng_004",
+      "type": "radio",
+      "stem": "Ming can ___ a plane.",
+      "audio": "no",
+      "answer": "A",
+      "options": [
+        {
+          "item": "A",
+          "content": "hear"
+        },
+        {
+          "item": "B",
+          "content": "feel"
+        },
+        {
+          "item": "C",
+          "content": "taste"
+        }
+      ],
+      "fills": [],
+      "tags": [
+        "词汇"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "eng_005",
+      "type": "radio",
+      "stem": "What color are the rabbits? --- _______.",
+      "audio": "no",
+      "answer": "C",
+      "options": [
+        {
+          "item": "A",
+          "content": "It's white"
+        },
+        {
+          "item": "B",
+          "content": "They are lovely"
+        },
+        {
+          "item": "C",
+          "content": "They are white"
+        }
+      ],
+      "fills": [],
+      "tags": [
+        "句型"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "eng_006",
+      "type": "radio",
+      "stem": "Touch the doll. It's not rough. It's _______.",
+      "audio": "no",
+      "answer": "C",
+      "options": [
+        {
+          "item": "A",
+          "content": "soft"
+        },
+        {
+          "item": "B",
+          "content": "hard"
+        },
+        {
+          "item": "C",
+          "content": "smooth"
+        }
+      ],
+      "fills": [],
+      "tags": [
+        "词汇"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "eng_007",
+      "type": "check",
+      "stem": "Which of the following belongs to animals?",
+      "audio": "no",
+      "answer": "BC",
+      "options": [
+        {
+          "item": "A",
+          "content": "flower"
+        },
+        {
+          "item": "B",
+          "content": "elephant"
+        },
+        {
+          "item": "C",
+          "content": "fox"
+        },
+        {
+          "item": "D",
+          "content": "tree"
+        }
+      ],
+      "fills": [],
+      "tags": [
+        "分类"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "eng_008",
+      "type": "check",
+      "stem": "Choose proper greetings in class.",
+      "audio": "no",
+      "answer": "AC",
+      "options": [
+        {
+          "item": "A",
+          "content": "Hello!"
+        },
+        {
+          "item": "B",
+          "content": "Pencil"
+        },
+        {
+          "item": "C",
+          "content": "Good morning!"
+        },
+        {
+          "item": "D",
+          "content": "Banana"
+        }
+      ],
+      "fills": [],
+      "tags": [
+        "语用"
+      ],
+      "difficulty": "easy"
+    },
+    {
+      "question_id": "eng_009",
+      "type": "fill",
+      "stem": "Can you hear the bird? --- ____, I can't.",
+      "audio": "no",
+      "answer": "No",
+      "options": [],
+      "fills": [
+        {
+          "item": "1",
+          "content": "___"
+        }
+      ],
+      "tags": [
+        "句型"
+      ],
+      "difficulty": "normal"
+    },
+    {
+      "question_id": "eng_010",
+      "type": "fill",
+      "stem": "I have a ___ and a ___.",
+      "audio": "no",
+      "answer": "pen book",
+      "options": [],
+      "fills": [
+        {
+          "item": "1",
+          "content": "p___"
+        },
+        {
+          "item": "2",
+          "content": "b___"
+        }
+      ],
+      "tags": [
+        "拼写"
+      ],
+      "difficulty": "easy"
+    }
+  ]
+}

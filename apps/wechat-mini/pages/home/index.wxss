@@ -398,6 +398,14 @@
   box-sizing: border-box;
 }
 
+.home-hero-quick-link {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #a1261b;
+  text-align: right;
+}
+
 .home-hero-btn-primary {
   position: relative;
   overflow: hidden;

@@ -246,6 +246,13 @@
     0 10rpx 22rpx rgba(124, 76, 40, 0.08);
 }
 
+.result-block-study-quiz {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(189, 230, 176, 0.2), transparent 34%),
+    linear-gradient(135deg, rgba(247, 253, 243, 0.96), rgba(233, 246, 225, 0.92));
+  border-color: rgba(93, 152, 81, 0.2);
+}
+
 .result-block-title {
   font-size: 24rpx;
   font-weight: 700;

@@ -32,6 +32,11 @@
     </view>
   </view>
 
+  <view wx:if="{{entrySource === 'study_quiz' && entryHint}}" class="card analyze-entry-card">
+    <view class="analyze-entry-title">来自伴学小测</view>
+    <view class="analyze-entry-text">{{entryHint}}</view>
+  </view>
+
   <view class="section section-thought card">
     <view class="section-head section-head-tight">
       <view class="section-head-main">

@@ -8,6 +8,27 @@
   padding-bottom: 260rpx;
 }
 
+.analyze-entry-card {
+  padding: 18rpx 20rpx;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(211, 160, 91, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(255, 251, 245, 0.98), rgba(247, 238, 225, 0.94));
+  border: 2rpx solid rgba(147, 37, 29, 0.08);
+}
+
+.analyze-entry-title {
+  font-size: 22rpx;
+  font-weight: 700;
+  color: #8a5c33;
+}
+
+.analyze-entry-text {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.68;
+  color: #594232;
+}
+
 .hero {
   padding: 32rpx 28rpx 28rpx;
   background:

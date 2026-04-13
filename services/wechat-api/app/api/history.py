@@ -1,11 +1,18 @@
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.core.user_identity import resolve_user_id
-from app.schemas.history import DeleteHistoryResponse, HistoryDetailResponse, HistoryListResponse
+from app.schemas.history import (
+    DeleteHistoryResponse,
+    HistoryDetailResponse,
+    HistoryListResponse,
+    HistoryTimelineResponse,
+    HistoryTimelineType,
+)
 from app.services.history_service import (
     clear_history_summaries,
     delete_history_summary,
     get_history_detail,
+    list_history_timeline,
     list_history_summaries,
 )
 
@@ -21,6 +28,17 @@ def list_history(
 ) -> HistoryListResponse:
     user_id = resolve_user_id(request=request)
     return list_history_summaries(user_id=user_id, limit=limit, offset=offset)
+
+
+@router.get("/history/timeline", response_model=HistoryTimelineResponse)
+def list_history_timeline_items(
+    request: Request,
+    type: HistoryTimelineType = Query(default=HistoryTimelineType.ALL),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> HistoryTimelineResponse:
+    user_id = resolve_user_id(request=request)
+    return list_history_timeline(user_id=user_id, timeline_type=type, limit=limit, offset=offset)
 
 
 @router.get("/history/{history_id}", response_model=HistoryDetailResponse)

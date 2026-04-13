@@ -17,6 +17,7 @@ from app.api.retention import router as retention_router
 from app.api.report import router as report_router
 from app.api.settings import router as settings_router
 from app.api.stt import router as stt_router
+from app.api.study_quiz import router as study_quiz_router
 from app.api.today_history import router as today_history_router
 
 # Load local env file for development.
@@ -51,6 +52,7 @@ app.include_router(settings_router, prefix="/api", tags=["settings"])
 app.include_router(stt_router, prefix="/api", tags=["stt"])
 app.include_router(media_generate_router, prefix="/api", tags=["media-generate"])
 app.include_router(today_history_router, prefix="/api", tags=["today-history"])
+app.include_router(study_quiz_router, prefix="/api", tags=["study-quiz"])
 
 if CORE_IMAGES_DIR.exists():
     app.mount("/assets", StaticFiles(directory=str(CORE_IMAGES_DIR)), name="assets")

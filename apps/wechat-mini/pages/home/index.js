@@ -278,6 +278,10 @@ Page({
     wx.switchTab({ url: ANALYZE_TAB });
   },
 
+  openStudyQuizPage() {
+    wx.navigateTo({ url: "/pages/study-quiz/index" });
+  },
+
   openRecentRecord() {
     const recent = this.data.recentRecord;
     if (!recent || !recent.historyId) {

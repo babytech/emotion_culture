@@ -51,6 +51,11 @@
         <view class="suggestion">{{dailySuggestion}}</view>
       </view>
 
+      <view wx:if="{{studyQuizLinked && studyQuizHintText}}" class="result-block result-block-study-quiz">
+        <view class="result-block-title">{{studyQuizHintTitle || "学习节奏联动"}}</view>
+        <view class="suggestion">{{studyQuizHintText}}</view>
+      </view>
+
       <view class="result-meta-grid">
         <view class="result-meta-card">
           <view class="emotion-subtitle">补充情绪</view>

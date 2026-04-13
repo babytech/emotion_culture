@@ -48,11 +48,12 @@
     </view>
 
     <view class="home-hero-action-row">
-      <button class="btn btn-primary home-hero-btn home-hero-btn-primary" bindtap="openAnalyzeTab">
-        立即开始
+      <button class="btn btn-primary home-hero-btn home-hero-btn-primary" bindtap="openStudyQuizPage">
+        伴学小测
       </button>
-      <button class="btn btn-secondary home-hero-btn home-hero-btn-secondary" bindtap="openRecentRecord">查看最近结果</button>
+      <button class="btn btn-secondary home-hero-btn home-hero-btn-secondary" bindtap="openAnalyzeTab">直接情绪分析</button>
     </view>
+    <view class="home-hero-quick-link" bindtap="openRecentRecord">查看最近结果摘要 →</view>
   </view>
 
   <view class="metric-grid home-metric-grid">

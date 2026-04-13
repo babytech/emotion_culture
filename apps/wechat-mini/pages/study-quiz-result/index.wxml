@@ -1,0 +1,44 @@
+<view class="container page-root">
+  <view wx:if="{{isLoading}}" class="card loading-card">结果加载中...</view>
+  <view wx:if="{{errorMsg}}" class="card error-card">{{errorMsg}}</view>
+
+  <block wx:if="{{!isLoading && hasData && summary}}">
+    <view class="card result-hero result-hero-{{summary.scoreTone}}">
+      <view class="result-kicker">Quiz Result</view>
+      <view class="result-score">{{summary.score}} 分</view>
+      <view class="result-grade">等级 {{summary.grade}}</view>
+      <view class="result-meta">{{summary.courseLabel}} · {{summary.submittedAtText}}</view>
+      <view class="result-pill-row">
+        <view class="status-chip">正确率 {{summary.correctRate}}</view>
+        <view class="status-chip">答对 {{summary.correctCount}} 题</view>
+        <view class="status-chip">错题 {{summary.wrongCount}} 题</view>
+      </view>
+    </view>
+
+    <view class="card section-card">
+      <view class="section-title">结果摘要</view>
+      <view class="summary-line">总题数：{{summary.totalQuestions}} 题</view>
+      <view class="summary-line">已作答：{{summary.answeredQuestions}} 题</view>
+      <view class="summary-line">半对：{{summary.partialCount}} 题</view>
+      <view class="summary-line hint-line">{{nextActionHint}}</view>
+    </view>
+
+    <view class="card section-card">
+      <view class="section-title">错题回看</view>
+      <view wx:if="{{wrongItems.length}}" class="wrong-list">
+        <view wx:for="{{wrongItems}}" wx:key="wrong_id" class="wrong-item">
+          <view class="wrong-stem">{{index + 1}}. {{item.stem}}</view>
+          <view class="wrong-line">你的答案：{{item.user_answer}}</view>
+          <view class="wrong-line">正确答案：{{item.right_answer}}</view>
+          <view class="wrong-line">得分：{{item.score}} / {{item.score_full}}</view>
+        </view>
+      </view>
+      <view wx:else class="empty-copy">本次全部答对，继续保持。</view>
+    </view>
+  </block>
+
+  <view class="action-row">
+    <button class="btn btn-primary" bindtap="goAnalyzeWithQuizContext">去做情绪分析</button>
+    <button class="btn btn-secondary" bindtap="retryQuiz">再测一次</button>
+  </view>
+</view>

@@ -26,6 +26,10 @@ from app.schemas.history import (
     HistoryInternalFields,
     HistoryListResponse,
     HistorySummary,
+    HistoryTimelineItem,
+    HistoryTimelineItemType,
+    HistoryTimelineResponse,
+    HistoryTimelineType,
 )
 from app.schemas.retention import (
     CalendarDaySummary,
@@ -36,6 +40,15 @@ from app.schemas.retention import (
     WeeklyTriggerStat,
 )
 from app.schemas.settings import UserSettingsResponse
+from app.schemas.study_quiz import (
+    QuizHistoryResponse,
+    QuizQuestionResult,
+    QuizRecordSummary,
+    QuizSubmitResponse,
+    QuizWrongItem,
+    QuizWrongbookEntry,
+    QuizWrongbookResponse,
+)
 from app.services.retention_cleanup_service import (
     cleanup_retention_bucket,
     default_retention_dict as build_default_retention_dict,
@@ -198,6 +211,14 @@ def _ensure_user_bucket(payload: dict[str, Any], user_id: str) -> dict[str, Any]
     if not isinstance(history, list):
         bucket["history"] = []
 
+    quiz_records = bucket.get("quiz_records")
+    if not isinstance(quiz_records, list):
+        bucket["quiz_records"] = []
+
+    wrongbook = bucket.get("wrongbook")
+    if not isinstance(wrongbook, list):
+        bucket["wrongbook"] = []
+
     retention = bucket.get("retention")
     if not isinstance(retention, dict):
         retention = _default_retention_dict()
@@ -225,33 +246,117 @@ def _history_sort_key(entry: dict[str, Any]) -> datetime:
     return parsed or datetime.fromtimestamp(0, timezone.utc)
 
 
-def _cleanup_user_history(bucket: dict[str, Any]) -> bool:
-    history = bucket.get("history", [])
-    if not isinstance(history, list):
-        bucket["history"] = []
+def _quiz_sort_key(entry: dict[str, Any]) -> datetime:
+    summary = entry.get("summary", {})
+    submitted_at = summary.get("submitted_at") if isinstance(summary, dict) else ""
+    parsed = _parse_iso_datetime(submitted_at or "")
+    return parsed or datetime.fromtimestamp(0, timezone.utc)
+
+
+def _wrongbook_sort_key(entry: dict[str, Any]) -> datetime:
+    last_wrong_at = (entry.get("last_wrong_at") or "").strip() if isinstance(entry, dict) else ""
+    parsed = _parse_iso_datetime(last_wrong_at)
+    return parsed or datetime.fromtimestamp(0, timezone.utc)
+
+
+def _cleanup_user_quiz_records(bucket: dict[str, Any]) -> bool:
+    records = bucket.get("quiz_records", [])
+    if not isinstance(records, list):
+        bucket["quiz_records"] = []
         return True
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=_retention_days())
     cleaned: list[dict[str, Any]] = []
-    for entry in history:
+    for entry in records:
         if not isinstance(entry, dict):
             continue
         summary = entry.get("summary", {})
-        analyzed_at = summary.get("analyzed_at") if isinstance(summary, dict) else ""
-        parsed = _parse_iso_datetime(analyzed_at or "")
-        if parsed and parsed < cutoff:
+        if not isinstance(summary, dict):
+            continue
+        quiz_record_id = (summary.get("quiz_record_id") or "").strip()
+        submitted_at_raw = (summary.get("submitted_at") or "").strip()
+        submitted_at = _parse_iso_datetime(submitted_at_raw)
+        if not quiz_record_id or not submitted_at:
+            continue
+        if submitted_at < cutoff:
             continue
         cleaned.append(entry)
 
-    cleaned.sort(key=_history_sort_key, reverse=True)
+    cleaned.sort(key=_quiz_sort_key, reverse=True)
     max_items = _max_user_items()
     if len(cleaned) > max_items:
         cleaned = cleaned[:max_items]
 
-    if cleaned != history:
-        bucket["history"] = cleaned
+    if cleaned != records:
+        bucket["quiz_records"] = cleaned
         return True
     return False
+
+
+def _cleanup_user_wrongbook(bucket: dict[str, Any]) -> bool:
+    wrongbook = bucket.get("wrongbook", [])
+    if not isinstance(wrongbook, list):
+        bucket["wrongbook"] = []
+        return True
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=_retention_days())
+    cleaned: list[dict[str, Any]] = []
+    for entry in wrongbook:
+        if not isinstance(entry, dict):
+            continue
+        question_id = (entry.get("question_id") or "").strip()
+        last_wrong_at = _parse_iso_datetime((entry.get("last_wrong_at") or "").strip())
+        if not question_id or not last_wrong_at:
+            continue
+        if last_wrong_at < cutoff:
+            continue
+        cleaned.append(entry)
+
+    cleaned.sort(key=_wrongbook_sort_key, reverse=True)
+    max_items = _max_user_items()
+    if len(cleaned) > max_items:
+        cleaned = cleaned[:max_items]
+
+    if cleaned != wrongbook:
+        bucket["wrongbook"] = cleaned
+        return True
+    return False
+
+
+def _cleanup_user_history(bucket: dict[str, Any]) -> bool:
+    history = bucket.get("history", [])
+    if not isinstance(history, list):
+        bucket["history"] = []
+        changed = True
+    else:
+        changed = False
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=_retention_days())
+        cleaned: list[dict[str, Any]] = []
+        for entry in history:
+            if not isinstance(entry, dict):
+                continue
+            summary = entry.get("summary", {})
+            analyzed_at = summary.get("analyzed_at") if isinstance(summary, dict) else ""
+            parsed = _parse_iso_datetime(analyzed_at or "")
+            if parsed and parsed < cutoff:
+                continue
+            cleaned.append(entry)
+
+        cleaned.sort(key=_history_sort_key, reverse=True)
+        max_items = _max_user_items()
+        if len(cleaned) > max_items:
+            cleaned = cleaned[:max_items]
+
+        if cleaned != history:
+            bucket["history"] = cleaned
+            changed = True
+
+    if _cleanup_user_quiz_records(bucket):
+        changed = True
+    if _cleanup_user_wrongbook(bucket):
+        changed = True
+    return changed
 
 
 def _to_iso_day(value: datetime) -> str:
@@ -596,6 +701,329 @@ def list_history_summaries(user_id: str, limit: int = 20, offset: int = 0) -> Hi
         if changed:
             _save_store(payload)
         return HistoryListResponse(items=items, total=total)
+
+
+_QUIZ_NEXT_ACTION_HINT = "小测已完成，可去做一次情绪分析，看看今天更适合怎样安排学习节奏。"
+
+
+def _quiz_records_list(bucket: dict[str, Any]) -> list[dict[str, Any]]:
+    quiz_records = bucket.get("quiz_records")
+    if not isinstance(quiz_records, list):
+        quiz_records = []
+        bucket["quiz_records"] = quiz_records
+    return quiz_records
+
+
+def _wrongbook_list(bucket: dict[str, Any]) -> list[dict[str, Any]]:
+    wrongbook = bucket.get("wrongbook")
+    if not isinstance(wrongbook, list):
+        wrongbook = []
+        bucket["wrongbook"] = wrongbook
+    return wrongbook
+
+
+def _course_label(course: str) -> str:
+    normalized = (course or "").strip().lower()
+    if normalized == "english":
+        return "英语"
+    return normalized or "课程"
+
+
+def record_quiz_submission(
+    user_id: str,
+    summary: QuizRecordSummary,
+    results: list[QuizQuestionResult],
+    wrong_items: list[QuizWrongItem],
+) -> QuizRecordSummary:
+    normalized_user_id = _normalize_user_id(user_id)
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        settings = bucket.get("settings", _default_settings_dict())
+        if not _is_retention_write_enabled(settings):
+            if changed:
+                _save_store(payload)
+            return summary
+
+        quiz_records = _quiz_records_list(bucket)
+        summary_payload = summary.model_dump(mode="json")
+        results_payload = [item.model_dump(mode="json") for item in results]
+        wrong_items_payload = [item.model_dump(mode="json") for item in wrong_items]
+
+        quiz_record_id = (summary.quiz_record_id or "").strip()
+        for index, entry in enumerate(quiz_records):
+            entry_summary = entry.get("summary", {}) if isinstance(entry, dict) else {}
+            existing_id = (entry_summary.get("quiz_record_id") or "").strip() if isinstance(entry_summary, dict) else ""
+            if existing_id and existing_id == quiz_record_id:
+                quiz_records.pop(index)
+                break
+
+        quiz_records.insert(
+            0,
+            {
+                "summary": summary_payload,
+                "results": results_payload,
+                "wrong_items": wrong_items_payload,
+            },
+        )
+
+        wrongbook = _wrongbook_list(bucket)
+        summary_course = (summary.course or "").strip().lower()
+        summary_submitted_at = (summary.submitted_at or "").strip() or _iso_now_utc()
+        for wrong in wrong_items:
+            question_id = (wrong.question_id or "").strip()
+            if not question_id:
+                continue
+            matched_entry: Optional[dict[str, Any]] = None
+            for item in wrongbook:
+                if not isinstance(item, dict):
+                    continue
+                if (item.get("question_id") or "").strip() != question_id:
+                    continue
+                if (item.get("course") or "").strip().lower() != summary_course:
+                    continue
+                matched_entry = item
+                break
+
+            if matched_entry:
+                matched_entry["wrong_times"] = int(matched_entry.get("wrong_times", 0)) + 1
+                matched_entry["latest_user_answer"] = wrong.user_answer
+                matched_entry["last_wrong_at"] = summary_submitted_at
+                matched_entry["right_answer"] = wrong.right_answer
+                matched_entry["stem"] = wrong.stem
+                matched_entry["question_type"] = wrong.question_type.value
+            else:
+                wrongbook.append(
+                    {
+                        "wrongbook_id": f"wbk_{uuid.uuid4().hex[:12]}",
+                        "course": summary_course,
+                        "question_id": question_id,
+                        "question_type": wrong.question_type.value,
+                        "stem": wrong.stem,
+                        "right_answer": wrong.right_answer,
+                        "latest_user_answer": wrong.user_answer,
+                        "wrong_times": 1,
+                        "first_wrong_at": summary_submitted_at,
+                        "last_wrong_at": summary_submitted_at,
+                    }
+                )
+
+        if _cleanup_user_history(bucket):
+            changed = True
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        _save_store(payload)
+        return summary
+
+
+def list_quiz_record_summaries(user_id: str, limit: int = 20, offset: int = 0) -> QuizHistoryResponse:
+    normalized_user_id = _normalize_user_id(user_id)
+    safe_limit = max(1, min(int(limit or 20), 100))
+    safe_offset = max(0, int(offset or 0))
+
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        quiz_records = _quiz_records_list(bucket)
+        total = len(quiz_records)
+        sliced = quiz_records[safe_offset : safe_offset + safe_limit]
+        items: list[QuizRecordSummary] = []
+        for entry in sliced:
+            summary_payload = entry.get("summary", {}) if isinstance(entry, dict) else {}
+            if not isinstance(summary_payload, dict):
+                continue
+            try:
+                items.append(QuizRecordSummary.model_validate(summary_payload))
+            except Exception:
+                continue
+
+        if changed:
+            _save_store(payload)
+        return QuizHistoryResponse(items=items, total=total)
+
+
+def get_quiz_record_detail(user_id: str, quiz_record_id: str) -> Optional[QuizSubmitResponse]:
+    normalized_user_id = _normalize_user_id(user_id)
+    target_id = (quiz_record_id or "").strip()
+    if not target_id:
+        return None
+
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        quiz_records = _quiz_records_list(bucket)
+        response: Optional[QuizSubmitResponse] = None
+        for entry in quiz_records:
+            if not isinstance(entry, dict):
+                continue
+            summary_payload = entry.get("summary", {})
+            if not isinstance(summary_payload, dict):
+                continue
+            if (summary_payload.get("quiz_record_id") or "").strip() != target_id:
+                continue
+            try:
+                summary = QuizRecordSummary.model_validate(summary_payload)
+                results_payload = entry.get("results")
+                wrong_payload = entry.get("wrong_items")
+                results: list[QuizQuestionResult] = []
+                wrong_items: list[QuizWrongItem] = []
+                if isinstance(results_payload, list):
+                    for item in results_payload:
+                        try:
+                            results.append(QuizQuestionResult.model_validate(item))
+                        except Exception:
+                            continue
+                if isinstance(wrong_payload, list):
+                    for item in wrong_payload:
+                        try:
+                            wrong_items.append(QuizWrongItem.model_validate(item))
+                        except Exception:
+                            continue
+                response = QuizSubmitResponse(
+                    quiz_record=summary,
+                    results=results,
+                    wrong_items=wrong_items,
+                    next_action_hint=_QUIZ_NEXT_ACTION_HINT,
+                )
+            except Exception:
+                response = None
+            break
+
+        if changed:
+            _save_store(payload)
+        return response
+
+
+def list_quiz_wrongbook_entries(user_id: str, limit: int = 20, offset: int = 0) -> QuizWrongbookResponse:
+    normalized_user_id = _normalize_user_id(user_id)
+    safe_limit = max(1, min(int(limit or 20), 100))
+    safe_offset = max(0, int(offset or 0))
+
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        wrongbook = _wrongbook_list(bucket)
+        total = len(wrongbook)
+        sliced = wrongbook[safe_offset : safe_offset + safe_limit]
+        items: list[QuizWrongbookEntry] = []
+        for row in sliced:
+            if not isinstance(row, dict):
+                continue
+            try:
+                items.append(QuizWrongbookEntry.model_validate(row))
+            except Exception:
+                continue
+
+        if changed:
+            _save_store(payload)
+        return QuizWrongbookResponse(items=items, total=total)
+
+
+def _timeline_sort_key(item: HistoryTimelineItem) -> datetime:
+    parsed = _parse_iso_datetime(item.occurred_at)
+    return parsed or datetime.fromtimestamp(0, timezone.utc)
+
+
+def list_history_timeline(
+    user_id: str,
+    timeline_type: HistoryTimelineType = HistoryTimelineType.ALL,
+    limit: int = 20,
+    offset: int = 0,
+) -> HistoryTimelineResponse:
+    normalized_user_id = _normalize_user_id(user_id)
+    safe_limit = max(1, min(int(limit or 20), 100))
+    safe_offset = max(0, int(offset or 0))
+
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        items: list[HistoryTimelineItem] = []
+        include_emotion = timeline_type in {HistoryTimelineType.ALL, HistoryTimelineType.EMOTION}
+        include_quiz = timeline_type in {HistoryTimelineType.ALL, HistoryTimelineType.QUIZ}
+
+        if include_emotion:
+            history_rows = bucket.get("history", [])
+            if isinstance(history_rows, list):
+                for entry in history_rows:
+                    summary_payload = entry.get("summary", {}) if isinstance(entry, dict) else {}
+                    if not isinstance(summary_payload, dict):
+                        continue
+                    try:
+                        summary = HistorySummary.model_validate(summary_payload)
+                    except Exception:
+                        continue
+                    primary_label = (summary.primary_emotion.label or summary.primary_emotion.code or "未识别").strip()
+                    items.append(
+                        HistoryTimelineItem(
+                            timeline_id=f"tlm_emotion_{summary.history_id}",
+                            item_type=HistoryTimelineItemType.EMOTION,
+                            occurred_at=summary.analyzed_at,
+                            title=f"情绪分析 · {primary_label}",
+                            subtitle=summary.emotion_overview_summary,
+                            emotion_history_id=summary.history_id,
+                            emotion_code=summary.primary_emotion.code,
+                            emotion_label=primary_label,
+                        )
+                    )
+
+        if include_quiz:
+            quiz_rows = bucket.get("quiz_records", [])
+            if isinstance(quiz_rows, list):
+                for entry in quiz_rows:
+                    summary_payload = entry.get("summary", {}) if isinstance(entry, dict) else {}
+                    if not isinstance(summary_payload, dict):
+                        continue
+                    try:
+                        summary = QuizRecordSummary.model_validate(summary_payload)
+                    except Exception:
+                        continue
+                    course_label = _course_label(summary.course)
+                    items.append(
+                        HistoryTimelineItem(
+                            timeline_id=f"tlm_quiz_{summary.quiz_record_id}",
+                            item_type=HistoryTimelineItemType.QUIZ,
+                            occurred_at=summary.submitted_at,
+                            title=f"伴学小测 · {summary.score} 分（{summary.grade}）",
+                            subtitle=f"{course_label} · 共 {summary.total_questions} 题，错 {summary.wrong_count} 题",
+                            quiz_record_id=summary.quiz_record_id,
+                            quiz_course=summary.course,
+                            quiz_score=summary.score,
+                            quiz_grade=summary.grade,
+                        )
+                    )
+
+        items.sort(key=_timeline_sort_key, reverse=True)
+        total = len(items)
+        sliced = items[safe_offset : safe_offset + safe_limit]
+
+        if changed:
+            _save_store(payload)
+        return HistoryTimelineResponse(
+            timeline_type=timeline_type,
+            items=sliced,
+            total=total,
+        )
 
 
 def get_history_detail(user_id: str, history_id: str) -> Optional[HistoryDetailResponse]:

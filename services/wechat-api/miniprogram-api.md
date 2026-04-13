@@ -529,6 +529,161 @@ Delete one history summary record for current user.
 
 Clear all history summary records for current user.
 
+`GET /api/history/timeline?type=all|emotion|quiz&limit=20&offset=0`
+
+- unified timeline list for mixed `emotion + quiz` history
+- `type` values:
+  - `all`: mixed timeline
+  - `emotion`: emotion-only timeline
+  - `quiz`: study-quiz-only timeline
+
+Response example:
+
+```json
+{
+  "timeline_type": "all",
+  "items": [
+    {
+      "timeline_id": "tlm_quiz_qzr_abc123",
+      "item_type": "quiz",
+      "occurred_at": "2026-04-13T08:00:00Z",
+      "title": "伴学小测 · 86 分（A）",
+      "subtitle": "英语 · 共 10 题，错 2 题",
+      "quiz_record_id": "qzr_abc123",
+      "quiz_course": "english",
+      "quiz_score": 86,
+      "quiz_grade": "A"
+    },
+    {
+      "timeline_id": "tlm_emotion_his_abc123",
+      "item_type": "emotion",
+      "occurred_at": "2026-04-13T08:20:00Z",
+      "title": "情绪分析 · 平静",
+      "subtitle": "今天状态趋于稳定，建议保持节奏。",
+      "emotion_history_id": "his_abc123",
+      "emotion_code": "neutral",
+      "emotion_label": "平静"
+    }
+  ],
+  "total": 2
+}
+```
+
+### 5.1) Study Quiz APIs (stage-2)
+
+`GET /api/study-quiz/paper?course=english`
+
+- returns current paper for `english` pilot
+- response does not include standard answers
+
+Response example:
+
+```json
+{
+  "paper_id": "paper_english_20260413",
+  "course": "english",
+  "title": "英语伴学小测（试点）",
+  "version": "2026.04.13",
+  "total_questions": 10,
+  "questions": [
+    {
+      "question_id": "eng_001",
+      "type": "radio",
+      "stem": "Read and choose different kind of word.",
+      "options": [
+        { "item": "A", "content": "two" },
+        { "item": "B", "content": "too" },
+        { "item": "C", "content": "ten" },
+        { "item": "D", "content": "seven" }
+      ],
+      "fills": [],
+      "audio": "no",
+      "tags": ["词汇"],
+      "difficulty": "easy"
+    }
+  ]
+}
+```
+
+`POST /api/study-quiz/submit`
+
+- submit answers and score on server side
+- scoring rules:
+  - `radio`: exact match
+  - `check`: exact set match after normalization and sorting
+  - `fill`: per-blank comparison with partial score support
+
+Request example:
+
+```json
+{
+  "course": "english",
+  "paper_id": "paper_english_20260413",
+  "answers": [
+    { "question_id": "eng_001", "answer": "B" },
+    { "question_id": "eng_007", "answer": ["B", "C"] },
+    { "question_id": "eng_009", "answer": ["No"] }
+  ]
+}
+```
+
+Response example:
+
+```json
+{
+  "quiz_record": {
+    "quiz_record_id": "qzr_abc123",
+    "course": "english",
+    "submitted_at": "2026-04-13T08:00:00Z",
+    "total_questions": 10,
+    "answered_questions": 10,
+    "score": 86,
+    "grade": "A",
+    "correct_count": 8,
+    "partial_count": 0,
+    "wrong_count": 2
+  },
+  "results": [
+    {
+      "question_id": "eng_001",
+      "question_type": "radio",
+      "stem": "Read and choose different kind of word.",
+      "correct": true,
+      "partial": false,
+      "score": 10,
+      "score_full": 10,
+      "user_answer": "B",
+      "right_answer": "B"
+    }
+  ],
+  "wrong_items": [
+    {
+      "wrong_id": "wr_xxx",
+      "question_id": "eng_010",
+      "question_type": "fill",
+      "stem": "I have a ___ and a ___.",
+      "user_answer": "pen bag",
+      "right_answer": "pen book",
+      "score": 5,
+      "score_full": 10
+    }
+  ],
+  "next_action_hint": "小测已完成，可去做一次情绪分析，看看今天更适合怎样安排学习节奏。"
+}
+```
+
+`GET /api/study-quiz/history?limit=20&offset=0`
+
+- returns current user quiz summaries
+
+`GET /api/study-quiz/history/{quiz_record_id}`
+
+- returns one quiz detail (`quiz_record + results + wrong_items`)
+
+`GET /api/study-quiz/wrongbook?limit=20&offset=0`
+
+- returns wrongbook summary for current user
+
 ## 6) Retention APIs (phase-2 base)
 
 `GET /api/retention/calendar?month=2026-03`
