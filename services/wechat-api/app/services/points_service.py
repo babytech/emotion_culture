@@ -103,6 +103,55 @@ def _has_refund(ledger: list[dict[str, Any]], debit_txn_id: str) -> bool:
     return False
 
 
+def _find_credit_for_action(ledger: list[dict[str, Any]], action_key: str) -> Optional[dict[str, Any]]:
+    for entry in ledger:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("type") != "credit":
+            continue
+        if str(entry.get("action_key") or "").strip() == action_key:
+            return entry
+    return None
+
+
+def credit_points_for_action(user_id: str, action_key: str, *, points: int, reason: str) -> dict[str, Any]:
+    normalized_user = (user_id or "").strip()
+    normalized_action = (action_key or "").strip()
+    bonus = max(0, int(points or 0))
+    if not normalized_user or not normalized_action:
+        raise ValueError("POINTS_CREDIT_INVALID: missing user_id or action_key")
+    if bonus <= 0:
+        return {"awarded": False, "txn_id": None, "balance": get_points_balance(normalized_user), "points": 0}
+
+    with _LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user)
+        ledger = bucket["ledger"]
+        existing = _find_credit_for_action(ledger, normalized_action)
+        if existing:
+            return {
+                "awarded": False,
+                "txn_id": str(existing.get("txn_id") or ""),
+                "balance": int(bucket.get("balance", 0)),
+                "points": int(existing.get("amount") or bonus),
+            }
+
+        txn_id = f"ptx_cr_{uuid.uuid4().hex[:12]}"
+        bucket["balance"] = int(bucket.get("balance", 0)) + bonus
+        ledger.append(
+            {
+                "txn_id": txn_id,
+                "type": "credit",
+                "action_key": normalized_action,
+                "amount": bonus,
+                "reason": reason,
+                "created_at": _iso_now_utc(),
+            }
+        )
+        _save_store(payload)
+        return {"awarded": True, "txn_id": txn_id, "balance": int(bucket["balance"]), "points": bonus}
+
+
 def deduct_points_for_task(user_id: str, task_id: str, *, points: int, reason: str) -> dict[str, Any]:
     normalized_user = (user_id or "").strip()
     normalized_task = (task_id or "").strip()

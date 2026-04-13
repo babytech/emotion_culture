@@ -1,49 +1,33 @@
-const { clearHistory, getSettings, updateSettings } = require("../../services/api");
+const { clearHistory, getCheckinStatus, getSettings, updateSettings } = require("../../services/api");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { ANALYZE_TAB, FAVORITES_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 const FEEDBACK_EMAIL = "babytech@126.com";
 const QUICK_ACTIONS = [
-  { key: "history", title: "历史记录", subtitle: "查看全部摘要与详情", badge: "轨迹", tone: "history" },
-  { key: "favorites", title: "我的收藏", subtitle: "回看收藏过的内容", badge: "收藏", tone: "favorites" },
-  { key: "analyze", title: "继续分析", subtitle: "回到分析工作台", badge: "分析", tone: "analyze" },
-  { key: "settings", title: "更多设置", subtitle: "进入设置页查看扩展项", badge: "设置", tone: "settings" },
-];
-const PRIVACY_CARDS = [
-  {
-    key: "save",
-    title: "保存什么",
-    body: "仅保存分析结果摘要、打卡状态与周报缓存，方便后续回看。",
-    badge: "保存",
-  },
-  {
-    key: "raw",
-    title: "不长期保存什么",
-    body: "原始自拍、图片和录音不会长期保存，只用于本次分析或短期失败恢复。",
-    badge: "媒体",
-  },
-  {
-    key: "delete",
-    title: "你可以怎么删除",
-    body: "你可以随时删除单条历史、清空全部历史、取消收藏或清除周报缓存。",
-    badge: "删除",
-  },
-  {
-    key: "scope",
-    title: "使用边界",
-    body: "本项目仅作情绪文化陪伴，不作医疗诊断或治疗建议。",
-    badge: "说明",
-  },
+  { key: "history", title: "我的记录", icon: "记" },
+  { key: "favorites", title: "我的收藏", icon: "藏" },
+  { key: "analyze", title: "继续分析", icon: "析" },
+  { key: "checkin", title: "每日签到", icon: "签" },
+  { key: "settings", title: "设置", icon: "设" },
 ];
 
+function safeText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function formatUpdatedAtText(value) {
-  const raw = (value || "").trim();
+  const raw = safeText(value);
   return raw ? `最近更新：${raw}` : "最近更新：尚未同步";
 }
 
-function formatUpdatedAtValue(value) {
-  const raw = (value || "").trim();
-  return raw || "尚未同步";
+function normalizeCheckin(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  return {
+    signedToday: !!source.signed_today,
+    currentStreak: Math.max(0, Number(source.current_streak) || 0),
+    pointsBalance: Math.max(0, Number(source.points_balance) || 0),
+    message: safeText(source.message) || "每日签到可获得积分",
+  };
 }
 
 Page({
@@ -52,42 +36,47 @@ Page({
     isSaving: false,
     saveHistory: true,
     retentionDays: 180,
-    updatedAtValue: "尚未同步",
     updatedAtText: "最近更新：尚未同步",
     errorMsg: "",
     quickActions: QUICK_ACTIONS,
-    privacyCards: PRIVACY_CARDS,
     privacyExpanded: false,
     feedbackEmail: FEEDBACK_EMAIL,
+    memberName: "微信用户",
+    memberLevel: "普通会员",
+    checkin: normalizeCheckin({}),
   },
 
   onShow() {
     if (ensurePhase5Auth(PROFILE_TAB)) return;
     setTabBarSelected(this, PROFILE_TAB);
-    this.loadSettings();
+    this.loadAllData();
   },
 
-  async loadSettings() {
+  async loadAllData() {
     this.setData({
       isLoading: true,
       errorMsg: "",
     });
+    const [settingsRes, checkinRes] = await Promise.allSettled([getSettings(), getCheckinStatus()]);
 
-    try {
-      const settings = await getSettings();
-      this.setData({
-        saveHistory: settings.save_history !== false,
-        retentionDays: Number(settings.history_retention_days) || 180,
-        updatedAtValue: formatUpdatedAtValue(settings.updated_at || ""),
-        updatedAtText: formatUpdatedAtText(settings.updated_at || ""),
-      });
-    } catch (err) {
-      this.setData({
-        errorMsg: (err && err.message) || "加载设置失败，请稍后重试。",
-      });
-    } finally {
-      this.setData({ isLoading: false });
+    const nextData = {};
+    if (settingsRes.status === "fulfilled") {
+      const settings = settingsRes.value || {};
+      nextData.saveHistory = settings.save_history !== false;
+      nextData.retentionDays = Number(settings.history_retention_days) || 180;
+      nextData.updatedAtText = formatUpdatedAtText(settings.updated_at || "");
+    } else {
+      nextData.errorMsg = (settingsRes.reason && settingsRes.reason.message) || "加载设置失败，请稍后重试。";
     }
+
+    if (checkinRes.status === "fulfilled") {
+      nextData.checkin = normalizeCheckin(checkinRes.value);
+    }
+
+    this.setData({
+      ...nextData,
+      isLoading: false,
+    });
   },
 
   async handleSaveHistoryChange(event) {
@@ -105,7 +94,6 @@ Page({
       this.setData({
         saveHistory: settings.save_history !== false,
         retentionDays: Number(settings.history_retention_days) || this.data.retentionDays,
-        updatedAtValue: formatUpdatedAtValue(settings.updated_at || ""),
         updatedAtText: formatUpdatedAtText(settings.updated_at || ""),
       });
       wx.showToast({
@@ -177,7 +165,7 @@ Page({
   },
 
   handleQuickAction(event) {
-    const key = (event && event.currentTarget && event.currentTarget.dataset.key) || "";
+    const key = safeText(event && event.currentTarget && event.currentTarget.dataset.key);
     if (!key) return;
     if (key === "history") {
       this.goHistory();
@@ -191,6 +179,10 @@ Page({
       this.goAnalyze();
       return;
     }
+    if (key === "checkin") {
+      this.openCheckinPage();
+      return;
+    }
     if (key === "settings") {
       this.goSettingsDetail();
     }
@@ -200,6 +192,10 @@ Page({
     this.setData({
       privacyExpanded: !this.data.privacyExpanded,
     });
+  },
+
+  openCheckinPage() {
+    wx.navigateTo({ url: "/pages/checkin/index" });
   },
 
   goHistory() {

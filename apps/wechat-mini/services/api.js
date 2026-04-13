@@ -423,6 +423,34 @@ function clearHistory() {
   return callViaContainer("/api/history", "DELETE");
 }
 
+function getCheckinStatus() {
+  return callViaContainer("/api/checkin/status", "GET", undefined, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 240,
+    retryOnNetwork: true,
+    networkRetryCount: 1,
+    networkRetryDelayMs: 300,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 1,
+    transientHttpRetryDelayMs: 420,
+  });
+}
+
+function signInDaily() {
+  return callViaContainer("/api/checkin/sign", "POST", {}, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 280,
+    retryOnNetwork: true,
+    networkRetryCount: 1,
+    networkRetryDelayMs: 320,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 1,
+    transientHttpRetryDelayMs: 420,
+  });
+}
+
 function getStudyQuizPaper(course = "english") {
   const normalizedCourse = (course || "english").trim().toLowerCase() || "english";
   return callViaContainer(`/api/study-quiz/paper?course=${encodeURIComponent(normalizedCourse)}`, "GET");
@@ -560,6 +588,7 @@ module.exports = {
   getBootstrap,
   getAnalyzeTask,
   getFavoriteStatus,
+  getCheckinStatus,
   getHistoryDetail,
   getHistoryTimeline,
   getMediaGenerateTask,
@@ -578,6 +607,7 @@ module.exports = {
   createMediaGenerateTask,
   submitStudyQuiz,
   sendEmail,
+  signInDaily,
   upsertFavorite,
   updateRetentionWriteSettings,
   updateSettings,

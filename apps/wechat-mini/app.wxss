@@ -1,18 +1,18 @@
 :root {
-  --paper: #f6efe5;
-  --paper-deep: #efe2cf;
-  --paper-glow: #fffaf3;
-  --ink: #241912;
-  --ink-soft: #5f4c3f;
-  --accent: #93251d;
-  --accent-strong: #c84434;
-  --accent-2: #d3a05b;
-  --accent-2-soft: #f7e6c8;
-  --muted: #867569;
-  --line: rgba(146, 51, 36, 0.14);
-  --card: rgba(255, 250, 242, 0.96);
-  --shadow-lg: 0 18rpx 46rpx rgba(62, 36, 23, 0.12);
-  --shadow-sm: 0 8rpx 20rpx rgba(62, 36, 23, 0.08);
+  --paper: #eef3ff;
+  --paper-deep: #e6edff;
+  --paper-glow: #f9fbff;
+  --ink: #1f2d49;
+  --ink-soft: #47587c;
+  --accent: #2f6fff;
+  --accent-strong: #4a8dff;
+  --accent-2: #e1b84f;
+  --accent-2-soft: #f8edc7;
+  --muted: #7184a8;
+  --line: rgba(95, 118, 162, 0.16);
+  --card: rgba(255, 255, 255, 0.95);
+  --shadow-lg: 0 16rpx 40rpx rgba(62, 88, 138, 0.14);
+  --shadow-sm: 0 8rpx 20rpx rgba(62, 88, 138, 0.08);
   --success-bg: #e8f7ee;
   --success-ink: #0f6c4d;
   --warn-bg: #fff5e4;
@@ -24,12 +24,12 @@
 page {
   min-height: 100%;
   background:
-    radial-gradient(circle at 8% 16%, rgba(211, 160, 91, 0.24), transparent 34%),
-    radial-gradient(circle at 100% 2%, rgba(147, 37, 29, 0.18), transparent 32%),
-    linear-gradient(180deg, rgba(255, 248, 238, 0.9), rgba(246, 239, 229, 0.98)),
+    radial-gradient(circle at 8% 12%, rgba(136, 178, 255, 0.26), transparent 34%),
+    radial-gradient(circle at 100% 2%, rgba(228, 203, 136, 0.16), transparent 34%),
+    linear-gradient(180deg, rgba(250, 252, 255, 0.95), rgba(238, 244, 255, 0.98)),
     var(--paper);
   color: var(--ink);
-  font-family: "STSong", "Songti SC", serif;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
 }
 
 .container {
@@ -41,8 +41,8 @@ page {
 
 .card {
   background: var(--card);
-  border-radius: 28rpx;
-  border: 2rpx solid var(--line);
+  border-radius: 24rpx;
+  border: 2rpx solid rgba(102, 124, 170, 0.08);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(10rpx);
 }
@@ -59,9 +59,9 @@ page {
   font-size: 29rpx !important;
   font-weight: 700;
   letter-spacing: 1rpx;
-  color: #3a2a1e;
-  background-color: #fff8ee !important;
-  border: 2rpx solid rgba(146, 51, 36, 0.14) !important;
+  color: #2a3a58;
+  background-color: #f6f9ff !important;
+  border: 2rpx solid rgba(84, 111, 164, 0.14) !important;
   box-shadow: var(--shadow-sm);
 }
 
@@ -71,17 +71,17 @@ page {
 
 .btn-primary {
   color: #fff !important;
-  background-color: #a1261b !important;
-  background-image: linear-gradient(135deg, #9f2a1f 0%, #c84434 100%) !important;
-  border-color: rgba(125, 28, 21, 0.2) !important;
+  background-color: #2f6fff !important;
+  background-image: linear-gradient(135deg, #2f6fff 0%, #5a93ff 100%) !important;
+  border-color: rgba(44, 95, 188, 0.2) !important;
   text-shadow: 0 1rpx 0 rgba(0, 0, 0, 0.12);
 }
 
 .btn-secondary {
-  color: #5f4328 !important;
-  background-color: #fff6e8 !important;
-  background-image: linear-gradient(135deg, #fff8ec 0%, #f4ddb2 100%) !important;
-  border-color: rgba(146, 51, 36, 0.12) !important;
+  color: #36588e !important;
+  background-color: #f4f8ff !important;
+  background-image: linear-gradient(135deg, #f8fbff 0%, #e6efff 100%) !important;
+  border-color: rgba(84, 111, 164, 0.12) !important;
 }
 
 .btn[disabled] {
@@ -91,14 +91,14 @@ page {
 
 .btn-primary[disabled] {
   color: rgba(255, 255, 255, 0.92) !important;
-  background-color: #b85d53 !important;
-  background-image: linear-gradient(135deg, #b85d53 0%, #d1877f 100%) !important;
+  background-color: #89aef3 !important;
+  background-image: linear-gradient(135deg, #89aef3 0%, #a9c5f7 100%) !important;
 }
 
 .btn-secondary[disabled] {
-  color: rgba(95, 67, 40, 0.82) !important;
-  background-color: #f5ead8 !important;
-  background-image: linear-gradient(135deg, #faf3e7 0%, #efddbf 100%) !important;
+  color: rgba(83, 106, 151, 0.82) !important;
+  background-color: #edf2fb !important;
+  background-image: linear-gradient(135deg, #f8faff 0%, #e9f0fc 100%) !important;
 }
 
 .text-muted {
@@ -109,7 +109,7 @@ page {
   display: flex;
   flex-direction: column;
   gap: 22rpx;
-  padding-bottom: 250rpx;
+  padding-bottom: 188rpx;
 }
 
 .shell-hero {

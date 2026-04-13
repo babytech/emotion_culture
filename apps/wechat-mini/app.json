@@ -9,6 +9,7 @@
     "pages/analyze/index",
     "pages/favorites/index",
     "pages/profile/index",
+    "pages/checkin/index",
     "pages/result/result",
     "pages/style/index",
     "pages/calendar/index",
@@ -21,9 +22,9 @@
   ],
   "window": {
     "navigationBarTitleText": "情绪文化助手",
-    "navigationBarBackgroundColor": "#A1261B",
-    "navigationBarTextStyle": "white",
-    "backgroundColor": "#F5EFE4",
+    "navigationBarBackgroundColor": "#F7FAFF",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#EEF3FF",
     "backgroundTextStyle": "light"
   },
   "tabBar": {

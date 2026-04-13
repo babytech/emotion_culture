@@ -1,4 +1,5 @@
 const {
+  getCheckinStatus,
   getRetentionCalendar,
   getRetentionWeeklyReport,
   getTodayHistory,
@@ -8,6 +9,14 @@ const {
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { consumeTodayHistoryFocusRequest } = require("../../utils/today-history-focus");
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
+
+const HOME_ACTIONS = [
+  { key: "quiz", icon: "测", title: "伴学小测" },
+  { key: "journey", icon: "记", title: "记录中心" },
+  { key: "analyze", icon: "析", title: "快速分析" },
+  { key: "checkin", icon: "签", title: "每日签到" },
+  { key: "profile", icon: "我", title: "我的空间" },
+];
 
 function toMonthText(dateObj) {
   const yyyy = dateObj.getFullYear();
@@ -89,37 +98,18 @@ function toFavoritePreview(item) {
     typeLabel,
     title: safeText(item && item.title) || "未命名收藏",
     subtitle: safeText(item && item.subtitle) || "稍后到收藏页查看完整内容",
-    hint: typeLabel === "诗词" ? "保留了当时最打动你的诗意回应" : typeLabel === "国潮" ? "保留了当时生成的视觉慰藉内容" : "已加入你的个人收藏夹",
   };
-}
-
-function buildMetrics(values) {
-  const source = values || {};
-  return [
-    {
-      label: "最近历史",
-      caption: "最近一条记录时间",
-      value: source.recentHistory || "暂无",
-    },
-    {
-      label: "本周洞察",
-      caption: "本周状态摘要",
-      value: source.weekInsight || "待更新",
-    },
-  ];
 }
 
 function buildTodayHistoryState() {
   return {
     available: false,
     expanded: false,
-    collapsedDefault: true,
     monthDay: "",
     eventYear: "",
     headline: "历史上的今天",
     summary: "",
     optionalNote: "",
-    status: "empty",
     statusText: "整理中",
     sourceLabel: "",
     cacheHit: false,
@@ -130,17 +120,14 @@ function normalizeTodayHistory(raw) {
   const source = raw && typeof raw === "object" ? raw : {};
   const entry = source.entry && typeof source.entry === "object" ? source.entry : {};
   const collapsedDefault = source.collapsed_default !== false;
-  const expanded = !collapsedDefault;
   return {
     available: !!source.available && !!safeText(entry.headline) && !!safeText(entry.summary),
-    expanded,
-    collapsedDefault,
+    expanded: !collapsedDefault,
     monthDay: safeText(source.month_day) || safeText(entry.month_day) || "",
     eventYear: safeText(entry.event_year),
     headline: safeText(entry.headline) || "历史上的今天",
     summary: safeText(entry.summary),
     optionalNote: safeText(entry.optional_note),
-    status: safeText(source.status) || "empty",
     statusText: safeText(source.status_message) || (!!source.available ? "可展开查看" : "整理中"),
     sourceLabel: safeText(entry.source_label),
     cacheHit: !!source.cache_hit,
@@ -160,6 +147,17 @@ function toHeroTheme(emotionCode, emotionLabel) {
   return "warm";
 }
 
+function normalizeCheckin(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  return {
+    signedToday: !!source.signed_today,
+    currentStreak: Math.max(0, Number(source.current_streak) || 0),
+    pointsBalance: Math.max(0, Number(source.points_balance) || 0),
+    dailyPoints: Math.max(0, Number(source.daily_points) || 0),
+    message: safeText(source.message) || "每日签到可获得积分",
+  };
+}
+
 Page({
   data: {
     isRefreshing: false,
@@ -169,14 +167,14 @@ Page({
     heroStreak: "0 天",
     heroMonthCount: "0 天",
     heroLatestTime: "等待你开始今天的第一条记录",
-    metrics: buildMetrics(),
     weekInsightText: "本周洞察稍后更新",
     weekInsightStatus: "等待周报数据",
-    favoriteStatusText: "加载后会显示最近收藏预览",
     favoritePreview: [],
     recentRecord: null,
     recentRecordStatus: "还没有最近一次结果",
     todayHistory: buildTodayHistoryState(),
+    quickActions: HOME_ACTIONS,
+    checkin: normalizeCheckin({}),
   },
 
   onShow() {
@@ -189,19 +187,16 @@ Page({
   async loadDashboard() {
     this.setData({ isRefreshing: true });
 
-    const [calendarRes, reportRes, historyRes, favoritesRes, todayHistoryRes] = await Promise.allSettled([
+    const [calendarRes, reportRes, historyRes, favoritesRes, todayHistoryRes, checkinRes] = await Promise.allSettled([
       getRetentionCalendar(toMonthText(new Date())),
       getRetentionWeeklyReport(),
       listHistory({ limit: 5, offset: 0 }),
-      listFavorites({ limit: 3, offset: 0 }),
+      listFavorites({ limit: 2, offset: 0 }),
       getTodayHistory(toDateText(new Date())),
+      getCheckinStatus(),
     ]);
 
     const nextData = {};
-    const nextMetrics = {
-      recentHistory: this.data.metrics[0] ? this.data.metrics[0].value : "暂无",
-      weekInsight: this.data.metrics[1] ? this.data.metrics[1].value : "待更新",
-    };
 
     if (calendarRes.status === "fulfilled") {
       const calendar = calendarRes.value || {};
@@ -216,9 +211,8 @@ Page({
       nextData.weekInsightStatus = dominant
         ? `高频主情绪：${safeText(dominant.label) || safeText(dominant.code) || "待识别"}`
         : "洞察已更新";
-      nextMetrics.weekInsight = safeText(report.insight) ? "已生成" : "积累中";
     } else {
-      nextData.weekInsightText = "周报接口暂时不可用，首页保留其它入口。";
+      nextData.weekInsightText = "周报接口暂时不可用，稍后自动重试。";
       nextData.weekInsightStatus = "稍后重试";
     }
 
@@ -235,8 +229,8 @@ Page({
       nextData.heroLatestTime = recentPreview
         ? `最近一次更新于 ${recentPreview.displayTime}`
         : "等待你开始今天的第一条记录";
-      nextMetrics.recentHistory = recentPreview ? recentPreview.displayTime : "暂无";
     } else {
+      nextData.recentRecord = null;
       nextData.recentRecordStatus = "历史接口暂不可用";
       nextData.heroTheme = "warm";
     }
@@ -245,9 +239,7 @@ Page({
       const favorites = favoritesRes.value || {};
       const items = Array.isArray(favorites.items) ? favorites.items.map(toFavoritePreview) : [];
       nextData.favoritePreview = items;
-      nextData.favoriteStatusText = items.length ? "最近收藏预览" : "你还没有收藏内容";
     } else {
-      nextData.favoriteStatusText = "收藏接口暂不可用";
       nextData.favoritePreview = [];
     }
 
@@ -265,13 +257,40 @@ Page({
       };
     }
 
+    if (checkinRes.status === "fulfilled") {
+      nextData.checkin = normalizeCheckin(checkinRes.value);
+    }
+
     this._todayHistoryFocusRequest = null;
 
     this.setData({
       ...nextData,
-      metrics: buildMetrics(nextMetrics),
       isRefreshing: false,
     });
+  },
+
+  handleQuickAction(event) {
+    const key = safeText(event && event.currentTarget && event.currentTarget.dataset.key);
+    if (!key) return;
+    if (key === "quiz") {
+      this.openStudyQuizPage();
+      return;
+    }
+    if (key === "journey") {
+      this.openJourneyTab();
+      return;
+    }
+    if (key === "analyze") {
+      this.openAnalyzeTab();
+      return;
+    }
+    if (key === "checkin") {
+      this.openCheckinPage();
+      return;
+    }
+    if (key === "profile") {
+      this.openProfileTab();
+    }
   },
 
   openAnalyzeTab() {
@@ -280,6 +299,10 @@ Page({
 
   openStudyQuizPage() {
     wx.navigateTo({ url: "/pages/study-quiz/index" });
+  },
+
+  openCheckinPage() {
+    wx.navigateTo({ url: "/pages/checkin/index" });
   },
 
   openRecentRecord() {
@@ -301,6 +324,10 @@ Page({
     wx.switchTab({ url: JOURNEY_TAB });
   },
 
+  openProfileTab() {
+    wx.switchTab({ url: PROFILE_TAB });
+  },
+
   toggleTodayHistory() {
     const current = this.data.todayHistory || buildTodayHistoryState();
     if (!current.available) return;
@@ -310,9 +337,5 @@ Page({
         expanded: !current.expanded,
       },
     });
-  },
-
-  openProfileTab() {
-    wx.switchTab({ url: PROFILE_TAB });
   },
 });

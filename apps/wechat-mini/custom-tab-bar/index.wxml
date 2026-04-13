@@ -1,20 +1,16 @@
 <view class="tab-shell {{isCompact ? 'tab-shell-compact' : ''}}" style="bottom: {{keyboardHeight}}px;">
-  <view class="tab-bottom-fill"></view>
-  <view class="tab-dock card {{isCompact ? 'tab-dock-compact' : ''}}">
-    <view class="tab-dock-aura"></view>
-    <view class="tab-center-seat"></view>
+  <view class="tab-dock {{isCompact ? 'tab-dock-compact' : ''}}">
     <view
       wx:for="{{items}}"
       wx:key="pagePath"
-      class="tab-item {{isCompact ? 'tab-item-compact' : ''}} {{item.isPrimary ? 'tab-item-primary' : ''}} {{isCompact && item.isPrimary ? 'tab-item-primary-compact' : ''}} {{selected === item.pagePath ? 'tab-item-active' : ''}}"
+      class="tab-item {{selected === item.pagePath ? 'tab-item-active' : ''}} {{item.isPrimary ? 'tab-item-primary' : ''}}"
       data-url="{{item.pagePath}}"
       bindtap="handleTabTap"
     >
-      <view wx:if="{{item.isPrimary}}" class="tab-primary-button">
-        <view class="tab-primary-glow"></view>
-        <view class="tab-primary-text">{{item.text}}</view>
+      <view class="tab-icon {{selected === item.pagePath ? 'tab-icon-active' : ''}} {{item.isPrimary ? 'tab-icon-primary' : ''}}">
+        {{item.isPrimary ? "◉" : "○"}}
       </view>
-      <view wx:else class="tab-word-button">{{item.text}}</view>
+      <view class="tab-label">{{item.text}}</view>
     </view>
   </view>
 </view>

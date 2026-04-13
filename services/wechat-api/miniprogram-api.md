@@ -716,6 +716,59 @@ Response example:
 }
 ```
 
+## 6.1) Daily Checkin & Points APIs
+
+`GET /api/checkin/status`
+
+- Returns current user daily checkin status and points balance.
+
+Response example:
+
+```json
+{
+  "today": "2026-04-13",
+  "signed_today": false,
+  "current_streak": 3,
+  "total_signed_days": 10,
+  "daily_points": 2,
+  "points_balance": 28,
+  "cycle_length": 12,
+  "cycle_position": 3,
+  "message": "今日签到可获得 +2 积分",
+  "days": [
+    { "day_index": 1, "label": "第1天", "points": 2, "state": "done" },
+    { "day_index": 2, "label": "第2天", "points": 2, "state": "done" },
+    { "day_index": 3, "label": "第3天", "points": 2, "state": "current" }
+  ]
+}
+```
+
+`POST /api/checkin/sign`
+
+- Signs in once for today and awards points.
+- Idempotent for same day (repeat calls do not award extra points).
+
+Response example:
+
+```json
+{
+  "just_signed": true,
+  "awarded_points": 2,
+  "status": {
+    "today": "2026-04-13",
+    "signed_today": true,
+    "current_streak": 4,
+    "total_signed_days": 11,
+    "daily_points": 2,
+    "points_balance": 30,
+    "cycle_length": 12,
+    "cycle_position": 4,
+    "message": "今天已经签到，请明日再来吧～",
+    "days": []
+  }
+}
+```
+
 `GET /api/retention/weekly-report?week_start=2026-03-23`
 
 - `week_start` optional, format `YYYY-MM-DD`

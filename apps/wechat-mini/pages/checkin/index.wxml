@@ -1,0 +1,55 @@
+<view class="container checkin-page">
+  <view class="checkin-topbar">
+    <view class="checkin-topbar-title">签到</view>
+    <view class="checkin-topbar-rule" bindtap="openRuleHint">签到规则</view>
+  </view>
+
+  <view class="card checkin-status-card">
+    <view class="checkin-ring-wrap">
+      <view class="checkin-ring">
+        <view class="checkin-ring-streak">{{status.currentStreak}}</view>
+        <view class="checkin-ring-label">连续天数</view>
+      </view>
+    </view>
+    <view class="checkin-message">{{status.message}}</view>
+    <button
+      class="btn btn-primary checkin-btn"
+      disabled="{{status.signedToday || isSigning || isLoading}}"
+      loading="{{isSigning}}"
+      bindtap="handleSignIn"
+    >
+      {{status.signedToday ? "今日已签到" : "点击签到"}}
+    </button>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="card checkin-error">{{errorMsg}}</view>
+
+  <view class="card checkin-grid-card">
+    <view class="checkin-grid-head">您的当前积分 <text class="checkin-points">{{status.pointsBalance}}</text></view>
+    <view class="checkin-days-grid">
+      <view wx:for="{{status.days}}" wx:key="dayIndex" class="checkin-day-item">
+        <view class="checkin-day-dot {{item.isDone ? 'checkin-day-dot-done' : item.isCurrent ? 'checkin-day-dot-current' : ''}}">
+          <text wx:if="{{item.isDone}}" class="checkin-day-check">✓</text>
+          <text wx:else class="checkin-day-plus">+{{item.points}}</text>
+        </view>
+        <view class="checkin-day-label">{{item.label}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{awardModalVisible}}" class="checkin-award-mask" catchtouchmove="closeAwardModal">
+    <view class="checkin-award-dialog">
+      <view class="checkin-award-head">+{{awardPoints}} 积分</view>
+      <view class="checkin-award-sub">签到成功，明天再来哦～</view>
+      <view class="checkin-award-preview">
+        <view wx:for="{{awardPreviewDays}}" wx:key="dayIndex" class="checkin-award-day">
+          <view class="checkin-award-dot {{item.dayIndex === 1 ? 'checkin-award-dot-done' : ''}}">
+            {{item.dayIndex === 1 ? "✓" : "+" + item.points}}
+          </view>
+          <view class="checkin-award-label">{{item.label}}</view>
+        </view>
+      </view>
+      <button class="btn btn-secondary checkin-award-btn" bindtap="closeAwardModal">我知道了</button>
+    </view>
+  </view>
+</view>

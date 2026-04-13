@@ -1,73 +1,58 @@
-<view class="container shell-page">
-  <view class="card shell-hero profile-hero">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-kicker">My Space</view>
-        <view class="shell-title">我的空间</view>
-        <view class="section-sub profile-hero-sub">管理保存偏好、数据说明与反馈入口，减少来回跳转。</view>
+<view class="container profile-page">
+  <view class="profile-head-title">会员中心</view>
+
+  <view class="card profile-member-card">
+    <view class="profile-member-main">
+      <view class="profile-avatar">微</view>
+      <view class="profile-member-info">
+        <view class="profile-member-name">{{memberName}}</view>
+        <view class="profile-member-level">{{memberLevel}}</view>
       </view>
-      <view class="shell-badge profile-hero-badge">
-        <view class="profile-hero-badge-dot"></view>
-        <text class="profile-hero-badge-text">我的</text>
-      </view>
+      <button class="btn btn-primary profile-sign-btn" bindtap="openCheckinPage">
+        {{checkin.signedToday ? "已签到" : "签到"}}
+      </button>
     </view>
-    <view class="profile-hero-stage">
-      <view class="profile-hero-main-card {{saveHistory ? 'profile-hero-main-card-on' : 'profile-hero-main-card-off'}}">
-        <view class="profile-hero-main-label">历史保存状态</view>
-        <view class="profile-hero-main-value">{{saveHistory ? '已开启' : '已关闭'}}</view>
-        <view class="profile-hero-main-meta">
-          {{saveHistory ? '新的分析会写入历史。' : '新的分析不再写入历史。'}}
-        </view>
+
+    <view class="profile-stats">
+      <view class="profile-stat-item">
+        <view class="profile-stat-value">{{checkin.pointsBalance}}</view>
+        <view class="profile-stat-label">我的积分</view>
       </view>
-      <view class="profile-hero-side">
-        <view class="profile-hero-mini-card">
-          <view class="profile-hero-mini-label">保留周期</view>
-          <view class="profile-hero-mini-value">{{retentionDays}} 天</view>
-        </view>
-        <view class="profile-hero-mini-card profile-hero-mini-card-accent">
-          <view class="profile-hero-mini-label">最近更新</view>
-          <view class="profile-hero-mini-value profile-hero-mini-value-small">{{updatedAtValue}}</view>
-        </view>
+      <view class="profile-stat-item">
+        <view class="profile-stat-value">{{checkin.currentStreak}}</view>
+        <view class="profile-stat-label">连续签到</view>
+      </view>
+      <view class="profile-stat-item">
+        <view class="profile-stat-value">{{retentionDays}}</view>
+        <view class="profile-stat-label">保留天数</view>
       </view>
     </view>
   </view>
 
-  <view class="card section-card">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-title">快捷入口</view>
-        <view class="section-sub">常用操作放在一屏完成，避免多层跳转。</view>
-      </view>
-      <view class="status-chip">4 项</view>
-    </view>
+  <view class="card profile-benefit-card">
+    <view class="profile-benefit-title">我的权益</view>
+    <view class="profile-benefit-banner">SUNTEC Emotion Club</view>
+    <view class="profile-benefit-sub">{{checkin.message}}</view>
+  </view>
 
+  <view class="card profile-quick-card">
+    <view class="profile-section-title">常用服务</view>
     <view class="profile-quick-grid">
       <view
         wx:for="{{quickActions}}"
         wx:key="key"
-        class="profile-quick-card profile-quick-card-{{item.tone}}"
+        class="profile-quick-item"
         data-key="{{item.key}}"
         bindtap="handleQuickAction"
       >
-        <view class="profile-quick-head">
-          <view class="profile-quick-badge">{{item.badge}}</view>
-          <view class="profile-quick-link">进入</view>
-        </view>
-        <view class="profile-quick-title">{{item.title}}</view>
-        <view class="profile-quick-sub">{{item.subtitle}}</view>
+        <view class="profile-quick-icon">{{item.icon}}</view>
+        <view class="profile-quick-text">{{item.title}}</view>
       </view>
     </view>
   </view>
 
-  <view class="card section-card">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-title">历史保存</view>
-        <view class="section-sub">开关、清空与最近更新时间统一放在这里。</view>
-      </view>
-      <view class="status-chip">{{saveHistory ? "已开启" : "已关闭"}}</view>
-    </view>
-
+  <view class="card profile-setting-card">
+    <view class="profile-section-title">隐私与数据</view>
     <view class="profile-switch-row">
       <view class="profile-switch-copy">
         <view class="profile-switch-title">保存我的历史记录</view>
@@ -77,56 +62,20 @@
         checked="{{saveHistory}}"
         disabled="{{isLoading || isSaving}}"
         bindchange="handleSaveHistoryChange"
-        color="#A1261B"
+        color="#2f6fff"
       />
     </view>
-
-    <view wx:if="{{errorMsg}}" class="state-panel state-panel-muted profile-error-panel">{{errorMsg}}</view>
-
-    <button class="btn profile-clear-btn" bindtap="handleClearHistory">清空全部历史</button>
-  </view>
-
-  <view class="card section-card">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-title">隐私与数据说明</view>
-        <view class="section-sub">提前说明保存边界，避免“保存了什么”的误解。</view>
-      </view>
-      <view class="profile-expand-toggle" bindtap="togglePrivacyExpanded">
-        {{privacyExpanded ? "收起" : "展开"}}
-      </view>
-    </view>
-    <view wx:if="{{privacyExpanded}}" class="profile-privacy-grid">
-      <view wx:for="{{privacyCards}}" wx:key="key" class="profile-privacy-card">
-        <view class="profile-privacy-badge">{{item.badge}}</view>
-        <view class="profile-privacy-title">{{item.title}}</view>
-        <view class="profile-privacy-body">{{item.body}}</view>
-      </view>
-    </view>
-    <view wx:else class="profile-privacy-collapsed text-muted">
-      已收起隐私说明，点击右上角“展开”可查看数据保存与删除边界。
+    <view wx:if="{{errorMsg}}" class="profile-error">{{errorMsg}}</view>
+    <view class="profile-setting-actions">
+      <button class="btn btn-secondary profile-setting-btn" bindtap="handleClearHistory">清空历史</button>
+      <button class="btn btn-secondary profile-setting-btn" bindtap="goSettingsDetail">更多设置</button>
     </view>
   </view>
 
-  <view class="card section-card">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-title">反馈与支持</view>
-        <view class="section-sub">遇到问题时，直接把页面路径和操作步骤发给我们。</view>
-      </view>
-    </view>
-    <view class="profile-support-card">
-      <view class="profile-support-top">
-        <view class="profile-support-copy">
-          <view class="profile-support-label">反馈邮箱</view>
-          <view class="profile-support-email">{{feedbackEmail}}</view>
-        </view>
-        <view class="profile-support-chip">支持中</view>
-      </view>
-      <view class="profile-support-meta-row">
-        <view class="profile-support-meta">建议附上页面路径或操作步骤</view>
-      </view>
-    </view>
-    <button class="btn btn-secondary profile-feedback-btn" bindtap="copyFeedbackEmail">复制反馈邮箱</button>
+  <view class="card profile-support-card">
+    <view class="profile-section-title">反馈与支持</view>
+    <view class="profile-support-email">{{feedbackEmail}}</view>
+    <view class="profile-support-tip">建议附上页面路径与操作步骤，方便快速定位。</view>
+    <button class="btn btn-secondary profile-support-btn" bindtap="copyFeedbackEmail">复制反馈邮箱</button>
   </view>
 </view>

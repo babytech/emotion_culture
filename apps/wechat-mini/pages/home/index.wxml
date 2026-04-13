@@ -1,167 +1,105 @@
-<view class="container shell-page">
-  <view class="card shell-hero home-hero">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="home-title-wrap">
-          <view class="home-title-meta">{{todayLabel}}</view>
-          <view class="home-title-line">
-            今天也可以<text class="home-title-accent">慢一点</text>
-          </view>
-          <view class="home-title-line home-title-line-strong">
-            把情绪<text class="home-title-accent home-title-accent-strong">先放下来</text>
-          </view>
-        </view>
-      </view>
-      <view class="shell-badge home-hero-badge">
-        <view class="home-hero-badge-dot {{isRefreshing ? 'home-hero-badge-dot-live' : ''}}"></view>
-        <text class="home-hero-badge-text">{{isRefreshing ? "刷新中" : "首页"}}</text>
+<view class="container home-page">
+  <view class="home-top">
+    <view class="home-top-title">情绪陪伴小助手</view>
+    <view class="home-top-meta">{{todayLabel}}</view>
+  </view>
+
+  <view class="card home-hero home-hero-{{heroTheme}}">
+    <view class="home-hero-head">
+      <view class="home-hero-kicker">{{isRefreshing ? "同步中" : "今日概览"}}</view>
+      <view class="home-hero-badge">{{heroStreak}}</view>
+    </view>
+    <view class="home-hero-title">{{heroEmotion}}</view>
+    <view class="home-hero-sub">{{heroLatestTime}}</view>
+    <view class="home-hero-foot">
+      <view class="home-hero-stat">本月记录 {{heroMonthCount}}</view>
+      <view class="home-hero-link" bindtap="openRecentRecord">查看最近结果</view>
+    </view>
+  </view>
+
+  <view class="card home-action-card">
+    <view class="home-action-grid">
+      <view
+        wx:for="{{quickActions}}"
+        wx:key="key"
+        class="home-action-item"
+        data-key="{{item.key}}"
+        bindtap="handleQuickAction"
+      >
+        <view class="home-action-icon">{{item.icon}}</view>
+        <view class="home-action-text">{{item.title}}</view>
       </view>
     </view>
+  </view>
 
-    <view class="home-rhythm-strip">
-      <view class="home-rhythm-chip">
-        <view class="home-rhythm-chip-label">更新状态</view>
-        <view class="home-rhythm-chip-value">{{isRefreshing ? "同步中" : "已同步"}}</view>
-      </view>
-      <view class="home-rhythm-chip">
-        <view class="home-rhythm-chip-label">历史板块</view>
-        <view class="home-rhythm-chip-value">{{todayHistory.statusText}}</view>
-      </view>
+  <view class="card home-checkin-card">
+    <view class="home-checkin-head">
+      <view class="home-checkin-title">每日签到</view>
+      <view class="home-checkin-points">积分 {{checkin.pointsBalance}}</view>
     </view>
-
-    <view class="home-hero-stage">
-      <view class="home-spotlight-card home-spotlight-card-{{heroTheme}}">
-        <view class="home-spotlight-kicker">今日陪伴状态</view>
-        <view class="home-spotlight-value">{{heroEmotion}}</view>
-        <view class="home-spotlight-meta">{{heroLatestTime}}</view>
-      </view>
-      <view class="home-stage-side">
-        <view class="home-stage-mini-card home-stage-mini-card-{{heroTheme}}">
-          <view class="home-stage-mini-label">连续记录</view>
-          <view class="home-stage-mini-value">{{heroStreak}}</view>
-        </view>
-        <view class="home-stage-mini-card home-stage-mini-card-accent home-stage-mini-card-{{heroTheme}}">
-          <view class="home-stage-mini-label">本月打卡</view>
-          <view class="home-stage-mini-value">{{heroMonthCount}}</view>
-        </view>
-      </view>
-    </view>
-
-    <view class="home-hero-action-row">
-      <button class="btn btn-primary home-hero-btn home-hero-btn-primary" bindtap="openStudyQuizPage">
-        伴学小测
+    <view class="home-checkin-sub">{{checkin.message}}</view>
+    <view class="home-checkin-foot">
+      <view class="home-checkin-streak">连续 {{checkin.currentStreak}} 天</view>
+      <button class="btn btn-primary home-checkin-btn" bindtap="openCheckinPage">
+        {{checkin.signedToday ? "已签到" : "签到 +" + checkin.dailyPoints}}
       </button>
-      <button class="btn btn-secondary home-hero-btn home-hero-btn-secondary" bindtap="openAnalyzeTab">直接情绪分析</button>
-    </view>
-    <view class="home-hero-quick-link" bindtap="openRecentRecord">查看最近结果摘要 →</view>
-  </view>
-
-  <view class="metric-grid home-metric-grid">
-    <view wx:for="{{metrics}}" wx:key="label" class="card metric-card home-summary-card">
-      <view class="home-summary-copy">
-        <view class="home-summary-label">{{item.label}}</view>
-        <view class="home-summary-caption">{{item.caption}}</view>
-      </view>
-      <view class="home-summary-value">{{item.value}}</view>
     </view>
   </view>
 
-  <view class="card section-card">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-title">本周洞察</view>
-      </view>
-      <view class="status-chip">{{weekInsightStatus}}</view>
+  <view class="card home-week-card">
+    <view class="home-week-tag">{{weekInsightStatus}}</view>
+    <view class="home-week-title">本周洞察</view>
+    <view class="home-week-text">{{weekInsightText}}</view>
+  </view>
+
+  <view class="home-banner-grid">
+    <view class="card home-banner-card" bindtap="openStudyQuizPage">
+      <view class="home-banner-label">伴学小测</view>
+      <view class="home-banner-title">先测再分析</view>
+      <view class="home-banner-sub">10 题英语轻量测验</view>
     </view>
-    <view class="home-insight-card">
-      <view class="home-insight-mark">周</view>
-      <view class="home-insight-body">{{weekInsightText}}</view>
-      <view class="home-insight-footer">
-        <view class="home-insight-caption">来自本周记录</view>
-      </view>
+    <view class="card home-banner-card home-banner-card-accent" bindtap="openAnalyzeTab">
+      <view class="home-banner-label">直接分析</view>
+      <view class="home-banner-title">立即开始</view>
+      <view class="home-banner-sub">文字 / 自拍 / 录音任选</view>
     </view>
   </view>
 
-  <view class="card section-card today-history-card">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-title">历史上的今天</view>
-      </view>
-      <view class="today-history-head-actions">
-        <view class="status-chip">{{todayHistory.statusText}}</view>
-        <view wx:if="{{todayHistory.available}}" class="today-history-toggle" bindtap="toggleTodayHistory">
-          {{todayHistory.expanded ? "收起" : "展开"}} {{todayHistory.expanded ? "↑" : "↓"}}
-        </view>
+  <view class="card home-today-card">
+    <view class="home-today-head">
+      <view class="home-today-title">历史上的今天</view>
+      <view class="home-today-toggle" wx:if="{{todayHistory.available}}" bindtap="toggleTodayHistory">
+        {{todayHistory.expanded ? "收起" : "展开"}}
       </view>
     </view>
-
-    <view wx:if="{{todayHistory.available}}" class="today-history-body">
-      <view class="today-history-topline">
-        <view class="today-history-date">{{todayHistory.monthDay}}</view>
-        <view wx:if="{{todayHistory.eventYear}}" class="today-history-year">{{todayHistory.eventYear}}</view>
-      </view>
-      <view class="today-history-headline">{{todayHistory.headline}}</view>
-      <view wx:if="{{todayHistory.expanded}}" class="today-history-summary">{{todayHistory.summary}}</view>
-      <view wx:if="{{todayHistory.expanded && todayHistory.optionalNote}}" class="today-history-note">
+    <view wx:if="{{todayHistory.available}}">
+      <view class="home-today-meta">{{todayHistory.monthDay}} {{todayHistory.eventYear}}</view>
+      <view class="home-today-headline">{{todayHistory.headline}}</view>
+      <view wx:if="{{todayHistory.expanded}}" class="home-today-summary">{{todayHistory.summary}}</view>
+      <view wx:if="{{todayHistory.expanded && todayHistory.optionalNote}}" class="home-today-note">
         {{todayHistory.optionalNote}}
       </view>
-      <view class="today-history-foot">
-        <view class="today-history-source">{{todayHistory.sourceLabel}}{{todayHistory.cacheHit ? " · 缓存" : ""}}</view>
-        <view class="today-history-footnote">{{todayHistory.expanded ? "轻补充，不打断主任务" : "点展开可查看摘要"}}</view>
-      </view>
+      <view class="home-today-source">{{todayHistory.sourceLabel}}{{todayHistory.cacheHit ? " · 缓存" : ""}}</view>
     </view>
-
-    <view wx:else class="today-history-empty">
-      历史事件内容正在整理，稍后回来这里会看到一条简短的历史片段。
-    </view>
+    <view wx:else class="home-today-empty">历史事件整理中，稍后会在这里展示。</view>
   </view>
 
-  <view class="card section-card">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-title">最近一条结果摘要</view>
+  <view class="home-two-col">
+    <view class="card home-mini-card" bindtap="openRecentRecord">
+      <view class="home-mini-title">最近结果</view>
+      <view wx:if="{{recentRecord}}">
+        <view class="home-mini-main">{{recentRecord.primaryEmotionLabel}}</view>
+        <view class="home-mini-sub">{{recentRecord.displayTime}}</view>
       </view>
-      <view class="status-chip">{{recentRecordStatus}}</view>
+      <view wx:else class="home-mini-empty">{{recentRecordStatus}}</view>
     </view>
-
-    <view wx:if="{{recentRecord}}" class="recent-card" bindtap="openRecentRecord">
-      <view class="recent-topline">
-        <view class="recent-time-pill">{{recentRecord.displayTime}}</view>
+    <view class="card home-mini-card" bindtap="openFavoritesTab">
+      <view class="home-mini-title">收藏预览</view>
+      <view wx:if="{{favoritePreview.length}}">
+        <view class="home-mini-main">{{favoritePreview[0].typeLabel}}</view>
+        <view class="home-mini-sub">{{favoritePreview[0].title}}</view>
       </view>
-      <view class="recent-emotion">{{recentRecord.primaryEmotionLabel}}</view>
-      <view class="recent-secondary-pill">{{recentRecord.secondaryEmotionText}}</view>
-      <view class="recent-summary">{{recentRecord.summary}}</view>
-      <view class="recent-footer">
-        <view class="recent-link">查看详情</view>
-      </view>
+      <view wx:else class="home-mini-empty">暂无收藏</view>
     </view>
-
-    <view wx:else class="empty-copy">完成一次分析后，这里会展示最近一条结果摘要。</view>
-  </view>
-
-  <view class="card section-card">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="section-title">收藏预览</view>
-      </view>
-      <view class="status-chip">{{favoriteStatusText}}</view>
-    </view>
-
-    <view wx:if="{{favoritePreview.length}}" class="favorite-preview-list">
-      <view wx:for="{{favoritePreview}}" wx:key="favoriteId" class="favorite-preview-item">
-        <view class="favorite-preview-head">
-          <view class="favorite-preview-type">{{item.typeLabel}}</view>
-          <view class="favorite-preview-flag">已收藏</view>
-        </view>
-        <view class="favorite-preview-title">{{item.title}}</view>
-        <view class="favorite-preview-sub">{{item.subtitle}}</view>
-        <view class="favorite-preview-foot">
-          <view class="favorite-preview-hint">{{item.hint}}</view>
-          <view class="favorite-preview-link">去查看</view>
-        </view>
-      </view>
-    </view>
-
-    <view wx:else class="empty-copy">还没有收藏内容。</view>
   </view>
 </view>
