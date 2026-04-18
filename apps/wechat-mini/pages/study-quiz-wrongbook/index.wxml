@@ -1,0 +1,49 @@
+<view class="container wrongbook-page">
+  <view class="card wrongbook-head">
+    <view class="wrongbook-title">错题本</view>
+    <view class="wrongbook-sub">自动累计薄弱题，方便回练。</view>
+    <view class="wrongbook-meta">共 {{total}} 题</view>
+  </view>
+
+  <view wx:if="{{errorMsg}}" class="card wrongbook-error">
+    <view class="wrongbook-error-text">{{errorMsg}}</view>
+    <button class="btn btn-secondary wrongbook-retry-btn" bindtap="retryLoad" disabled="{{isLoading || isLoadingMore}}">
+      重试
+    </button>
+  </view>
+
+  <view wx:if="{{isLoading}}" class="card wrongbook-loading">加载中...</view>
+
+  <view wx:elif="{{!items.length}}" class="card wrongbook-empty">
+    <view class="wrongbook-empty-title">暂时没有错题</view>
+    <view class="wrongbook-empty-sub">继续保持，或者再测一轮。</view>
+    <button class="btn btn-secondary wrongbook-empty-btn" bindtap="retryQuiz">再测一次</button>
+  </view>
+
+  <block wx:else>
+    <view class="wrongbook-list">
+      <view wx:for="{{items}}" wx:key="wrongbookId" class="card wrongbook-item">
+        <view class="wrongbook-item-head">
+          <view class="wrongbook-item-type">{{item.questionType}}</view>
+          <view class="wrongbook-item-times">错 {{item.wrongTimes}} 次</view>
+        </view>
+        <view class="wrongbook-item-stem">{{item.stem}}</view>
+        <view class="wrongbook-item-line">正确答案：{{item.rightAnswer}}</view>
+        <view class="wrongbook-item-line">最近作答：{{item.latestUserAnswer}}</view>
+        <view class="wrongbook-item-time">最近错误：{{item.lastWrongAtText}}</view>
+      </view>
+    </view>
+
+    <button
+      wx:if="{{hasMore}}"
+      class="btn btn-secondary wrongbook-more-btn"
+      loading="{{isLoadingMore}}"
+      disabled="{{isLoadingMore}}"
+      bindtap="loadMore"
+    >
+      加载更多
+    </button>
+
+    <button class="btn wrongbook-retry-quiz-btn" bindtap="retryQuiz">再测一次</button>
+  </block>
+</view>

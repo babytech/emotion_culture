@@ -5,6 +5,7 @@
     "pages/home/index",
     "pages/study-quiz/index",
     "pages/study-quiz-result/index",
+    "pages/study-quiz-wrongbook/index",
     "pages/journey/index",
     "pages/analyze/index",
     "pages/favorites/index",
@@ -29,10 +30,10 @@
   },
   "tabBar": {
     "custom": true,
-    "color": "#8B796B",
-    "selectedColor": "#A1261B",
-    "backgroundColor": "#00000000",
-    "borderStyle": "white",
+    "color": "#7C8EAD",
+    "selectedColor": "#2F6FFF",
+    "backgroundColor": "#FAFDFF",
+    "borderStyle": "black",
     "list": [
       {
         "pagePath": "pages/home/index",

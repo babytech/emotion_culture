@@ -734,6 +734,7 @@ def record_quiz_submission(
     summary: QuizRecordSummary,
     results: list[QuizQuestionResult],
     wrong_items: list[QuizWrongItem],
+    submit_token: Optional[str] = None,
 ) -> QuizRecordSummary:
     normalized_user_id = _normalize_user_id(user_id)
     with _STORE_LOCK:
@@ -765,6 +766,7 @@ def record_quiz_submission(
         quiz_records.insert(
             0,
             {
+                "submit_token": (submit_token or "").strip(),
                 "summary": summary_payload,
                 "results": results_payload,
                 "wrong_items": wrong_items_payload,
@@ -821,6 +823,45 @@ def record_quiz_submission(
         return summary
 
 
+def _build_quiz_submit_response_from_entry(entry: dict[str, Any]) -> Optional[QuizSubmitResponse]:
+    if not isinstance(entry, dict):
+        return None
+
+    summary_payload = entry.get("summary", {})
+    if not isinstance(summary_payload, dict):
+        return None
+
+    try:
+        summary = QuizRecordSummary.model_validate(summary_payload)
+    except Exception:
+        return None
+
+    results_payload = entry.get("results")
+    wrong_payload = entry.get("wrong_items")
+    results: list[QuizQuestionResult] = []
+    wrong_items: list[QuizWrongItem] = []
+
+    if isinstance(results_payload, list):
+        for item in results_payload:
+            try:
+                results.append(QuizQuestionResult.model_validate(item))
+            except Exception:
+                continue
+    if isinstance(wrong_payload, list):
+        for item in wrong_payload:
+            try:
+                wrong_items.append(QuizWrongItem.model_validate(item))
+            except Exception:
+                continue
+
+    return QuizSubmitResponse(
+        quiz_record=summary,
+        results=results,
+        wrong_items=wrong_items,
+        next_action_hint=_QUIZ_NEXT_ACTION_HINT,
+    )
+
+
 def list_quiz_record_summaries(user_id: str, limit: int = 20, offset: int = 0) -> QuizHistoryResponse:
     normalized_user_id = _normalize_user_id(user_id)
     safe_limit = max(1, min(int(limit or 20), 100))
@@ -874,32 +915,35 @@ def get_quiz_record_detail(user_id: str, quiz_record_id: str) -> Optional[QuizSu
                 continue
             if (summary_payload.get("quiz_record_id") or "").strip() != target_id:
                 continue
-            try:
-                summary = QuizRecordSummary.model_validate(summary_payload)
-                results_payload = entry.get("results")
-                wrong_payload = entry.get("wrong_items")
-                results: list[QuizQuestionResult] = []
-                wrong_items: list[QuizWrongItem] = []
-                if isinstance(results_payload, list):
-                    for item in results_payload:
-                        try:
-                            results.append(QuizQuestionResult.model_validate(item))
-                        except Exception:
-                            continue
-                if isinstance(wrong_payload, list):
-                    for item in wrong_payload:
-                        try:
-                            wrong_items.append(QuizWrongItem.model_validate(item))
-                        except Exception:
-                            continue
-                response = QuizSubmitResponse(
-                    quiz_record=summary,
-                    results=results,
-                    wrong_items=wrong_items,
-                    next_action_hint=_QUIZ_NEXT_ACTION_HINT,
-                )
-            except Exception:
-                response = None
+            response = _build_quiz_submit_response_from_entry(entry)
+            break
+
+        if changed:
+            _save_store(payload)
+        return response
+
+
+def get_quiz_record_detail_by_submit_token(user_id: str, submit_token: str) -> Optional[QuizSubmitResponse]:
+    normalized_user_id = _normalize_user_id(user_id)
+    target_token = (submit_token or "").strip()
+    if not target_token:
+        return None
+
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        quiz_records = _quiz_records_list(bucket)
+        response: Optional[QuizSubmitResponse] = None
+        for entry in quiz_records:
+            if not isinstance(entry, dict):
+                continue
+            if (entry.get("submit_token") or "").strip() != target_token:
+                continue
+            response = _build_quiz_submit_response_from_entry(entry)
             break
 
         if changed:

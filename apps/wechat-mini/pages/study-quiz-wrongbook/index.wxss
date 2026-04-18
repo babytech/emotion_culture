@@ -1,0 +1,123 @@
+.wrongbook-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.wrongbook-head {
+  padding: 20rpx;
+  border: none;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(153, 197, 255, 0.3), transparent 38%),
+    linear-gradient(135deg, #ffffff, #eef5ff);
+}
+
+.wrongbook-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #223350;
+}
+
+.wrongbook-sub {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: #60739a;
+}
+
+.wrongbook-meta {
+  margin-top: 10rpx;
+  font-size: 22rpx;
+  color: #4f6ea5;
+}
+
+.wrongbook-error,
+.wrongbook-loading,
+.wrongbook-empty {
+  padding: 18rpx;
+  border: none;
+}
+
+.wrongbook-error {
+  background: #fff2f5;
+}
+
+.wrongbook-error-text {
+  font-size: 23rpx;
+  color: #9f3d4d;
+}
+
+.wrongbook-retry-btn {
+  margin-top: 10rpx;
+  width: 180rpx;
+}
+
+.wrongbook-empty-title {
+  font-size: 29rpx;
+  font-weight: 700;
+  color: #2f4469;
+}
+
+.wrongbook-empty-sub {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: #6f83aa;
+}
+
+.wrongbook-empty-btn {
+  margin-top: 12rpx;
+}
+
+.wrongbook-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.wrongbook-item {
+  padding: 16rpx;
+  border: none;
+}
+
+.wrongbook-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wrongbook-item-type {
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  background: rgba(77, 117, 194, 0.14);
+  color: #446cb0;
+  font-size: 21rpx;
+}
+
+.wrongbook-item-times {
+  font-size: 21rpx;
+  color: #6c80a7;
+}
+
+.wrongbook-item-stem {
+  margin-top: 10rpx;
+  font-size: 26rpx;
+  line-height: 1.56;
+  color: #2e446b;
+}
+
+.wrongbook-item-line {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  line-height: 1.52;
+  color: #55719f;
+}
+
+.wrongbook-item-time {
+  margin-top: 8rpx;
+  font-size: 21rpx;
+  color: #7a8db1;
+}
+
+.wrongbook-more-btn,
+.wrongbook-retry-quiz-btn {
+  width: 100%;
+}

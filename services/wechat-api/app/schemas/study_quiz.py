@@ -48,6 +48,7 @@ class QuizAnswerSubmission(BaseModel):
 class QuizSubmitRequest(BaseModel):
     course: str = "english"
     paper_id: Optional[str] = None
+    submit_token: Optional[str] = None
     answers: list[QuizAnswerSubmission] = Field(default_factory=list)
 
 

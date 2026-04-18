@@ -6,6 +6,26 @@ function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function createSubmitToken() {
+  const stamp = Date.now().toString(36);
+  const rand = Math.random().toString(16).slice(2, 10);
+  return `qst_${stamp}_${rand}`;
+}
+
+function showModalAsync(options = {}) {
+  return new Promise((resolve) => {
+    wx.showModal({
+      ...options,
+      success(res) {
+        resolve(!!(res && res.confirm));
+      },
+      fail() {
+        resolve(false);
+      },
+    });
+  });
+}
+
 function normalizeQuestion(raw) {
   const questionType = safeText(raw && raw.type);
   const options = Array.isArray(raw && raw.options)
@@ -25,28 +45,31 @@ function normalizeQuestion(raw) {
     selectedRadio: "",
     selectedChecks: [],
     fillValues: fills.length ? fills.map(() => "") : [""],
+    answered: false,
   };
+}
+
+function isQuestionAnswered(question) {
+  if (!question || !question.questionId) return false;
+  if (question.type === "radio") return !!safeText(question.selectedRadio);
+  if (question.type === "check") {
+    return Array.isArray(question.selectedChecks) && question.selectedChecks.length > 0;
+  }
+  if (question.type === "fill") {
+    return Array.isArray(question.fillValues) && question.fillValues.some((value) => safeText(value));
+  }
+  return false;
+}
+
+function hydrateQuestionAnswerState(question) {
+  const next = { ...question };
+  next.answered = isQuestionAnswered(next);
+  return next;
 }
 
 function countAnswered(questions) {
   if (!Array.isArray(questions)) return 0;
-  let count = 0;
-  questions.forEach((item) => {
-    if (!item || !item.questionId) return;
-    if (item.type === "radio" && safeText(item.selectedRadio)) {
-      count += 1;
-      return;
-    }
-    if (item.type === "check" && Array.isArray(item.selectedChecks) && item.selectedChecks.length > 0) {
-      count += 1;
-      return;
-    }
-    if (item.type === "fill") {
-      const hasValue = Array.isArray(item.fillValues) && item.fillValues.some((value) => safeText(value));
-      if (hasValue) count += 1;
-    }
-  });
-  return count;
+  return questions.filter((question) => question && question.answered).length;
 }
 
 Page({
@@ -60,13 +83,42 @@ Page({
     paperVersion: "",
     totalQuestions: 0,
     answeredQuestions: 0,
+    unansweredQuestions: 0,
+    progressPercent: 0,
     questions: [],
+    currentIndex: 0,
+    currentQuestion: null,
+    submitToken: "",
   },
 
   onShow() {
     if (!this.data.paperId && !this.data.isLoading) {
       this.loadPaper();
     }
+  },
+
+  syncQuestionState(nextQuestions, nextIndex = this.data.currentIndex, options = {}) {
+    const list = Array.isArray(nextQuestions) ? nextQuestions : [];
+    const total = Number(this.data.totalQuestions) || list.length;
+    const maxIndex = Math.max(0, list.length - 1);
+    const safeIndex = Math.min(Math.max(0, Number(nextIndex) || 0), maxIndex);
+    const hydrated = list.map((question) => hydrateQuestionAnswerState(question));
+    const answered = countAnswered(hydrated);
+    const unanswered = Math.max(0, total - answered);
+    const progressPercent = total > 0 ? Math.max(0, Math.min(100, Math.round((answered / total) * 100))) : 0;
+
+    const nextData = {
+      questions: hydrated,
+      currentIndex: safeIndex,
+      currentQuestion: hydrated[safeIndex] || null,
+      answeredQuestions: answered,
+      unansweredQuestions: unanswered,
+      progressPercent,
+    };
+    if (options.clearToken) {
+      nextData.submitToken = "";
+    }
+    this.setData(nextData);
   },
 
   async loadPaper() {
@@ -77,15 +129,15 @@ Page({
     try {
       const response = await getStudyQuizPaper("english");
       const questions = Array.isArray(response && response.questions) ? response.questions.map(normalizeQuestion) : [];
+      const totalQuestions = Number(response && response.total_questions) || questions.length;
       this.setData({
         paperId: safeText(response && response.paper_id),
         paperTitle: safeText(response && response.title) || "英语伴学小测",
         paperCourse: safeText(response && response.course) || "english",
         paperVersion: safeText(response && response.version),
-        totalQuestions: Number(response && response.total_questions) || questions.length,
-        answeredQuestions: 0,
-        questions,
+        totalQuestions,
       });
+      this.syncQuestionState(questions, 0, { clearToken: true });
     } catch (err) {
       this.setData({
         errorMsg: (err && err.message) || "加载小测试卷失败，请稍后重试。",
@@ -96,10 +148,7 @@ Page({
   },
 
   updateAnsweredCount(nextQuestions) {
-    this.setData({
-      questions: nextQuestions,
-      answeredQuestions: countAnswered(nextQuestions),
-    });
+    this.syncQuestionState(nextQuestions, this.data.currentIndex, { clearToken: true });
   },
 
   handleRadioChange(event) {
@@ -161,7 +210,24 @@ Page({
     this.updateAnsweredCount(nextQuestions);
   },
 
-  buildSubmitPayload() {
+  jumpToQuestion(event) {
+    const index = Number(event && event.currentTarget && event.currentTarget.dataset.index);
+    if (!Number.isFinite(index)) return;
+    this.syncQuestionState(this.data.questions, index);
+  },
+
+  handlePrevQuestion() {
+    if (this.data.currentIndex <= 0) return;
+    this.syncQuestionState(this.data.questions, this.data.currentIndex - 1);
+  },
+
+  handleNextQuestion() {
+    const total = Number(this.data.totalQuestions) || (this.data.questions || []).length;
+    if (this.data.currentIndex >= total - 1) return;
+    this.syncQuestionState(this.data.questions, this.data.currentIndex + 1);
+  },
+
+  buildSubmitPayload(submitToken) {
     const answers = [];
     (this.data.questions || []).forEach((item) => {
       if (!item || !item.questionId) return;
@@ -187,13 +253,41 @@ Page({
     return {
       course: this.data.paperCourse || "english",
       paper_id: this.data.paperId || undefined,
+      submit_token: submitToken || undefined,
       answers,
     };
   },
 
   async submitQuiz() {
     if (this.data.isSubmitting || this.data.isLoading) return;
-    const payload = this.buildSubmitPayload();
+
+    if ((Number(this.data.answeredQuestions) || 0) <= 0) {
+      const msg = "请先完成至少 1 题后再提交。";
+      this.setData({ errorMsg: msg });
+      wx.showToast({
+        title: "请先作答",
+        icon: "none",
+      });
+      return;
+    }
+
+    const unanswered = Number(this.data.unansweredQuestions) || 0;
+    if (unanswered > 0) {
+      const confirmed = await showModalAsync({
+        title: "还有未答题",
+        content: `当前还有 ${unanswered} 题未作答，确认现在提交吗？`,
+        confirmText: "继续提交",
+        cancelText: "继续答题",
+      });
+      if (!confirmed) return;
+    }
+
+    const submitToken = this.data.submitToken || createSubmitToken();
+    if (!this.data.submitToken) {
+      this.setData({ submitToken });
+    }
+    const payload = this.buildSubmitPayload(submitToken);
+
     this.setData({
       isSubmitting: true,
       errorMsg: "",

@@ -20,6 +20,7 @@ from app.schemas.study_quiz import (
     QuizWrongbookResponse,
 )
 from app.services.history_service import (
+    get_quiz_record_detail_by_submit_token,
     get_quiz_record_detail,
     list_quiz_record_summaries,
     list_quiz_wrongbook_entries,
@@ -177,6 +178,12 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
     if input_paper_id and input_paper_id != expected_paper_id:
         raise ValueError("[QUIZ_PAPER_MISMATCH] 试卷版本已更新，请重新开始测验。")
 
+    submit_token = (payload.submit_token or "").strip()[:128]
+    if submit_token:
+        existing = get_quiz_record_detail_by_submit_token(user_id=user_id, submit_token=submit_token)
+        if existing is not None:
+            return existing
+
     answer_by_question_id = _answers_map(payload.answers)
     question_score_full = 100.0 / float(len(questions))
     submitted_at = _iso_now_utc()
@@ -297,6 +304,7 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
         summary=summary,
         results=results,
         wrong_items=wrong_items,
+        submit_token=submit_token,
     )
 
     return QuizSubmitResponse(

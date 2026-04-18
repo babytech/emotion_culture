@@ -1,10 +1,10 @@
-<view class="container page-root">
+<view class="container quiz-result-page">
   <view wx:if="{{isLoading}}" class="card loading-card">结果加载中...</view>
   <view wx:if="{{errorMsg}}" class="card error-card">{{errorMsg}}</view>
 
   <block wx:if="{{!isLoading && hasData && summary}}">
     <view class="card result-hero result-hero-{{summary.scoreTone}}">
-      <view class="result-kicker">Quiz Result</view>
+      <view class="result-kicker">伴学小测成绩</view>
       <view class="result-score">{{summary.score}} 分</view>
       <view class="result-grade">等级 {{summary.grade}}</view>
       <view class="result-meta">{{summary.courseLabel}} · {{summary.submittedAtText}}</view>
@@ -41,4 +41,5 @@
     <button class="btn btn-primary" bindtap="goAnalyzeWithQuizContext">去做情绪分析</button>
     <button class="btn btn-secondary" bindtap="retryQuiz">再测一次</button>
   </view>
+  <button class="btn btn-secondary action-row-single" bindtap="goWrongbook">查看错题本</button>
 </view>

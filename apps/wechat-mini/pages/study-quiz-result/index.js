@@ -156,4 +156,10 @@ Page({
       url: "/pages/study-quiz/index",
     });
   },
+
+  goWrongbook() {
+    wx.navigateTo({
+      url: "/pages/study-quiz-wrongbook/index",
+    });
+  },
 });
