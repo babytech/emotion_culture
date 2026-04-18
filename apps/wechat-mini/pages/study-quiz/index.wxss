@@ -74,6 +74,20 @@
   background: #fff3f5;
 }
 
+.error-text {
+  font-size: 23rpx;
+  line-height: 1.55;
+}
+
+.error-retry-btn {
+  margin-top: 10rpx;
+  width: 220rpx;
+  min-height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 18rpx !important;
+  font-size: 22rpx !important;
+}
+
 .question-card {
   padding: 18rpx;
   border: none;

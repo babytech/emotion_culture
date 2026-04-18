@@ -127,6 +127,55 @@ function sleep(ms) {
   });
 }
 
+function buildApiRequestUrl(path) {
+  const base = (config.apiBaseUrl || "").trim();
+  if (!base) return "";
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const normalizedPath = String(path || "").startsWith("/") ? String(path || "") : `/${String(path || "")}`;
+  return normalizeAndEncodeUrl(`${normalizedBase}${normalizedPath}`);
+}
+
+function callHttpOnce(path, method, data, options = {}) {
+  return new Promise((resolve, reject) => {
+    const url = buildApiRequestUrl(path);
+    if (!url) {
+      reject(new Error("apiBaseUrl is not configured"));
+      return;
+    }
+    const timeoutMs = Math.max(2000, Number(options.timeoutMs) || 10000);
+    const headers = {
+      "content-type": "application/json",
+    };
+    if (shouldUseClientUserIdFallback()) {
+      headers["X-EC-USER-ID"] = getOrCreateClientUserId();
+    }
+    wx.request({
+      url,
+      method: method || "GET",
+      data,
+      timeout: timeoutMs,
+      header: headers,
+      success(res) {
+        const statusCode = typeof res.statusCode === "number" ? res.statusCode : 200;
+        if (statusCode >= 200 && statusCode < 300) {
+          resolve(res.data);
+          return;
+        }
+        const detail =
+          (res.data && (res.data.detail || res.data.message || res.data.code)) ||
+          `HTTP ${statusCode}`;
+        const error = new Error(detail);
+        error.statusCode = statusCode;
+        reject(error);
+      },
+      fail(err) {
+        const rawMsg = (err && err.errMsg) || "http request failed";
+        reject(new Error(rawMsg));
+      },
+    });
+  });
+}
+
 function callContainerOnce(path, method, data, env) {
   return new Promise((resolve, reject) => {
     if (!wx.cloud || !wx.cloud.callContainer) {
@@ -453,7 +502,38 @@ function signInDaily() {
 
 function getStudyQuizPaper(course = "english") {
   const normalizedCourse = (course || "english").trim().toLowerCase() || "english";
-  return callViaContainer(`/api/study-quiz/paper?course=${encodeURIComponent(normalizedCourse)}`, "GET");
+  const path = `/api/study-quiz/paper?course=${encodeURIComponent(normalizedCourse)}`;
+  return callViaContainer(path, "GET", undefined, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 2,
+    timeoutRetryDelayMs: 320,
+    retryOnNetwork: true,
+    networkRetryCount: 2,
+    networkRetryDelayMs: 360,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 2,
+    transientHttpRetryDelayMs: 450,
+  }).catch(async (err) => {
+    const message = (err && err.message) || "";
+    const statusCode = extractHttpStatusCode(err);
+    const shouldFallbackHttp =
+      !!config.apiBaseUrl &&
+      (isTimeoutLikeError(message) ||
+        isNetworkLikeError(message) ||
+        isTransientHttpStatus(statusCode) ||
+        message.toLowerCase().includes("callcontainer"));
+    if (!shouldFallbackHttp) {
+      throw err;
+    }
+    try {
+      return await callHttpOnce(path, "GET", undefined, {
+        timeoutMs: 9000,
+      });
+    } catch (httpErr) {
+      const httpMsg = (httpErr && httpErr.message) || "http fallback failed";
+      throw new Error(`${message || "云调用失败"}；HTTP 兜底也失败：${httpMsg}`);
+    }
+  });
 }
 
 function submitStudyQuiz(payload) {

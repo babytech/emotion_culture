@@ -1,6 +1,8 @@
 const { getStudyQuizPaper, submitStudyQuiz } = require("../../services/api");
 
 const QUIZ_CONTEXT_STORAGE_KEY = "ec_latest_quiz_context_v1";
+const QUIZ_PAPER_CACHE_STORAGE_KEY = "ec_study_quiz_paper_cache_v1";
+const QUIZ_PAPER_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -24,6 +26,61 @@ function showModalAsync(options = {}) {
       },
     });
   });
+}
+
+function isValidPaperPayload(payload) {
+  if (!payload || typeof payload !== "object") return false;
+  if (!safeText(payload.paper_id)) return false;
+  const questions = payload.questions;
+  return Array.isArray(questions) && questions.length > 0;
+}
+
+function readCachedPaper() {
+  try {
+    const payload = wx.getStorageSync(QUIZ_PAPER_CACHE_STORAGE_KEY);
+    if (!payload || typeof payload !== "object") return null;
+    const savedAt = Number(payload.savedAt) || 0;
+    const paper = payload.paper;
+    if (!isValidPaperPayload(paper)) return null;
+    if (savedAt > 0 && Date.now() - savedAt > QUIZ_PAPER_CACHE_MAX_AGE_MS) {
+      return null;
+    }
+    return paper;
+  } catch (err) {
+    return null;
+  }
+}
+
+function writeCachedPaper(paper) {
+  if (!isValidPaperPayload(paper)) return;
+  try {
+    wx.setStorageSync(QUIZ_PAPER_CACHE_STORAGE_KEY, {
+      savedAt: Date.now(),
+      paper,
+    });
+  } catch (err) {
+    // ignore
+  }
+}
+
+function mapPaperLoadError(err) {
+  const message = safeText(err && err.message);
+  if (!message) {
+    return "试卷加载失败，请重试。";
+  }
+  const lower = message.toLowerCase();
+  if (
+    lower.includes("102002") ||
+    lower.includes("timeout") ||
+    lower.includes("timed out") ||
+    lower.includes("request:fail")
+  ) {
+    return "网络波动导致加载超时，请点“重试加载”。";
+  }
+  if (message.length > 88) {
+    return "试卷加载失败，请稍后重试。";
+  }
+  return message;
 }
 
 function normalizeQuestion(raw) {
@@ -77,6 +134,7 @@ Page({
     isLoading: false,
     isSubmitting: false,
     errorMsg: "",
+    loadedFromCache: false,
     paperId: "",
     paperTitle: "",
     paperCourse: "english",
@@ -95,6 +153,10 @@ Page({
     if (!this.data.paperId && !this.data.isLoading) {
       this.loadPaper();
     }
+  },
+
+  onPullDownRefresh() {
+    this.loadPaper({ manual: true, stopPullDown: true });
   },
 
   syncQuestionState(nextQuestions, nextIndex = this.data.currentIndex, options = {}) {
@@ -121,30 +183,86 @@ Page({
     this.setData(nextData);
   },
 
-  async loadPaper() {
+  applyPaper(response, options = {}) {
+    const questions = Array.isArray(response && response.questions) ? response.questions.map(normalizeQuestion) : [];
+    const totalQuestions = Number(response && response.total_questions) || questions.length;
+    this.setData({
+      paperId: safeText(response && response.paper_id),
+      paperTitle: safeText(response && response.title) || "英语伴学小测",
+      paperCourse: safeText(response && response.course) || "english",
+      paperVersion: safeText(response && response.version),
+      totalQuestions,
+    });
+    this.syncQuestionState(questions, 0, { clearToken: options.clearToken !== false });
+  },
+
+  async loadPaper(options = {}) {
+    if (this.data.isLoading) return;
+    const manual = !!options.manual;
+    const stopPullDown = !!options.stopPullDown;
+    const hasQuestions = Array.isArray(this.data.questions) && this.data.questions.length > 0;
+    const cachedPaper = readCachedPaper();
+
+    if (!hasQuestions && cachedPaper) {
+      this.applyPaper(cachedPaper, { clearToken: true });
+      this.setData({
+        loadedFromCache: true,
+        errorMsg: "",
+      });
+    }
+
     this.setData({
       isLoading: true,
       errorMsg: "",
     });
     try {
       const response = await getStudyQuizPaper("english");
-      const questions = Array.isArray(response && response.questions) ? response.questions.map(normalizeQuestion) : [];
-      const totalQuestions = Number(response && response.total_questions) || questions.length;
+      if (!isValidPaperPayload(response)) {
+        throw new Error("试卷数据异常，请重试。");
+      }
+      writeCachedPaper(response);
+      this.applyPaper(response, { clearToken: true });
       this.setData({
-        paperId: safeText(response && response.paper_id),
-        paperTitle: safeText(response && response.title) || "英语伴学小测",
-        paperCourse: safeText(response && response.course) || "english",
-        paperVersion: safeText(response && response.version),
-        totalQuestions,
+        loadedFromCache: false,
+        errorMsg: "",
       });
-      this.syncQuestionState(questions, 0, { clearToken: true });
+      if (manual) {
+        wx.showToast({
+          title: "试卷已刷新",
+          icon: "none",
+        });
+      }
     } catch (err) {
-      this.setData({
-        errorMsg: (err && err.message) || "加载小测试卷失败，请稍后重试。",
-      });
+      const useCache = !!cachedPaper || hasQuestions;
+      if (useCache) {
+        this.setData({
+          loadedFromCache: true,
+          errorMsg: "",
+        });
+        if (manual) {
+          wx.showToast({
+            title: "网络波动，已用缓存题目",
+            icon: "none",
+          });
+        }
+      } else {
+        const nextError = mapPaperLoadError(err);
+        this.setData({
+          errorMsg: nextError,
+        });
+      }
     } finally {
-      this.setData({ isLoading: false });
+      this.setData({
+        isLoading: false,
+      });
+      if (stopPullDown) {
+        wx.stopPullDownRefresh();
+      }
     }
+  },
+
+  handleRetryLoadPaper() {
+    this.loadPaper({ manual: true });
   },
 
   updateAnsweredCount(nextQuestions) {
