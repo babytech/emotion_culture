@@ -44,6 +44,7 @@ function buildViewData(response) {
   const correctCount = Number(quizRecord.correct_count) || 0;
   const score = Number(quizRecord.score) || 0;
   const answered = Number(quizRecord.answered_questions) || 0;
+  const unanswered = Math.max(0, totalQuestions - answered);
   const correctRate = totalQuestions > 0 ? `${Math.round((correctCount / totalQuestions) * 100)}%` : "0%";
   return {
     hasData: !!safeText(quizRecord.quiz_record_id),
@@ -55,6 +56,7 @@ function buildViewData(response) {
       grade: safeText(quizRecord.grade) || "C",
       totalQuestions,
       answeredQuestions: answered,
+      unansweredQuestions: unanswered,
       correctCount,
       wrongCount: Number(quizRecord.wrong_count) || wrongItems.length,
       partialCount: Number(quizRecord.partial_count) || 0,

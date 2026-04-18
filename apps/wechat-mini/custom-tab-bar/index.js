@@ -1,11 +1,11 @@
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB, PROFILE_TAB } = require("../utils/tabbar");
 
 const TAB_ITEMS = [
-  { pagePath: HOME_TAB, text: "首页" },
-  { pagePath: JOURNEY_TAB, text: "记录" },
-  { pagePath: ANALYZE_TAB, text: "分析", isPrimary: true },
-  { pagePath: FAVORITES_TAB, text: "收藏" },
-  { pagePath: PROFILE_TAB, text: "我的" },
+  { pagePath: HOME_TAB, text: "首页", icon: "首" },
+  { pagePath: JOURNEY_TAB, text: "记录", icon: "记" },
+  { pagePath: ANALYZE_TAB, text: "分析", icon: "析" },
+  { pagePath: FAVORITES_TAB, text: "收藏", icon: "藏" },
+  { pagePath: PROFILE_TAB, text: "我的", icon: "我" },
 ];
 
 Component({

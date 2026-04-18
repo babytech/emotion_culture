@@ -1,78 +1,55 @@
-<view class="container page-root shell-page analyze-page">
-  <view class="hero card">
-    <view class="hero-head">
-      <view class="hero-copy">
-        <view class="hero-title">把这一刻交给我</view>
-        <view class="hero-subtitle">文字、自拍、录音可任选</view>
-      </view>
-      <view class="hero-stamp analyze-hero-badge">
-        <view class="analyze-hero-badge-dot"></view>
-        <text class="analyze-hero-badge-text">分析</text>
-      </view>
+<view class="container analyze-page">
+  <view class="card analyze-head-card">
+    <view class="analyze-head-top">
+      <view class="analyze-head-title">情绪分析</view>
+      <view class="analyze-head-chip">{{isSubmitting ? "处理中" : "待提交"}}</view>
     </view>
-    <view class="hero-chip-row analyze-summary-row">
-      <view class="hero-chip analyze-summary-chip">
-        <view class="hero-chip-line">
-          <view class="hero-chip-label">文字</view>
-          <view class="hero-chip-value">{{text ? '已填写' : '未填写'}}</view>
-        </view>
+    <view class="analyze-head-grid">
+      <view class="analyze-head-item">
+        <view class="analyze-head-label">文字</view>
+        <view class="analyze-head-value">{{text ? "已填" : "未填"}}</view>
       </view>
-      <view class="hero-chip analyze-summary-chip">
-        <view class="hero-chip-line">
-          <view class="hero-chip-label">自拍</view>
-          <view class="hero-chip-value">{{imageTempPath ? '已确认' : pendingSelfiePath ? '待确认' : '未添加'}}</view>
-        </view>
+      <view class="analyze-head-item">
+        <view class="analyze-head-label">自拍</view>
+        <view class="analyze-head-value">{{imageTempPath ? "已确认" : pendingSelfiePath ? "待确认" : "未加"}}</view>
       </view>
-      <view class="hero-chip analyze-summary-chip">
-        <view class="hero-chip-line">
-          <view class="hero-chip-label">录音</view>
-          <view class="hero-chip-value">{{audioTempPath ? '已录制' : isRecording ? '录音中' : '未录制'}}</view>
-        </view>
+      <view class="analyze-head-item">
+        <view class="analyze-head-label">录音</view>
+        <view class="analyze-head-value">{{audioTempPath ? "已录" : isRecording ? "录音中" : "未录"}}</view>
       </view>
     </view>
   </view>
 
   <view wx:if="{{entrySource === 'study_quiz' && entryHint}}" class="card analyze-entry-card">
-    <view class="analyze-entry-title">来自伴学小测</view>
+    <view class="analyze-entry-title">小测摘要</view>
     <view class="analyze-entry-text">{{entryHint}}</view>
   </view>
 
-  <view class="section section-thought card">
-    <view class="section-head section-head-tight">
-      <view class="section-head-main">
-        <view class="section-index">01</view>
-        <view class="section-heading">
-          <view class="section-title">写下现在的感受</view>
-        </view>
-      </view>
-      <view class="section-state">{{text ? '已填写' : '未填写'}}</view>
+  <view class="card analyze-section">
+    <view class="analyze-section-head">
+      <view class="analyze-section-title">文字</view>
+      <view class="analyze-section-state">{{text ? "已填写" : "未填写"}}</view>
     </view>
     <textarea
       class="thought-input"
-      placeholder="例如：今天有点难过，考试没发挥好。"
+      placeholder="写一句当前感受"
       maxlength="4000"
       value="{{text}}"
       bindinput="handleTextInput"
     />
     <view class="thought-footer">
-      <view class="thought-footer-note">{{textLength ? '继续写也可以，写一点也够。' : '从一句话开始就好。'}}</view>
       <view class="thought-footer-count">{{textLength}} / 4000</view>
     </view>
   </view>
 
-  <view class="section section-selfie card">
-    <view class="section-head section-head-tight">
-      <view class="section-head-main">
-        <view class="section-index">02</view>
-        <view class="section-heading">
-          <view class="section-title">拍一张自拍</view>
-        </view>
-      </view>
-      <view class="section-state">{{imageTempPath ? '已确认' : pendingSelfiePath ? '待确认' : '未添加'}}</view>
+  <view class="card analyze-section">
+    <view class="analyze-section-head">
+      <view class="analyze-section-title">自拍</view>
+      <view class="analyze-section-state">{{imageTempPath ? "已确认" : pendingSelfiePath ? "待确认" : "未添加"}}</view>
     </view>
     <view wx:if="{{isDevtools || isHarmonyOS}}" class="runtime-note-row">
-      <view wx:if="{{isDevtools}}" class="inline-note text-muted">开发者工具里请以真机为准。</view>
-      <view wx:if="{{isHarmonyOS}}" class="inline-note text-muted">已启用 HarmonyOS 兼容策略。</view>
+      <view wx:if="{{isDevtools}}" class="inline-note text-muted">开发者工具请以真机为准</view>
+      <view wx:if="{{isHarmonyOS}}" class="inline-note text-muted">已启用 HarmonyOS 兼容</view>
     </view>
     <view class="media-row">
       <button class="btn btn-secondary media-btn" bindtap="chooseSelfie">前置自拍</button>
@@ -86,32 +63,25 @@
     </view>
 
     <view wx:if="{{pendingSelfiePath}}" class="preview-wrap preview-wrap-pending">
-      <view class="preview-label">待确认自拍</view>
       <image class="preview-image framed-image" mode="widthFix" src="{{pendingSelfiePath}}" />
       <view class="confirm-stack">
-        <button class="btn btn-primary confirm-primary-btn" bindtap="confirmSelfie">确认使用</button>
+        <button class="btn btn-primary confirm-primary-btn" bindtap="confirmSelfie">使用这张</button>
         <view class="media-row confirm-row">
-          <button class="btn btn-secondary" bindtap="retakeSelfie">重新拍摄</button>
+          <button class="btn btn-secondary" bindtap="retakeSelfie">重拍</button>
           <button class="btn media-btn-plain" bindtap="cancelPendingSelfie">取消</button>
         </view>
       </view>
     </view>
 
     <view wx:elif="{{imageTempPath}}" class="preview-wrap">
-      <view class="preview-label">已确认自拍</view>
       <image class="preview-image framed-image" mode="widthFix" src="{{imageTempPath}}" />
     </view>
   </view>
 
-  <view class="section section-audio card">
-    <view class="section-head section-head-tight">
-      <view class="section-head-main">
-        <view class="section-index">03</view>
-        <view class="section-heading">
-          <view class="section-title">录一段声音</view>
-        </view>
-      </view>
-      <view class="section-state">{{audioTempPath ? '已录制' : isRecording ? '录音中' : '未录制'}}</view>
+  <view class="card analyze-section">
+    <view class="analyze-section-head">
+      <view class="analyze-section-title">录音</view>
+      <view class="analyze-section-state">{{audioTempPath ? "已录制" : isRecording ? "录音中" : "未录制"}}</view>
     </view>
     <view class="media-row">
       <button
@@ -120,7 +90,7 @@
         disabled="{{isRecordBusy}}"
         bindtap="startRecord"
       >
-        {{isRecordBusy ? "录音启动中..." : "开始录音"}}
+        {{isRecordBusy ? "启动中..." : "开始录音"}}
       </button>
       <button
         wx:if="{{isRecording}}"
@@ -140,11 +110,11 @@
           <view class="audio-status-dot"></view>
           <text wx:if="{{isRecording}}">录音中</text>
           <text wx:elif="{{audioTempPath}}">已录制</text>
-          <text wx:else>等待录音</text>
+          <text wx:else>待录音</text>
         </view>
         <view class="audio-status-time">
           <text wx:if="{{isRecording}}">{{recordSeconds}} 秒</text>
-          <text wx:elif="{{audioTempPath}}">可直接提交</text>
+          <text wx:elif="{{audioTempPath}}">可提交</text>
           <text wx:else>最长 60 秒</text>
         </view>
       </view>
@@ -157,44 +127,20 @@
     <view class="card analyze-dock-card">
       <view class="analyze-dock-head">
         <view class="analyze-dock-copy">
-          <view class="analyze-dock-badge">
-            <text wx:if="{{isSubmitting}}">处理中</text>
-            <text wx:elif="{{submitStage === 'failed' || errorMsg}}">需要处理</text>
-            <text wx:elif="{{pendingSelfiePath && !imageTempPath}}">待确认</text>
-            <text wx:elif="{{text || imageTempPath || audioTempPath}}">已准备</text>
-            <text wx:else>任选输入</text>
-          </view>
           <view class="analyze-dock-title">
-            <text wx:if="{{isSubmitting}}">正在为你生成分析结果</text>
-            <text wx:elif="{{submitStage === 'failed' || errorMsg}}">可以直接重试</text>
-            <text wx:elif="{{pendingSelfiePath && !imageTempPath}}">先确认这张自拍</text>
-            <text wx:elif="{{text || imageTempPath || audioTempPath}}">准备好后开始分析</text>
-            <text wx:else>至少添加 1 项输入</text>
+            <text wx:if="{{isSubmitting}}">处理中</text>
+            <text wx:elif="{{submitStage === 'failed' || errorMsg}}">提交失败</text>
+            <text wx:elif="{{pendingSelfiePath && !imageTempPath}}">请先确认自拍</text>
+            <text wx:elif="{{text || imageTempPath || audioTempPath}}">可以提交</text>
+            <text wx:else>请先输入</text>
           </view>
           <view class="analyze-dock-sub">
             <text wx:if="{{isSubmitting}}">{{submitStatusText}}</text>
-            <text wx:elif="{{pendingSelfiePath && !imageTempPath}}">确认后可把自拍一起带入分析</text>
-            <text wx:elif="{{readyInputCount}}">已准备 {{readyInputCount}} 项输入</text>
-            <text wx:else>文字、自拍、录音任选一种即可</text>
+            <text wx:elif="{{submitStage === 'failed' || errorMsg}}">{{errorMsg || "请重试"}}</text>
+            <text wx:elif="{{readyInputCount}}">{{readyInputCount}} 项已准备</text>
+            <text wx:else>文字 / 自拍 / 录音任选</text>
           </view>
         </view>
-      </view>
-
-      <view wx:if="{{submitStage === 'failed' || errorMsg}}" class="analyze-dock-status analyze-dock-status-failed">
-        <view class="analyze-dock-status-title">需要处理</view>
-        <view class="analyze-dock-status-text">{{errorMsg || submitStatusText}}</view>
-      </view>
-      <view
-        wx:elif="{{isSubmitting || submitStage === 'uploading' || submitStage === 'analyzing' || submitStage === 'rendering'}}"
-        class="analyze-dock-status analyze-dock-status-active"
-      >
-        <view class="analyze-dock-status-title">
-          <text wx:if="{{submitStage === 'uploading'}}">上传中</text>
-          <text wx:elif="{{submitStage === 'analyzing'}}">分析中</text>
-          <text wx:elif="{{submitStage === 'rendering'}}">结果生成中</text>
-          <text wx:else>处理中</text>
-        </view>
-        <view class="analyze-dock-status-text">{{submitStatusText}}</view>
       </view>
 
       <button

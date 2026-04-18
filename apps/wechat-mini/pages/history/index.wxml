@@ -1,20 +1,23 @@
-<view class="container page-root">
-  <view class="header card">
-    <view class="header-title">历史记录</view>
-    <view class="header-sub text-muted">统一时间线展示情绪分析与伴学小测，不保存原始自拍与录音文件。</view>
-    <view class="header-actions">
+<view class="container history-page">
+  <view class="card history-hero">
+    <view class="history-hero-top">
+      <view class="history-hero-title">历史时间线</view>
+      <view class="history-hero-meta">{{activeFilterLabel}} · {{total}} 条</view>
+    </view>
+    <view class="history-hero-sub">情绪分析与伴学小测统一查看。</view>
+    <view class="history-hero-actions">
       <button class="btn btn-secondary mini-btn" bindtap="loadTimeline" loading="{{isLoading}}" disabled="{{isLoading}}">
         刷新
       </button>
-      <button class="btn mini-btn" bindtap="goSettings">设置</button>
+      <button class="btn btn-secondary mini-btn" bindtap="goSettings">设置</button>
     </view>
   </view>
 
-  <view class="filter-row card">
+  <view class="card history-filter-card">
     <view
       wx:for="{{filterTabs}}"
       wx:key="key"
-      class="filter-chip {{timelineType === item.key ? 'filter-chip-active' : ''}}"
+      class="history-filter-chip {{timelineType === item.key ? 'history-filter-chip-active' : ''}}"
       data-type="{{item.key}}"
       bindtap="handleFilterChange"
     >
@@ -22,64 +25,64 @@
     </view>
   </view>
 
-  <view wx:if="{{errorMsg}}" class="error card">
+  <view wx:if="{{errorMsg}}" class="card history-feedback history-error">
     {{errorMsg}}
   </view>
 
-  <view wx:if="{{isLoading}}" class="loading card">
-    正在加载历史记录...
+  <view wx:if="{{isLoading}}" class="card history-feedback">
+    加载中...
   </view>
 
-  <view wx:elif="{{!items.length}}" class="empty card">
-    <view class="empty-title">暂无历史记录</view>
-    <view class="text-muted">完成一次情绪分析或伴学小测后会在这里显示。</view>
+  <view wx:elif="{{!items.length}}" class="card history-feedback">
+    <view class="history-empty-title">暂无记录</view>
+    <view class="history-empty-sub">完成一次分析或小测后会显示在这里。</view>
   </view>
 
   <block wx:else>
-    <view class="summary text-muted">当前筛选共 {{total}} 条</view>
-    <view
-      wx:for="{{items}}"
-      wx:key="timelineId"
-      class="item card"
-      bindtap="openDetail"
-      data-type="{{item.itemType}}"
-      data-emotion-id="{{item.emotionHistoryId}}"
-      data-quiz-id="{{item.quizRecordId}}"
-    >
-      <view class="item-head">
-        <view class="item-time">{{item.displayTime}}</view>
-        <view class="item-mail {{item.itemType === 'quiz' ? 'sent' : 'not-sent'}}">
-          {{item.itemType === 'quiz' ? '伴学小测' : '情绪分析'}}
+    <view class="history-list">
+      <view
+        wx:for="{{items}}"
+        wx:key="timelineId"
+        class="card history-item"
+        bindtap="openDetail"
+        data-type="{{item.itemType}}"
+        data-emotion-id="{{item.emotionHistoryId}}"
+        data-quiz-id="{{item.quizRecordId}}"
+      >
+        <view class="history-item-head">
+          <view class="history-item-badge {{item.typeBadgeClass}}">
+            {{item.typeLabel}}
+          </view>
+          <view class="history-item-time">{{item.displayTime}}</view>
         </view>
-      </view>
 
-      <view class="item-line">
-        <text class="label">标题：</text>
-        <text>{{item.title}}</text>
-      </view>
-      <view wx:if="{{item.subtitle}}" class="overview text-muted">{{item.subtitle}}</view>
-      <view wx:if="{{item.itemType === 'quiz'}}" class="item-line">
-        <text class="label">小测成绩：</text>
-        <text>{{item.quizScore}} 分（{{item.quizGrade}}）</text>
-      </view>
+        <view class="history-item-title">{{item.title}}</view>
+        <view wx:if="{{item.subtitle}}" class="history-item-sub">{{item.subtitle}}</view>
 
-      <view class="item-actions">
-        <button class="btn btn-secondary mini-btn">{{item.itemType === "quiz" ? "查看小测详情" : "查看详情"}}</button>
-        <button
-          wx:if="{{item.itemType === 'emotion'}}"
-          class="btn mini-btn"
-          catchtap="handleDeleteItem"
-          data-type="{{item.itemType}}"
-          data-emotion-id="{{item.emotionHistoryId}}"
-        >
-          删除
-        </button>
+        <view wx:if="{{item.itemType === 'quiz'}}" class="history-pill-row">
+          <view class="history-pill">成绩 {{item.quizScore}} 分</view>
+          <view class="history-pill">等级 {{item.quizGradeLabel}}</view>
+          <view class="history-pill">{{item.quizCourseLabel}}</view>
+        </view>
+
+        <view class="history-item-actions">
+          <button class="btn btn-secondary mini-btn">{{item.actionLabel}}</button>
+          <button
+            wx:if="{{item.itemType === 'emotion'}}"
+            class="btn mini-btn"
+            catchtap="handleDeleteItem"
+            data-type="{{item.itemType}}"
+            data-emotion-id="{{item.emotionHistoryId}}"
+          >
+            删除
+          </button>
+        </view>
       </view>
     </view>
   </block>
 
   <button
-    class="btn clear-btn"
+    class="btn btn-secondary history-clear-btn"
     bindtap="handleClearAll"
     loading="{{isClearing}}"
     disabled="{{isClearing}}"

@@ -1,17 +1,8 @@
-<view class="container shell-page favorites-page">
-  <view class="card shell-hero favorites-hero">
-    <view class="section-head">
-      <view class="section-head-copy">
-        <view class="shell-title">把喜欢留下，稍后再回来慢慢看。</view>
-      </view>
-      <view class="shell-badge favorites-hero-badge">
-        <view class="favorites-hero-badge-dot"></view>
-        <text class="favorites-hero-badge-text">收藏</text>
-      </view>
-    </view>
-    <view class="favorites-chip-row">
-      <view class="favorites-chip">筛选：{{activeTypeLabel}}</view>
-      <view class="favorites-chip">共 {{total}} 条</view>
+<view class="container favorites-page">
+  <view class="card favorites-head-card">
+    <view class="favorites-head-top">
+      <view class="favorites-head-title">收藏</view>
+      <view class="favorites-head-meta">{{activeTypeLabel}} · {{total}}</view>
     </view>
     <view class="favorites-tabs">
       <view
@@ -26,18 +17,18 @@
     </view>
   </view>
 
-  <view wx:if="{{errorMsg}}" class="card favorites-error-card">
+  <view wx:if="{{errorMsg}}" class="card favorites-feedback-card favorites-error-card">
     <view class="favorites-feedback-title">加载失败</view>
     <view class="favorites-feedback-body">{{errorMsg}}</view>
     <button class="btn btn-secondary mini-btn favorites-inline-btn" bindtap="retryLoad" disabled="{{isLoading || isLoadingMore}}">
       重试
     </button>
   </view>
-  <view wx:if="{{isLoading}}" class="card favorites-feedback-card favorites-loading">正在加载收藏内容...</view>
 
-  <view wx:elif="{{!items.length}}" class="card favorites-feedback-card favorites-empty">
-    <view class="favorites-feedback-title">暂无收藏</view>
-    <view class="favorites-feedback-body">{{emptyText}}</view>
+  <view wx:if="{{isLoading}}" class="card favorites-feedback-card">加载中...</view>
+
+  <view wx:elif="{{!items.length}}" class="card favorites-feedback-card">
+    <view class="favorites-feedback-title">{{emptyText}}</view>
   </view>
 
   <block wx:else>
@@ -51,7 +42,7 @@
         <view wx:if="{{item.subtitle}}" class="favorites-item-sub">{{item.subtitle}}</view>
         <view wx:if="{{item.contentSummary}}" class="favorites-item-summary">{{item.contentSummary}}</view>
         <view class="favorites-item-foot">
-          <button class="btn mini-btn favorites-item-btn" data-id="{{item.favoriteId}}" bindtap="handleDeleteFavorite">取消收藏</button>
+          <button class="btn mini-btn favorites-item-btn" data-id="{{item.favoriteId}}" bindtap="handleDeleteFavorite">取消</button>
         </view>
       </view>
     </view>
@@ -64,7 +55,7 @@
     disabled="{{isClearing}}"
     bindtap="handleClearCurrentType"
   >
-    清空当前收藏
+    清空
   </button>
   <button
     wx:if="{{hasMore}}"

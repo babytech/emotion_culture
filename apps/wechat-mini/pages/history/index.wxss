@@ -1,138 +1,186 @@
-.page-root {
+.history-page {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
-}
-
-.header {
-  padding: 24rpx;
-}
-
-.header-title {
-  font-size: 36rpx;
-  font-weight: 700;
-}
-
-.header-sub {
-  margin-top: 10rpx;
-  font-size: 24rpx;
-  line-height: 1.6;
-}
-
-.header-actions {
-  margin-top: 16rpx;
-  display: flex;
   gap: 12rpx;
+  padding-bottom: 148rpx;
+}
+
+.history-hero {
+  padding: 20rpx;
+  border: none;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(152, 197, 255, 0.28), transparent 38%),
+    linear-gradient(135deg, #ffffff, #eef5ff);
+}
+
+.history-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10rpx;
+}
+
+.history-hero-title {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #223450;
+}
+
+.history-hero-meta {
+  font-size: 22rpx;
+  color: #60759f;
+}
+
+.history-hero-sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.58;
+  color: #5d7198;
+}
+
+.history-hero-actions {
+  margin-top: 12rpx;
+  display: flex;
+  gap: 10rpx;
 }
 
 .mini-btn {
-  min-height: 68rpx;
-  line-height: 68rpx;
-  padding: 0 22rpx !important;
-  font-size: 26rpx !important;
+  min-height: 64rpx;
+  line-height: 64rpx;
+  padding: 0 20rpx !important;
+  font-size: 23rpx !important;
 }
 
-.filter-row {
-  padding: 16rpx;
+.history-filter-card {
+  padding: 10rpx;
   display: flex;
+  gap: 8rpx;
+  border: none;
+}
+
+.history-filter-chip {
+  min-width: 140rpx;
+  flex: 1;
+  text-align: center;
+  font-size: 23rpx;
+  line-height: 1.3;
+  padding: 10rpx 12rpx;
+  border-radius: 999rpx;
+  border: 2rpx solid rgba(85, 111, 160, 0.12);
+  color: #63779e;
+  background: #f3f8ff;
+}
+
+.history-filter-chip-active {
+  color: #2f68cb;
+  border-color: rgba(47, 111, 255, 0.28);
+  background: linear-gradient(135deg, #e7f0ff, #d9e8ff);
+  font-weight: 700;
+}
+
+.history-feedback {
+  padding: 18rpx;
+  border: none;
+  font-size: 23rpx;
+  color: #5f7399;
+}
+
+.history-error {
+  color: #a03951;
+  background: #fff2f5;
+}
+
+.history-empty-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #2b3f63;
+}
+
+.history-empty-sub {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: #7082a7;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
   gap: 10rpx;
 }
 
-.filter-chip {
-  min-width: 140rpx;
-  text-align: center;
-  font-size: 24rpx;
-  line-height: 1.3;
-  padding: 12rpx 16rpx;
-  border-radius: 999rpx;
-  border: 2rpx solid rgba(147, 37, 29, 0.12);
-  color: #7b6656;
-  background: rgba(255, 251, 244, 0.9);
+.history-item {
+  padding: 16rpx;
+  border: none;
 }
 
-.filter-chip-active {
-  color: #a1261b;
-  border-color: rgba(161, 38, 27, 0.38);
-  background: rgba(250, 236, 214, 0.95);
-}
-
-.error {
-  padding: 20rpx;
-  border-color: rgba(180, 33, 33, 0.35);
-  color: #8f1f1f;
-  background: #fff0ef;
-}
-
-.loading,
-.empty {
-  padding: 24rpx;
-}
-
-.empty-title {
-  font-size: 32rpx;
-  font-weight: 700;
-  margin-bottom: 8rpx;
-}
-
-.summary {
-  font-size: 24rpx;
-  margin-top: -6rpx;
-}
-
-.item {
-  padding: 22rpx;
-}
-
-.item-head {
+.history-item-head {
   display: flex;
   justify-content: space-between;
-  gap: 10rpx;
   align-items: center;
+  gap: 10rpx;
 }
 
-.item-time {
-  font-size: 24rpx;
-  color: #6e5a44;
-}
-
-.item-mail {
-  font-size: 22rpx;
+.history-item-badge {
   border-radius: 999rpx;
   padding: 6rpx 12rpx;
+  font-size: 21rpx;
 }
 
-.sent {
-  background: #e8f7ee;
-  color: #0f6c4d;
+.history-badge-emotion {
+  background: #ecf2ff;
+  color: #4a6fac;
 }
 
-.not-sent {
-  background: #f4efe6;
-  color: #7e6d58;
+.history-badge-quiz {
+  background: #e7f5ee;
+  color: #2f7b5f;
 }
 
-.item-line {
+.history-item-time {
+  font-size: 21rpx;
+  color: #7c8fb2;
+}
+
+.history-item-title {
   margin-top: 10rpx;
   font-size: 28rpx;
-  line-height: 1.5;
+  line-height: 1.48;
+  color: #283d60;
 }
 
-.label {
-  color: #6b543f;
+.history-item-sub {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  line-height: 1.58;
+  color: #5d729a;
 }
 
-.overview {
+.history-pill-row {
+  margin-top: 10rpx;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.history-pill {
+  padding: 6rpx 12rpx;
+  border-radius: 999rpx;
+  font-size: 21rpx;
+  color: #4d6fa8;
+  background: #eef4ff;
+}
+
+.history-item-actions {
   margin-top: 12rpx;
-  line-height: 1.6;
-  font-size: 25rpx;
-}
-
-.item-actions {
-  margin-top: 14rpx;
   display: flex;
   gap: 10rpx;
 }
 
-.clear-btn {
-  margin-top: 8rpx;
+.history-item-actions .mini-btn {
+  min-width: 148rpx;
+}
+
+.history-clear-btn {
+  margin-top: 2rpx;
+  width: 100%;
 }

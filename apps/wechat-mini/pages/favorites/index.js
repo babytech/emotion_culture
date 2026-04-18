@@ -71,12 +71,12 @@ function buildFavoriteItemView(item) {
 
 function buildEmptyText(activeType) {
   if (activeType === "poem") {
-    return "还没有收藏诗词。";
+    return "暂无诗词收藏";
   }
   if (activeType === "guochao") {
-    return "还没有收藏国潮内容。";
+    return "暂无国潮收藏";
   }
-  return "还没有收藏内容。";
+  return "暂无收藏";
 }
 
 function extractErrorMessage(err, fallback) {
@@ -203,7 +203,7 @@ Page({
     const confirmed = await new Promise((resolve) => {
       wx.showModal({
         title: "取消收藏",
-        content: "确认取消这条收藏吗？",
+        content: "确认取消？",
         confirmText: "取消收藏",
         cancelText: "保留",
         success(res) {
@@ -226,7 +226,7 @@ Page({
         hasMore: this.data.nextOffset < nextTotal,
       });
       wx.showToast({
-        title: "已取消收藏",
+        title: "已取消",
         icon: "none",
       });
     } catch (err) {
@@ -246,7 +246,7 @@ Page({
     const confirmed = await new Promise((resolve) => {
       wx.showModal({
         title: `清空${targetText}收藏`,
-        content: "该操作不可撤销，是否继续？",
+        content: "确认清空？",
         confirmText: "确认清空",
         cancelText: "取消",
         success(res) {

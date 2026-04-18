@@ -1,7 +1,11 @@
 const { clearHistory, deleteHistoryItem, getHistoryTimeline } = require("../../services/api");
 
+function safeText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function formatDateTime(value) {
-  const raw = (value || "").trim();
+  const raw = safeText(value);
   if (!raw) return "未知时间";
 
   const normalized = raw.endsWith("Z") ? raw.replace("Z", "+00:00") : raw;
@@ -18,11 +22,47 @@ function formatDateTime(value) {
   return raw.replace("T", " ").replace("Z", "");
 }
 
+function courseLabel(course) {
+  const normalized = safeText(course).toLowerCase();
+  if (normalized === "english") return "英语";
+  return normalized || "课程";
+}
+
+function tabLabelByType(type) {
+  if (type === "emotion") return "情绪分析";
+  if (type === "quiz") return "伴学小测";
+  return "全部";
+}
+
+function mapTimelineItem(item) {
+  const itemType = safeText(item && item.item_type) || "emotion";
+  const isQuiz = itemType === "quiz";
+  const quizGrade = safeText(item && item.quiz_grade);
+  return {
+    timelineId: safeText(item && item.timeline_id),
+    itemType,
+    displayTime: formatDateTime(item && item.occurred_at),
+    title: safeText(item && item.title) || "未命名记录",
+    subtitle: safeText(item && item.subtitle),
+    emotionHistoryId: safeText(item && item.emotion_history_id),
+    quizRecordId: safeText(item && item.quiz_record_id),
+    quizScore: Math.max(0, Number(item && item.quiz_score) || 0),
+    quizGrade,
+    quizGradeLabel: quizGrade || "-",
+    quizCourse: safeText(item && item.quiz_course),
+    quizCourseLabel: courseLabel(item && item.quiz_course),
+    typeLabel: isQuiz ? "伴学小测" : "情绪分析",
+    typeBadgeClass: isQuiz ? "history-badge-quiz" : "history-badge-emotion",
+    actionLabel: isQuiz ? "查看成绩" : "查看详情",
+  };
+}
+
 Page({
   data: {
     items: [],
     total: 0,
     timelineType: "all",
+    activeFilterLabel: "全部",
     filterTabs: [
       { key: "all", label: "全部" },
       { key: "emotion", label: "情绪分析" },
@@ -34,7 +74,16 @@ Page({
   },
 
   onShow() {
+    this.setData({
+      activeFilterLabel: tabLabelByType(this.data.timelineType),
+    });
     this.loadTimeline();
+  },
+
+  onPullDownRefresh() {
+    this.loadTimeline().finally(() => {
+      wx.stopPullDownRefresh();
+    });
   },
 
   async loadTimeline() {
@@ -50,18 +99,7 @@ Page({
         offset: 0,
       });
       const rawItems = (result && result.items) || [];
-      const items = rawItems.map((item) => ({
-        timelineId: item.timeline_id || "",
-        itemType: item.item_type || "emotion",
-        displayTime: formatDateTime(item.occurred_at),
-        title: item.title || "未命名记录",
-        subtitle: item.subtitle || "",
-        emotionHistoryId: item.emotion_history_id || "",
-        quizRecordId: item.quiz_record_id || "",
-        quizScore: Number(item.quiz_score) || 0,
-        quizGrade: item.quiz_grade || "",
-        quizCourse: item.quiz_course || "",
-      }));
+      const items = rawItems.map(mapTimelineItem);
 
       this.setData({
         items,
@@ -79,7 +117,11 @@ Page({
   handleFilterChange(event) {
     const nextType = ((event && event.currentTarget && event.currentTarget.dataset.type) || "").trim();
     if (!nextType || nextType === this.data.timelineType) return;
-    this.setData({ timelineType: nextType }, () => {
+    const nextLabel = tabLabelByType(nextType);
+    this.setData({
+      timelineType: nextType,
+      activeFilterLabel: nextLabel,
+    }, () => {
       this.loadTimeline();
     });
   },

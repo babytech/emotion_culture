@@ -19,6 +19,7 @@
       <view class="section-title">结果摘要</view>
       <view class="summary-line">总题数：{{summary.totalQuestions}} 题</view>
       <view class="summary-line">已作答：{{summary.answeredQuestions}} 题</view>
+      <view class="summary-line">未作答：{{summary.unansweredQuestions}} 题</view>
       <view class="summary-line">半对：{{summary.partialCount}} 题</view>
       <view class="summary-line hint-line">{{nextActionHint}}</view>
     </view>
@@ -33,7 +34,9 @@
           <view class="wrong-line">得分：{{item.score}} / {{item.score_full}}</view>
         </view>
       </view>
-      <view wx:else class="empty-copy">本次全部答对，继续保持。</view>
+      <view wx:else class="empty-copy">
+        {{summary.unansweredQuestions > 0 ? "已作答部分没有错题，未作答题可继续补做。" : "本次全部答对，继续保持。"}}
+      </view>
     </view>
   </block>
 

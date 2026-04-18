@@ -208,6 +208,7 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
         partial = False
         user_answer_text = ""
         right_answer_text = ""
+        is_answered = False
 
         if question_type == QuizQuestionType.RADIO:
             right_answer = _normalize_radio_answer(right_answer_raw)
@@ -215,6 +216,7 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
             right_answer_text = right_answer
             user_answer_text = user_answer
             if user_answer:
+                is_answered = True
                 answered_questions += 1
             if user_answer and user_answer == right_answer:
                 score = question_score_full
@@ -225,6 +227,7 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
             right_answer_text = right_answer
             user_answer_text = user_answer
             if user_answer:
+                is_answered = True
                 answered_questions += 1
             if user_answer and user_answer == right_answer:
                 score = question_score_full
@@ -235,6 +238,7 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
             right_answer_text = _join_fill_answer(right_values)
             user_answer_text = _join_fill_answer(user_values)
             if user_answer_text:
+                is_answered = True
                 answered_questions += 1
             if right_values:
                 compare_len = len(right_values)
@@ -269,14 +273,15 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
         )
         results.append(result_item)
 
-        if not is_correct:
+        # 未作答不写入错题本，避免用户“先看分数再补做”时污染错题记录。
+        if not is_correct and is_answered:
             wrong_items.append(
                 QuizWrongItem(
                     wrong_id=f"wr_{uuid.uuid4().hex[:10]}",
                     question_id=question_id,
                     question_type=question_type,
                     stem=stem,
-                    user_answer=user_answer_text or "未作答",
+                    user_answer=user_answer_text,
                     right_answer=right_answer_text,
                     score=score,
                     score_full=round(question_score_full, 2),
