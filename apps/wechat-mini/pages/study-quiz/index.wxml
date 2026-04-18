@@ -7,6 +7,7 @@
       <view class="status-chip">进度 {{answeredQuestions}} / {{totalQuestions}}</view>
       <view class="status-chip">未答 {{unansweredQuestions}}</view>
       <view wx:if="{{loadedFromCache}}" class="status-chip">缓存题库</view>
+      <view wx:if="{{draftRecovered}}" class="status-chip">已恢复草稿</view>
       <view wx:if="{{paperVersion}}" class="status-chip">版本 {{paperVersion}}</view>
     </view>
     <view class="quiz-progress-track">

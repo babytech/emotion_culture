@@ -1,8 +1,13 @@
 const { getStudyQuizPaper, submitStudyQuiz } = require("../../services/api");
+const {
+  isValidQuizPaperPayload,
+  readQuizPaperCache,
+  writeQuizPaperCache,
+} = require("../../utils/study-quiz-paper-cache");
 
 const QUIZ_CONTEXT_STORAGE_KEY = "ec_latest_quiz_context_v1";
-const QUIZ_PAPER_CACHE_STORAGE_KEY = "ec_study_quiz_paper_cache_v1";
-const QUIZ_PAPER_CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const QUIZ_DRAFT_STORAGE_KEY = "ec_study_quiz_draft_v1";
+const QUIZ_DRAFT_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -29,38 +34,15 @@ function showModalAsync(options = {}) {
 }
 
 function isValidPaperPayload(payload) {
-  if (!payload || typeof payload !== "object") return false;
-  if (!safeText(payload.paper_id)) return false;
-  const questions = payload.questions;
-  return Array.isArray(questions) && questions.length > 0;
+  return isValidQuizPaperPayload(payload);
 }
 
 function readCachedPaper() {
-  try {
-    const payload = wx.getStorageSync(QUIZ_PAPER_CACHE_STORAGE_KEY);
-    if (!payload || typeof payload !== "object") return null;
-    const savedAt = Number(payload.savedAt) || 0;
-    const paper = payload.paper;
-    if (!isValidPaperPayload(paper)) return null;
-    if (savedAt > 0 && Date.now() - savedAt > QUIZ_PAPER_CACHE_MAX_AGE_MS) {
-      return null;
-    }
-    return paper;
-  } catch (err) {
-    return null;
-  }
+  return readQuizPaperCache();
 }
 
 function writeCachedPaper(paper) {
-  if (!isValidPaperPayload(paper)) return;
-  try {
-    wx.setStorageSync(QUIZ_PAPER_CACHE_STORAGE_KEY, {
-      savedAt: Date.now(),
-      paper,
-    });
-  } catch (err) {
-    // ignore
-  }
+  writeQuizPaperCache(paper);
 }
 
 function mapPaperLoadError(err) {
@@ -83,6 +65,119 @@ function mapPaperLoadError(err) {
   return message;
 }
 
+function isSubmitRetryableError(err) {
+  const message = safeText(err && err.message).toLowerCase();
+  if (!message) return false;
+  return (
+    message.includes("102002") ||
+    message.includes("timeout") ||
+    message.includes("timed out") ||
+    message.includes("request:fail") ||
+    message.includes("network") ||
+    message.includes("connection") ||
+    message.includes("econn")
+  );
+}
+
+function mapSubmitError(err) {
+  const message = safeText(err && err.message);
+  if (!message) return "提交失败，请稍后重试。";
+  const lower = message.toLowerCase();
+  if (lower.includes("quiz_paper_mismatch")) {
+    return "题目已更新，请下拉刷新后重试。";
+  }
+  if (isSubmitRetryableError(err)) {
+    return "网络波动导致提交超时，请再次点击提交。";
+  }
+  if (message.length > 88) {
+    return "提交失败，请稍后重试。";
+  }
+  return message;
+}
+
+function withClientTimeout(promise, timeoutMs, timeoutMessage) {
+  return new Promise((resolve, reject) => {
+    const timeout = Math.max(3000, Number(timeoutMs) || 15000);
+    let finished = false;
+    const timer = setTimeout(() => {
+      if (finished) return;
+      finished = true;
+      reject(new Error(timeoutMessage || "请求超时，请重试。"));
+    }, timeout);
+
+    Promise.resolve(promise)
+      .then((res) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        resolve(res);
+      })
+      .catch((err) => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        reject(err);
+      });
+  });
+}
+
+function normalizeDraftAnswerList(rawList) {
+  if (!Array.isArray(rawList)) return [];
+  return rawList
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const questionId = safeText(item.questionId);
+      const type = safeText(item.type);
+      if (!questionId || !type) return null;
+      return {
+        questionId,
+        type,
+        selectedRadio: safeText(item.selectedRadio),
+        selectedChecks: Array.isArray(item.selectedChecks)
+          ? Array.from(
+              new Set(
+                item.selectedChecks
+                  .map((value) => safeText(value))
+                  .filter((value) => !!value)
+              )
+            ).sort()
+          : [],
+        fillValues: Array.isArray(item.fillValues)
+          ? item.fillValues.map((value) => safeText(value))
+          : [],
+      };
+    })
+    .filter(Boolean);
+}
+
+function readDraftCache() {
+  try {
+    const payload = wx.getStorageSync(QUIZ_DRAFT_STORAGE_KEY);
+    if (!payload || typeof payload !== "object") return null;
+    const savedAt = Number(payload.savedAt) || 0;
+    if (!savedAt || Date.now() - savedAt > QUIZ_DRAFT_MAX_AGE_MS) return null;
+    const paperId = safeText(payload.paperId);
+    const answers = normalizeDraftAnswerList(payload.answers);
+    if (!paperId || !answers.length) return null;
+    return {
+      savedAt,
+      paperId,
+      currentIndex: Math.max(0, Number(payload.currentIndex) || 0),
+      answers,
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+function clearDraftCache() {
+  try {
+    wx.removeStorageSync(QUIZ_DRAFT_STORAGE_KEY);
+  } catch (err) {
+    // ignore
+  }
+}
+
 function normalizeQuestion(raw) {
   const questionType = safeText(raw && raw.type);
   const options = Array.isArray(raw && raw.options)
@@ -103,6 +198,90 @@ function normalizeQuestion(raw) {
     selectedChecks: [],
     fillValues: fills.length ? fills.map(() => "") : [""],
     answered: false,
+  };
+}
+
+function restoreQuestionStateByDraft(question, draftAnswer) {
+  if (!question || !draftAnswer) return question;
+  if (question.type !== draftAnswer.type) return question;
+  if (question.type === "radio") {
+    const selectedRadio = safeText(draftAnswer.selectedRadio);
+    if (!selectedRadio) return question;
+    const hasOption = Array.isArray(question.options)
+      ? question.options.some((item) => safeText(item && item.item) === selectedRadio)
+      : false;
+    if (!hasOption) return question;
+    return {
+      ...question,
+      selectedRadio,
+    };
+  }
+
+  if (question.type === "check") {
+    const selectedChecks = Array.isArray(draftAnswer.selectedChecks)
+      ? Array.from(new Set(draftAnswer.selectedChecks.map((value) => safeText(value)).filter(Boolean))).sort()
+      : [];
+    if (!selectedChecks.length) return question;
+    const options = Array.isArray(question.options)
+      ? question.options.map((option) => ({
+          ...option,
+          selected: selectedChecks.includes(safeText(option && option.item)),
+        }))
+      : [];
+    return {
+      ...question,
+      options,
+      selectedChecks,
+    };
+  }
+
+  const inputValues = Array.isArray(draftAnswer.fillValues)
+    ? draftAnswer.fillValues.map((value) => safeText(value))
+    : [];
+  const questionFillLen = Array.isArray(question.fillValues) ? question.fillValues.length : 0;
+  const fillLen = Math.max(questionFillLen, inputValues.length, 1);
+  const fillValues = [];
+  for (let idx = 0; idx < fillLen; idx += 1) {
+    fillValues.push(inputValues[idx] || "");
+  }
+  return {
+    ...question,
+    fillValues,
+  };
+}
+
+function applyDraftToQuestions(questions, draft, paperId) {
+  if (!Array.isArray(questions) || !questions.length) {
+    return {
+      questions: [],
+      currentIndex: 0,
+      restored: false,
+    };
+  }
+  if (!draft || safeText(draft.paperId) !== safeText(paperId)) {
+    return {
+      questions,
+      currentIndex: 0,
+      restored: false,
+    };
+  }
+  const answerMap = {};
+  (draft.answers || []).forEach((item) => {
+    if (!item || !item.questionId) return;
+    answerMap[item.questionId] = item;
+  });
+  let restored = false;
+  const nextQuestions = questions.map((question) => {
+    const next = restoreQuestionStateByDraft(question, answerMap[question.questionId]);
+    if (!restored && isQuestionAnswered(next)) restored = true;
+    return next;
+  });
+  const maxIndex = Math.max(0, nextQuestions.length - 1);
+  const currentIndex = Math.min(Math.max(0, Number(draft.currentIndex) || 0), maxIndex);
+  return {
+    questions: nextQuestions,
+    currentIndex,
+    restored,
   };
 }
 
@@ -147,6 +326,7 @@ Page({
     currentIndex: 0,
     currentQuestion: null,
     submitToken: "",
+    draftRecovered: false,
   },
 
   onShow() {
@@ -186,14 +366,25 @@ Page({
   applyPaper(response, options = {}) {
     const questions = Array.isArray(response && response.questions) ? response.questions.map(normalizeQuestion) : [];
     const totalQuestions = Number(response && response.total_questions) || questions.length;
+    const paperId = safeText(response && response.paper_id);
+    const draft = readDraftCache();
+    const restoredResult = applyDraftToQuestions(questions, draft, paperId);
     this.setData({
-      paperId: safeText(response && response.paper_id),
+      paperId,
       paperTitle: safeText(response && response.title) || "英语伴学小测",
       paperCourse: safeText(response && response.course) || "english",
       paperVersion: safeText(response && response.version),
       totalQuestions,
+      draftRecovered: restoredResult.restored,
     });
-    this.syncQuestionState(questions, 0, { clearToken: options.clearToken !== false });
+    this.syncQuestionState(restoredResult.questions, restoredResult.currentIndex, { clearToken: options.clearToken !== false });
+    if (restoredResult.restored && !options.silentRestoreNotice) {
+      wx.showToast({
+        title: "已恢复上次未完成作答",
+        icon: "none",
+      });
+    }
+    return restoredResult.restored;
   },
 
   async loadPaper(options = {}) {
@@ -202,9 +393,10 @@ Page({
     const stopPullDown = !!options.stopPullDown;
     const hasQuestions = Array.isArray(this.data.questions) && this.data.questions.length > 0;
     const cachedPaper = readCachedPaper();
+    let restoredByCachedPaper = false;
 
     if (!hasQuestions && cachedPaper) {
-      this.applyPaper(cachedPaper, { clearToken: true });
+      restoredByCachedPaper = !!this.applyPaper(cachedPaper, { clearToken: true });
       this.setData({
         loadedFromCache: true,
         errorMsg: "",
@@ -221,7 +413,7 @@ Page({
         throw new Error("试卷数据异常，请重试。");
       }
       writeCachedPaper(response);
-      this.applyPaper(response, { clearToken: true });
+      this.applyPaper(response, { clearToken: true, silentRestoreNotice: restoredByCachedPaper });
       this.setData({
         loadedFromCache: false,
         errorMsg: "",
@@ -266,7 +458,34 @@ Page({
   },
 
   updateAnsweredCount(nextQuestions) {
-    this.syncQuestionState(nextQuestions, this.data.currentIndex, { clearToken: true });
+    const currentIndex = this.data.currentIndex;
+    this.syncQuestionState(nextQuestions, currentIndex, { clearToken: true });
+    this.persistDraft(nextQuestions, currentIndex);
+  },
+
+  persistDraft(questions, currentIndex) {
+    const paperId = safeText(this.data.paperId);
+    const list = Array.isArray(questions) ? questions : [];
+    if (!paperId || !list.length) return;
+    const answers = list.map((item) => ({
+      questionId: safeText(item && item.questionId),
+      type: safeText(item && item.type),
+      selectedRadio: safeText(item && item.selectedRadio),
+      selectedChecks: Array.isArray(item && item.selectedChecks)
+        ? Array.from(new Set(item.selectedChecks.map((value) => safeText(value)).filter(Boolean))).sort()
+        : [],
+      fillValues: Array.isArray(item && item.fillValues) ? item.fillValues.map((value) => safeText(value)) : [],
+    }));
+    try {
+      wx.setStorageSync(QUIZ_DRAFT_STORAGE_KEY, {
+        savedAt: Date.now(),
+        paperId,
+        currentIndex: Math.max(0, Number(currentIndex) || 0),
+        answers,
+      });
+    } catch (err) {
+      // ignore
+    }
   },
 
   handleRadioChange(event) {
@@ -332,17 +551,22 @@ Page({
     const index = Number(event && event.currentTarget && event.currentTarget.dataset.index);
     if (!Number.isFinite(index)) return;
     this.syncQuestionState(this.data.questions, index);
+    this.persistDraft(this.data.questions, index);
   },
 
   handlePrevQuestion() {
     if (this.data.currentIndex <= 0) return;
-    this.syncQuestionState(this.data.questions, this.data.currentIndex - 1);
+    const nextIndex = this.data.currentIndex - 1;
+    this.syncQuestionState(this.data.questions, nextIndex);
+    this.persistDraft(this.data.questions, nextIndex);
   },
 
   handleNextQuestion() {
     const total = Number(this.data.totalQuestions) || (this.data.questions || []).length;
     if (this.data.currentIndex >= total - 1) return;
-    this.syncQuestionState(this.data.questions, this.data.currentIndex + 1);
+    const nextIndex = this.data.currentIndex + 1;
+    this.syncQuestionState(this.data.questions, nextIndex);
+    this.persistDraft(this.data.questions, nextIndex);
   },
 
   buildSubmitPayload(submitToken) {
@@ -374,6 +598,29 @@ Page({
       submit_token: submitToken || undefined,
       answers,
     };
+  },
+
+  async requestSubmitWithRetry(payload) {
+    const totalAttempts = 2;
+    let lastError = null;
+    for (let attempt = 1; attempt <= totalAttempts; attempt += 1) {
+      try {
+        return await withClientTimeout(
+          submitStudyQuiz(payload),
+          attempt === 1 ? 15000 : 18000,
+          "判分超时，请稍后重试。"
+        );
+      } catch (err) {
+        lastError = err;
+        const canRetry = isSubmitRetryableError(err) || safeText(err && err.message).includes("判分超时");
+        if (!canRetry || attempt >= totalAttempts) break;
+        wx.showToast({
+          title: "网络波动，正在重试提交",
+          icon: "none",
+        });
+      }
+    }
+    throw lastError || new Error("提交失败，请稍后重试。");
   },
 
   async submitQuiz() {
@@ -412,9 +659,13 @@ Page({
     });
     wx.showLoading({ title: "判分中..." });
     try {
-      const response = await submitStudyQuiz(payload);
+      const response = await this.requestSubmitWithRetry(payload);
       const summary = (response && response.quiz_record) || {};
       const quizRecordId = safeText(summary.quiz_record_id);
+      clearDraftCache();
+      this.setData({
+        draftRecovered: false,
+      });
       try {
         wx.setStorageSync(QUIZ_CONTEXT_STORAGE_KEY, response);
       } catch (err) {
@@ -425,7 +676,7 @@ Page({
       });
     } catch (err) {
       this.setData({
-        errorMsg: (err && err.message) || "提交失败，请稍后重试。",
+        errorMsg: mapSubmitError(err),
       });
     } finally {
       wx.hideLoading();

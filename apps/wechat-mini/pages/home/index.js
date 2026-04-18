@@ -2,10 +2,16 @@ const {
   getCheckinStatus,
   getRetentionCalendar,
   getRetentionWeeklyReport,
+  getStudyQuizPaper,
   getTodayHistory,
   listFavorites,
   listHistory,
 } = require("../../services/api");
+const {
+  isValidQuizPaperPayload,
+  shouldPrefetchQuizPaper,
+  writeQuizPaperCache,
+} = require("../../utils/study-quiz-paper-cache");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { consumeTodayHistoryFocusRequest } = require("../../utils/today-history-focus");
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
@@ -180,6 +186,7 @@ Page({
   onShow() {
     if (ensurePhase5Auth(HOME_TAB)) return;
     setTabBarSelected(this, HOME_TAB);
+    this.prefetchQuizPaperInBackground();
     this._todayHistoryFocusRequest = consumeTodayHistoryFocusRequest();
     this.loadDashboard();
   },
@@ -326,6 +333,24 @@ Page({
 
   openProfileTab() {
     wx.switchTab({ url: PROFILE_TAB });
+  },
+
+  prefetchQuizPaperInBackground() {
+    if (this._quizPaperPrefetchInFlight) return;
+    if (!shouldPrefetchQuizPaper()) return;
+
+    this._quizPaperPrefetchInFlight = true;
+    getStudyQuizPaper("english")
+      .then((paper) => {
+        if (!isValidQuizPaperPayload(paper)) return;
+        writeQuizPaperCache(paper);
+      })
+      .catch(() => {
+        // keep silent, quiz page will still handle normal loading/retry
+      })
+      .finally(() => {
+        this._quizPaperPrefetchInFlight = false;
+      });
   },
 
   toggleTodayHistory() {

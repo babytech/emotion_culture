@@ -127,6 +127,36 @@ function sleep(ms) {
   });
 }
 
+function firstSuccessfulRequest(executors = []) {
+  return new Promise((resolve, reject) => {
+    const tasks = Array.isArray(executors) ? executors.filter((item) => typeof item === "function") : [];
+    if (!tasks.length) {
+      reject(new Error("no request executor"));
+      return;
+    }
+    let resolved = false;
+    let failed = 0;
+    const errors = [];
+    tasks.forEach((executor, index) => {
+      Promise.resolve()
+        .then(() => executor())
+        .then((result) => {
+          if (resolved) return;
+          resolved = true;
+          resolve(result);
+        })
+        .catch((err) => {
+          failed += 1;
+          const reason = (err && err.message) || `request_${index + 1}_failed`;
+          errors.push(reason);
+          if (!resolved && failed >= tasks.length) {
+            reject(new Error(errors.join(" | ")));
+          }
+        });
+    });
+  });
+}
+
 function buildApiRequestUrl(path) {
   const base = (config.apiBaseUrl || "").trim();
   if (!base) return "";
@@ -503,37 +533,29 @@ function signInDaily() {
 function getStudyQuizPaper(course = "english") {
   const normalizedCourse = (course || "english").trim().toLowerCase() || "english";
   const path = `/api/study-quiz/paper?course=${encodeURIComponent(normalizedCourse)}`;
-  return callViaContainer(path, "GET", undefined, {
-    retryOnTimeout: true,
-    timeoutRetryCount: 2,
-    timeoutRetryDelayMs: 320,
-    retryOnNetwork: true,
-    networkRetryCount: 2,
-    networkRetryDelayMs: 360,
-    retryOnTransientHttp: true,
-    transientHttpRetryCount: 2,
-    transientHttpRetryDelayMs: 450,
-  }).catch(async (err) => {
-    const message = (err && err.message) || "";
-    const statusCode = extractHttpStatusCode(err);
-    const shouldFallbackHttp =
-      !!config.apiBaseUrl &&
-      (isTimeoutLikeError(message) ||
-        isNetworkLikeError(message) ||
-        isTransientHttpStatus(statusCode) ||
-        message.toLowerCase().includes("callcontainer"));
-    if (!shouldFallbackHttp) {
-      throw err;
-    }
-    try {
-      return await callHttpOnce(path, "GET", undefined, {
-        timeoutMs: 9000,
-      });
-    } catch (httpErr) {
-      const httpMsg = (httpErr && httpErr.message) || "http fallback failed";
-      throw new Error(`${message || "云调用失败"}；HTTP 兜底也失败：${httpMsg}`);
-    }
-  });
+  const callContainer = () =>
+    callViaContainer(path, "GET", undefined, {
+      retryOnTimeout: true,
+      timeoutRetryCount: 2,
+      timeoutRetryDelayMs: 320,
+      retryOnNetwork: true,
+      networkRetryCount: 2,
+      networkRetryDelayMs: 360,
+      retryOnTransientHttp: true,
+      transientHttpRetryCount: 2,
+      transientHttpRetryDelayMs: 450,
+    });
+
+  if (!config.apiBaseUrl) {
+    return callContainer();
+  }
+
+  const callHttp = () =>
+    callHttpOnce(path, "GET", undefined, {
+      timeoutMs: 9000,
+    });
+
+  return firstSuccessfulRequest([callContainer, callHttp]);
 }
 
 function submitStudyQuiz(payload) {
