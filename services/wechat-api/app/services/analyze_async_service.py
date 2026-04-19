@@ -5,7 +5,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from app.schemas.analyze import AnalyzeRequest, AnalyzeResponse
 from app.services.analysis_service import (
@@ -28,6 +28,20 @@ _DEFAULT_POLL_AFTER_MS = 2500
 _DEFAULT_TASK_TTL_SECONDS = 1800
 _DEFAULT_MAX_TASKS = 1000
 _DEFAULT_WORKERS = 4
+
+_RUNNING_STAGE_PROGRESS: dict[str, tuple[int, int, int]] = {
+    "running_bootstrap": (24, 34, 5000),
+    "media_resolved": (32, 44, 6000),
+    "asr_processing": (44, 58, 14000),
+    "asr_done": (56, 64, 2800),
+    "text_processing": (60, 72, 7000),
+    "text_done": (70, 78, 2800),
+    "face_processing": (74, 86, 10000),
+    "face_done": (84, 90, 2800),
+    "fusion_processing": (88, 95, 5500),
+    "fusion_done": (94, 97, 3200),
+    "result_ready": (97, 99, 4200),
+}
 
 
 def _env_int(name: str, default: int) -> int:
@@ -113,17 +127,70 @@ def _dynamic_status_message(
         return stored or "排队中：已收到请求，正在进入云端队列。"
 
     if status == "running":
+        if stored:
+            if run_elapsed_ms is not None and run_elapsed_ms >= 45000:
+                return f"{stored}（耗时较长，可稍后回来继续查询）"
+            return stored
         if run_elapsed_ms is not None and run_elapsed_ms >= 45000:
             return "分析中：自拍或录音仍在云端处理，可保持当前页，也可稍后回来继续查询。"
         if run_elapsed_ms is not None and run_elapsed_ms >= 15000:
             return "分析中：云端正在整理文字、自拍和语音，请再稍等一下。"
-        return stored or "分析中：正在生成情绪结果。"
+        return "分析中：正在生成情绪结果。"
 
     if status == "succeeded":
         return "分析完成"
     if status == "failed":
         return stored or "分析失败"
     return stored or "分析中"
+
+
+def _normalize_progress_percent(value: Any, default: int = 0) -> int:
+    try:
+        numeric = int(float(value))
+    except (TypeError, ValueError):
+        numeric = default
+    return max(0, min(100, numeric))
+
+
+def _build_progress_snapshot(
+    task: dict[str, Any],
+    *,
+    status: str,
+    queue_wait_ms: Optional[int],
+    run_elapsed_ms: Optional[int],
+) -> tuple[int, str]:
+    previous = _normalize_progress_percent(task.get("progress_percent"), 0)
+    stage = str(task.get("progress_stage") or "").strip()
+
+    if status == "succeeded":
+        return 100, "succeeded"
+
+    if status == "failed":
+        return max(1, min(99, previous or 99)), "failed"
+
+    if status == "queued":
+        waited_ms = max(0, int(queue_wait_ms or 0))
+        # Queue stage uses real wait time and tops out below running stage.
+        dynamic = min(22, 4 + waited_ms // 1200)
+        return max(previous, dynamic), "queued"
+
+    if status == "running":
+        current_stage = stage or "running_bootstrap"
+        min_progress, max_progress, ramp_ms = _RUNNING_STAGE_PROGRESS.get(
+            current_stage,
+            _RUNNING_STAGE_PROGRESS["running_bootstrap"],
+        )
+        stage_started_at = str(task.get("progress_stage_started_at") or task.get("started_at") or "")
+        stage_elapsed_ms = _duration_ms(stage_started_at) or 0
+        ramp_total = max(1000, int(ramp_ms))
+        ramp_ratio = min(1.0, max(0.0, float(stage_elapsed_ms) / float(ramp_total)))
+        dynamic = min_progress + int((max_progress - min_progress) * ramp_ratio)
+        computed = max(previous, dynamic)
+        if run_elapsed_ms is not None and run_elapsed_ms >= 1000:
+            computed = max(computed, min_progress)
+        return min(99, computed), current_stage
+
+    return max(previous, 1 if status else 0), stage or status or ""
 
 
 def _executor() -> ThreadPoolExecutor:
@@ -149,18 +216,27 @@ def _track_media_ids(payload: AnalyzeRequest) -> None:
         logger.warning("media retention track skipped: %s", exc)
 
 
-def run_analysis_sync_for_user(payload: AnalyzeRequest, user_id: str) -> AnalyzeResponse:
+def run_analysis_sync_for_user(
+    payload: AnalyzeRequest,
+    user_id: str,
+    progress_callback: Optional[Callable[[str, Optional[str]], None]] = None,
+) -> AnalyzeResponse:
     try:
         cleanup_expired_media()
     except Exception as exc:  # pragma: no cover
         logger.warning("media retention cleanup skipped: %s", exc)
 
     _track_media_ids(payload)
-    response = run_analysis(payload)
+    response = run_analysis(payload, progress_callback=progress_callback)
     try:
         record_analysis_summary(user_id=user_id, response=response)
     except Exception as exc:  # pragma: no cover
         logger.warning("history summary save skipped: %s", exc)
+    if progress_callback:
+        try:
+            progress_callback("result_ready", "分析中：结果已保存，正在准备打开结果页...")
+        except Exception as exc:  # pragma: no cover
+            logger.debug("analysis progress callback skipped on save: %s", exc)
     return response
 
 
@@ -259,6 +335,14 @@ def _task_snapshot(task: dict[str, Any]) -> dict[str, Any]:
         run_elapsed_ms=run_elapsed_ms,
     )
     poll_after_ms = _dynamic_poll_after_ms(status, queue_wait_ms, run_elapsed_ms)
+    progress_percent, progress_stage = _build_progress_snapshot(
+        task,
+        status=status,
+        queue_wait_ms=queue_wait_ms,
+        run_elapsed_ms=run_elapsed_ms,
+    )
+    task["progress_percent"] = progress_percent
+    task["progress_stage"] = progress_stage
 
     snapshot = {
         "task_id": task.get("task_id"),
@@ -273,6 +357,8 @@ def _task_snapshot(task: dict[str, Any]) -> dict[str, Any]:
         "queue_wait_ms": queue_wait_ms,
         "run_elapsed_ms": run_elapsed_ms,
         "total_elapsed_ms": total_elapsed_ms,
+        "progress_percent": progress_percent,
+        "progress_stage": progress_stage,
     }
     if task.get("status") == "succeeded" and isinstance(task.get("result"), dict):
         snapshot["result"] = task["result"]
@@ -285,13 +371,30 @@ def _run_task(task_id: str) -> None:
         if not task:
             return
         task["status"] = "running"
-        task["status_message"] = "分析中"
         task["started_at"] = _iso_now_utc()
+        task["status_message"] = "分析中：任务已开始，正在准备处理内容..."
+        task["progress_stage"] = "running_bootstrap"
+        task["progress_stage_started_at"] = task["started_at"]
+        task["progress_percent"] = max(_normalize_progress_percent(task.get("progress_percent"), 0), 24)
 
     try:
+        def _on_progress(stage: str, message: Optional[str] = None) -> None:
+            normalized_stage = str(stage or "").strip()
+            if not normalized_stage:
+                return
+            with _LOCK:
+                current = _TASKS.get(task_id)
+                if not current or str(current.get("status") or "") != "running":
+                    return
+                if normalized_stage != str(current.get("progress_stage") or ""):
+                    current["progress_stage"] = normalized_stage
+                    current["progress_stage_started_at"] = _iso_now_utc()
+                if message:
+                    current["status_message"] = str(message).strip()
+
         payload = AnalyzeRequest.model_validate(task.get("payload", {}))
         user_id = str(task.get("user_id") or "anonymous")
-        response = run_analysis_sync_for_user(payload=payload, user_id=user_id)
+        response = run_analysis_sync_for_user(payload=payload, user_id=user_id, progress_callback=_on_progress)
         with _LOCK:
             current = _TASKS.get(task_id)
             if not current:
@@ -299,6 +402,9 @@ def _run_task(task_id: str) -> None:
             current["status"] = "succeeded"
             current["status_message"] = "分析完成"
             current["finished_at"] = _iso_now_utc()
+            current["progress_stage"] = "succeeded"
+            current["progress_stage_started_at"] = current["finished_at"]
+            current["progress_percent"] = 100
             current["retryable"] = False
             current["result"] = response.model_dump(mode="json")
             current["error_detail"] = None
@@ -321,6 +427,12 @@ def _run_task(task_id: str) -> None:
             current["status"] = "failed"
             current["status_message"] = _build_failed_status_message(detail, retryable)
             current["finished_at"] = _iso_now_utc()
+            current["progress_stage"] = "failed"
+            current["progress_stage_started_at"] = current["finished_at"]
+            current["progress_percent"] = max(
+                _normalize_progress_percent(current.get("progress_percent"), 0),
+                1,
+            )
             current["retryable"] = retryable
             current["error_detail"] = detail
             current.pop("result", None)
@@ -359,6 +471,9 @@ def create_analyze_task(payload: AnalyzeRequest, user_id: str) -> dict[str, Any]
         "accepted_at": _iso_now_utc(),
         "started_at": None,
         "finished_at": None,
+        "progress_stage": "queued",
+        "progress_stage_started_at": None,
+        "progress_percent": 4,
         "poll_after_ms": _poll_after_ms(),
         "retryable": False,
         "error_detail": None,

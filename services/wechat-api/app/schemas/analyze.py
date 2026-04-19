@@ -200,6 +200,8 @@ class AnalyzeAsyncCreateResponse(BaseModel):
     accepted_at: str
     poll_after_ms: int = 2500
     status_message: Optional[str] = None
+    progress_percent: int = Field(default=0, ge=0, le=100)
+    progress_stage: Optional[str] = None
 
 
 class AnalyzeAsyncStatusResponse(BaseModel):
@@ -215,4 +217,6 @@ class AnalyzeAsyncStatusResponse(BaseModel):
     queue_wait_ms: Optional[int] = None
     run_elapsed_ms: Optional[int] = None
     total_elapsed_ms: Optional[int] = None
+    progress_percent: int = Field(default=0, ge=0, le=100)
+    progress_stage: Optional[str] = None
     result: Optional[AnalyzeResponse] = None

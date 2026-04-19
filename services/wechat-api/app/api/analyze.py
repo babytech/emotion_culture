@@ -54,6 +54,8 @@ def create_async_analyze(payload: AnalyzeRequest, request: Request) -> AnalyzeAs
         accepted_at=str(task.get("accepted_at") or ""),
         poll_after_ms=int(task.get("poll_after_ms") or 2500),
         status_message=str(task.get("status_message") or "") or None,
+        progress_percent=int(task.get("progress_percent") or 0),
+        progress_stage=str(task.get("progress_stage") or "") or None,
     )
 
 
@@ -79,5 +81,7 @@ def get_async_analyze(task_id: str, request: Request) -> AnalyzeAsyncStatusRespo
         queue_wait_ms=int(task.get("queue_wait_ms")) if task.get("queue_wait_ms") is not None else None,
         run_elapsed_ms=int(task.get("run_elapsed_ms")) if task.get("run_elapsed_ms") is not None else None,
         total_elapsed_ms=int(task.get("total_elapsed_ms")) if task.get("total_elapsed_ms") is not None else None,
+        progress_percent=int(task.get("progress_percent") or 0),
+        progress_stage=str(task.get("progress_stage") or "") or None,
         result=result,
     )

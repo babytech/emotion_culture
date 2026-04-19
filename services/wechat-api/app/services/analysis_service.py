@@ -6,7 +6,7 @@ import re
 import uuid
 from datetime import datetime, timezone
 from time import perf_counter
-from typing import Optional
+from typing import Callable, Optional
 
 import cv2
 import numpy as np
@@ -654,12 +654,25 @@ def _elapsed_ms(start_ts: float) -> int:
     return max(0, int((perf_counter() - start_ts) * 1000))
 
 
-def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
+ProgressCallback = Optional[Callable[[str, Optional[str]], None]]
+
+
+def _emit_progress(progress_callback: ProgressCallback, stage: str, message: Optional[str] = None) -> None:
+    if not progress_callback:
+        return
+    try:
+        progress_callback(stage, message)
+    except Exception as exc:  # pragma: no cover
+        logger.debug("analysis progress callback skipped: stage=%s detail=%s", stage, exc)
+
+
+def run_analysis(payload: AnalyzeRequest, progress_callback: ProgressCallback = None) -> AnalyzeResponse:
     total_started = perf_counter()
     resolve_started = perf_counter()
     resolved = resolve_media_paths(payload)
     processing_metrics_ms: dict[str, int] = {"resolve_media_ms": _elapsed_ms(resolve_started)}
     input_modes = payload.normalized_input_modes()
+    _emit_progress(progress_callback, "media_resolved", "分析中：已完成输入校验，正在拆解多模态信号...")
 
     try:
         analysis_text = (payload.text or "").strip() or None
@@ -671,6 +684,7 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
         speech_transcript_error = None
         speech_emotion = None
         if resolved.audio_path:
+            _emit_progress(progress_callback, "asr_processing", "分析中：正在识别语音内容...")
             stt_started = perf_counter()
             transcription = transcribe_speech_to_text(resolved.audio_path)
             processing_metrics_ms["asr_transcribe_ms"] = _elapsed_ms(stt_started)
@@ -692,6 +706,7 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
                 speech_emotion_started = perf_counter()
                 speech_emotion = analyze_speech_emotion(resolved.audio_path)
                 processing_metrics_ms["voice_emotion_ms"] = _elapsed_ms(speech_emotion_started)
+                _emit_progress(progress_callback, "asr_done", "分析中：语音信号处理完成，正在理解文本内容...")
             except VoiceQualityRejectError as exc:
                 processing_metrics_ms["voice_quality_check_ms"] = _elapsed_ms(voice_quality_started)
                 # 文本已存在时，语音信号降级为可选输入，避免整单失败。
@@ -712,18 +727,23 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
         if not analysis_text and speech_transcript:
             analysis_text = speech_transcript
 
+        _emit_progress(progress_callback, "text_processing", "分析中：正在理解文本情绪...")
         text_started = perf_counter()
         text_emotion = analyze_text_sentiment(analysis_text) if analysis_text else None
         processing_metrics_ms["text_emotion_ms"] = _elapsed_ms(text_started)
+        _emit_progress(progress_callback, "text_done", "分析中：文本信号已完成，正在检查自拍信号...")
 
         face_emotion = None
         if resolved.image_path:
+            _emit_progress(progress_callback, "face_processing", "分析中：正在识别自拍表情...")
             face_started = perf_counter()
             image_np = _load_image_numpy(resolved.image_path)
             _validate_face_quality(image_np)
             face_emotion = detect_face_emotion(image_np)
             processing_metrics_ms["face_emotion_ms"] = _elapsed_ms(face_started)
+            _emit_progress(progress_callback, "face_done", "分析中：自拍信号已完成，正在融合结果...")
 
+        _emit_progress(progress_callback, "fusion_processing", "分析中：正在融合多模态信号...")
         fusion_started = perf_counter()
         chosen_emotion, weights = _select_emotion(
             text_input=analysis_text,
@@ -762,10 +782,12 @@ def run_analysis(payload: AnalyzeRequest) -> AnalyzeResponse:
             daily_suggestion=_pick_daily_suggestion(chosen_emotion),
         )
         processing_metrics_ms["fusion_render_ms"] = _elapsed_ms(fusion_started)
+        _emit_progress(progress_callback, "fusion_done", "分析中：结果已生成，正在整理展示内容...")
 
         poem_id = _short_hash(f"{poet}|{poem_text}", "poem")
         guochao_id = _short_hash(character_name, "gc")
         processing_metrics_ms["total_ms"] = _elapsed_ms(total_started)
+        _emit_progress(progress_callback, "result_ready", "分析中：结果已生成，正在落库并准备打开结果页...")
 
         logger.info(
             "analysis completed: request_id=%s input_modes=%s transcript_status=%s metrics_ms=%s",
