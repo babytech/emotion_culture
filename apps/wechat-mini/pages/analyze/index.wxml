@@ -143,6 +143,16 @@
         </view>
       </view>
 
+      <view wx:if="{{isSubmitting}}" class="analyze-progress-wrap">
+        <view class="analyze-progress-meta">
+          <view class="analyze-progress-title">当前进度</view>
+          <view class="analyze-progress-percent">{{submitProgressPercent}}%</view>
+        </view>
+        <view class="analyze-progress-track">
+          <view class="analyze-progress-fill" style="width: {{submitProgressPercent}}%;"></view>
+        </view>
+      </view>
+
       <button
         class="btn btn-primary submit-btn analyze-dock-btn"
         loading="{{isSubmitting}}"

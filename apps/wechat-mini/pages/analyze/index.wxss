@@ -261,7 +261,6 @@
   left: 20rpx;
   right: 20rpx;
   z-index: 980;
-  bottom: calc(112rpx + constant(safe-area-inset-bottom));
   bottom: calc(112rpx + env(safe-area-inset-bottom));
 }
 
@@ -288,6 +287,42 @@
   line-height: 1.5;
   color: #61759d;
   word-break: break-word;
+}
+
+.analyze-progress-wrap {
+  margin-bottom: 12rpx;
+}
+
+.analyze-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8rpx;
+}
+
+.analyze-progress-title {
+  font-size: 21rpx;
+  color: #6780af;
+}
+
+.analyze-progress-percent {
+  font-size: 23rpx;
+  font-weight: 700;
+  color: #2f6fff;
+}
+
+.analyze-progress-track {
+  height: 10rpx;
+  border-radius: 999rpx;
+  background: rgba(109, 146, 217, 0.2);
+  overflow: hidden;
+}
+
+.analyze-progress-fill {
+  height: 100%;
+  border-radius: 999rpx;
+  background: linear-gradient(90deg, #3f78ea, #64a3ff);
+  transition: width 320ms ease;
 }
 
 .submit-btn,

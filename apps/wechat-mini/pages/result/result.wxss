@@ -758,7 +758,6 @@
   z-index: 999;
   border-radius: 34rpx 34rpx 28rpx 28rpx;
   box-shadow: 0 24rpx 58rpx rgba(36, 25, 18, 0.24);
-  padding-bottom: calc(28rpx + constant(safe-area-inset-bottom));
   padding-bottom: calc(28rpx + env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 100% 0%, rgba(211, 160, 91, 0.12), transparent 32%),
@@ -855,7 +854,6 @@
   display: flex;
   flex-direction: column;
   gap: 12rpx;
-  padding: 18rpx 18rpx calc(16rpx + constant(safe-area-inset-bottom));
   padding: 18rpx 18rpx calc(16rpx + env(safe-area-inset-bottom));
   border-radius: 34rpx;
   background:

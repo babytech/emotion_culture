@@ -1,4 +1,5 @@
 const { getCheckinStatus, signInDaily } = require("../../services/api");
+const { invalidateDashboardOverviewCache } = require("../../services/dashboard-overview");
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -93,6 +94,7 @@ Page({
         awardPoints: awardedPoints,
         awardModalVisible: !!(response && response.just_signed && awardedPoints > 0),
       });
+      invalidateDashboardOverviewCache();
       wx.showToast({
         title: awardedPoints > 0 ? `签到成功 +${awardedPoints}` : "签到成功",
         icon: "none",

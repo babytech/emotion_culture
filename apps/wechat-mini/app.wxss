@@ -34,7 +34,6 @@ page {
 
 .container {
   padding: 26rpx;
-  padding-bottom: calc(26rpx + constant(safe-area-inset-bottom));
   padding-bottom: calc(26rpx + env(safe-area-inset-bottom));
   box-sizing: border-box;
 }

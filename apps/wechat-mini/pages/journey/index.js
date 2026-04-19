@@ -1,20 +1,7 @@
-const { getRetentionCalendar, getRetentionWeeklyReport, getTodayHistory, listHistory } = require("../../services/api");
+const { getDashboardOverviewSnapshot } = require("../../services/dashboard-overview");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { consumeTodayHistoryFocusRequest } = require("../../utils/today-history-focus");
 const { JOURNEY_TAB, setTabBarSelected } = require("../../utils/tabbar");
-
-function toMonthText(dateObj) {
-  const yyyy = dateObj.getFullYear();
-  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
-  return `${yyyy}-${mm}`;
-}
-
-function toDateText(dateObj) {
-  const yyyy = dateObj.getFullYear();
-  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const dd = String(dateObj.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -124,22 +111,26 @@ Page({
     if (ensurePhase5Auth(JOURNEY_TAB)) return;
     setTabBarSelected(this, JOURNEY_TAB);
     this._todayHistoryFocusRequest = consumeTodayHistoryFocusRequest();
-    this.loadJourneyHub();
+    this.loadJourneyHub({
+      forceRefresh: !!this._todayHistoryFocusRequest,
+    });
   },
 
   onPullDownRefresh() {
-    this.loadJourneyHub().finally(() => {
+    this.loadJourneyHub({ forceRefresh: true }).finally(() => {
       wx.stopPullDownRefresh();
     });
   },
 
-  async loadJourneyHub() {
-    const [calendarRes, reportRes, historyRes, todayHistoryRes] = await Promise.allSettled([
-      getRetentionCalendar(toMonthText(new Date())),
-      getRetentionWeeklyReport(),
-      listHistory({ limit: 3, offset: 0 }),
-      getTodayHistory(toDateText(new Date())),
-    ]);
+  async loadJourneyHub(options = {}) {
+    const {
+      calendarRes,
+      reportRes,
+      historyRes,
+      todayHistoryRes,
+    } = await getDashboardOverviewSnapshot({
+      forceRefresh: !!(options && options.forceRefresh),
+    });
 
     const nextData = {};
 
@@ -172,7 +163,8 @@ Page({
 
     if (historyRes.status === "fulfilled") {
       const history = historyRes.value || {};
-      const items = Array.isArray(history.items) ? history.items.map(toRecentItem) : [];
+      const allItems = Array.isArray(history.items) ? history.items : [];
+      const items = allItems.slice(0, 3).map(toRecentItem);
       nextData.recentItems = items;
       nextData.recentStatus = items.length ? `最近 ${items.length} 条` : "暂无记录";
     } else {

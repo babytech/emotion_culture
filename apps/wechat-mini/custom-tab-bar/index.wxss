@@ -20,7 +20,6 @@
     );
   backdrop-filter: blur(14rpx);
   min-height: 102rpx;
-  padding: 10rpx 8rpx calc(12rpx + constant(safe-area-inset-bottom));
   padding: 10rpx 8rpx calc(12rpx + env(safe-area-inset-bottom));
 }
 

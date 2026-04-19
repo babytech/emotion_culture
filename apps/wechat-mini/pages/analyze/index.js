@@ -3,6 +3,7 @@ const { uploadTempFile } = require("../../services/cloud");
 const { consumeAnalyzeWorkspaceResetRequest } = require("../../utils/analyze-workspace");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { requestTodayHistoryFocus } = require("../../utils/today-history-focus");
+const { invalidateDashboardOverviewCache } = require("../../services/dashboard-overview");
 const { ANALYZE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 const { detectRuntimeEnv } = require("../../utils/runtime");
 
@@ -42,6 +43,8 @@ function buildEmptyWorkspaceState() {
     submitStage: SUBMIT_STAGE.IDLE,
     submitStatusText: "",
     submitButtonText: "开始分析",
+    submitProgressPercent: 0,
+    submitProgressStage: "",
     errorMsg: "",
   };
 }
@@ -199,6 +202,39 @@ function buildTaskStageText(task) {
     return statusMessage || "分析失败";
   }
   return "分析中：正在处理...";
+}
+
+function clampProgressPercent(value, fallback = 0) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return Math.max(0, Math.min(100, Number(fallback) || 0));
+  return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function buildFallbackTaskProgress(task, currentPercent = 0) {
+  const status = normalizeTaskStatus(task && task.status);
+  const current = clampProgressPercent(currentPercent, 0);
+  if (status === "succeeded") return 100;
+  if (status === "failed") return Math.max(1, current);
+  if (status === "queued") {
+    const waitedMs = Math.max(0, Number(task && task.queue_wait_ms) || 0);
+    const dynamic = Math.min(22, 4 + Math.floor(waitedMs / 1200));
+    return Math.max(current, dynamic);
+  }
+  if (status === "running") {
+    const elapsedMs = Math.max(0, Number(task && task.run_elapsed_ms) || 0);
+    const dynamic = Math.min(99, 24 + Math.floor(elapsedMs / 1400));
+    return Math.max(current, dynamic);
+  }
+  return current;
+}
+
+function resolveTaskProgressPercent(task, currentPercent = 0) {
+  const current = clampProgressPercent(currentPercent, 0);
+  const backendPercent = Number(task && task.progress_percent);
+  if (Number.isFinite(backendPercent)) {
+    return Math.max(current, clampProgressPercent(backendPercent, current));
+  }
+  return buildFallbackTaskProgress(task, current);
 }
 
 function getFileExtension(path) {
@@ -621,6 +657,8 @@ Page({
       submitStage: SUBMIT_STAGE.ANALYZING,
       submitStatusText: "已恢复上次分析任务，正在继续查询结果...",
       submitButtonText: "继续查询中...",
+      submitProgressPercent: Math.max(24, clampProgressPercent(this.data.submitProgressPercent, 0)),
+      submitProgressStage: "queued",
       errorMsg: "",
     });
 
@@ -824,6 +862,8 @@ Page({
       submitStage: SUBMIT_STAGE.UPLOADING,
       submitStatusText: "正在结束录音并整理内容...",
       submitButtonText: "处理中...",
+      submitProgressPercent: 8,
+      submitProgressStage: "upload_prepare",
       errorMsg: "",
     });
 
@@ -879,10 +919,14 @@ Page({
           Number(task && task.poll_after_ms) || Number(options.pollIntervalMs) || ANALYZE_POLL_DEFAULT_INTERVAL_MS
         );
         const stageText = buildTaskStageText(task);
+        const progressPercent = resolveTaskProgressPercent(task, this.data.submitProgressPercent);
+        const progressStage = ((task && task.progress_stage) || normalizeTaskStatus(task && task.status)).trim();
         this.setData({
           submitStage: SUBMIT_STAGE.ANALYZING,
           submitStatusText: stageText,
           submitButtonText: "分析中...",
+          submitProgressPercent: progressPercent,
+          submitProgressStage: progressStage,
           errorMsg: "",
         });
 
@@ -920,6 +964,7 @@ Page({
           submitStage: SUBMIT_STAGE.ANALYZING,
           submitStatusText: `结果查询短暂中断，正在自动重试（${transientErrorCount}/${ANALYZE_POLL_TRANSIENT_RETRY_LIMIT}）...`,
           submitButtonText: "分析中...",
+          submitProgressPercent: Math.max(24, clampProgressPercent(this.data.submitProgressPercent, 0)),
           errorMsg: "",
         });
       }
@@ -1108,6 +1153,10 @@ Page({
         submitStage: pendingTaskId ? SUBMIT_STAGE.ANALYZING : SUBMIT_STAGE.UPLOADING,
         submitStatusText: pendingTaskId ? "分析中：正在查询云端任务进度..." : "上传中：正在准备输入内容...",
         submitButtonText: pendingTaskId ? "分析中..." : "上传中...",
+        submitProgressPercent: pendingTaskId
+          ? Math.max(24, clampProgressPercent(this.data.submitProgressPercent, 0))
+          : 6,
+        submitProgressStage: pendingTaskId ? "queued" : "upload_prepare",
         errorMsg: "",
       });
       wx.showLoading({ title: pendingTaskId ? "分析中..." : "上传中..." });
@@ -1156,6 +1205,8 @@ Page({
           submitStage: SUBMIT_STAGE.ANALYZING,
           submitStatusText: buildTaskStageText(asyncCreate),
           submitButtonText: "分析中...",
+          submitProgressPercent: resolveTaskProgressPercent(asyncCreate, this.data.submitProgressPercent),
+          submitProgressStage: ((asyncCreate && asyncCreate.progress_stage) || "queued").trim(),
           errorMsg: "",
         });
         const pollStartAt = Date.now();
@@ -1199,6 +1250,8 @@ Page({
           submitStage: SUBMIT_STAGE.UPLOADING,
           submitStatusText: uploadLabel,
           submitButtonText: "上传中...",
+          submitProgressPercent: Math.max(8, clampProgressPercent(this.data.submitProgressPercent, 0)),
+          submitProgressStage: "uploading",
         });
 
         const uploadTasks = [];
@@ -1216,6 +1269,8 @@ Page({
                     submitStage: SUBMIT_STAGE.UPLOADING,
                     submitStatusText: buildUploadRetryStatus("images", info),
                     submitButtonText: "上传中...",
+                    submitProgressPercent: Math.max(10, clampProgressPercent(this.data.submitProgressPercent, 0)),
+                    submitProgressStage: "uploading_image_retry",
                     errorMsg: "",
                   });
                 },
@@ -1238,6 +1293,8 @@ Page({
                     submitStage: SUBMIT_STAGE.UPLOADING,
                     submitStatusText: buildUploadRetryStatus("audio", info),
                     submitButtonText: "上传中...",
+                    submitProgressPercent: Math.max(10, clampProgressPercent(this.data.submitProgressPercent, 0)),
+                    submitProgressStage: "uploading_audio_retry",
                     errorMsg: "",
                   });
                 },
@@ -1260,6 +1317,8 @@ Page({
           submitStage: SUBMIT_STAGE.ANALYZING,
           submitStatusText: "分析中：正在生成情绪结果...",
           submitButtonText: "分析中...",
+          submitProgressPercent: Math.max(24, clampProgressPercent(this.data.submitProgressPercent, 0)),
+          submitProgressStage: "queued",
           errorMsg: "",
         });
         wx.showLoading({ title: "分析中..." });
@@ -1300,6 +1359,8 @@ Page({
             submitStage: SUBMIT_STAGE.ANALYZING,
             submitStatusText: "语音识别不稳定，已自动改用文字继续分析...",
             submitButtonText: "分析中...",
+            submitProgressPercent: Math.max(48, clampProgressPercent(this.data.submitProgressPercent, 0)),
+            submitProgressStage: "text_processing",
             errorMsg: "",
           });
           result = await runAnalyzeOnce(effectivePayload);
@@ -1310,6 +1371,8 @@ Page({
         submitStage: SUBMIT_STAGE.RENDERING,
         submitStatusText: "结果生成中：正在打开结果页...",
         submitButtonText: "结果生成中...",
+        submitProgressPercent: 100,
+        submitProgressStage: "result_ready",
       });
       wx.showLoading({ title: "结果生成中..." });
 
@@ -1333,6 +1396,7 @@ Page({
         entryHint: "",
       });
       requestTodayHistoryFocus("analyze_completed");
+      invalidateDashboardOverviewCache();
 
       this.resetPendingSubmissionState();
       submitSucceeded = true;
@@ -1357,6 +1421,10 @@ Page({
           ? "分析任务仍在处理，点击“开始分析”可继续查询结果。"
           : "分析失败：可直接重试，原输入已保留。",
         submitButtonText: "开始分析",
+        submitProgressPercent: isPendingProcessing
+          ? Math.max(24, clampProgressPercent(this.data.submitProgressPercent, 0))
+          : Math.max(1, clampProgressPercent(this.data.submitProgressPercent, 0)),
+        submitProgressStage: isPendingProcessing ? "running" : "failed",
         errorMsg,
       });
       wx.showToast({
@@ -1374,6 +1442,8 @@ Page({
             : this.data.submitStage,
         submitStatusText: submitSucceeded ? "" : this.data.submitStatusText,
         submitButtonText: "开始分析",
+        submitProgressPercent: submitSucceeded ? 0 : this.data.submitProgressPercent,
+        submitProgressStage: submitSucceeded ? "" : this.data.submitProgressStage,
       });
     }
   },

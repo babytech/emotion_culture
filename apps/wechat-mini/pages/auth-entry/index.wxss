@@ -173,7 +173,6 @@
   right: 0;
   bottom: 0;
   z-index: 3;
-  padding: 18rpx 28rpx calc(34rpx + constant(safe-area-inset-bottom));
   padding: 18rpx 28rpx calc(34rpx + env(safe-area-inset-bottom));
   border-radius: 34rpx 34rpx 0 0;
   background: rgba(255, 252, 247, 0.98);

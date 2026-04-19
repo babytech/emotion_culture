@@ -1,3 +1,6 @@
+const { installSystemInfoCompatShim } = require("./utils/system-info-compat");
+installSystemInfoCompatShim();
+
 const config = require("./config/index");
 const { initCloud } = require("./services/cloud");
 const { getStudyQuizPaper } = require("./services/api");

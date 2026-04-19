@@ -1,12 +1,5 @@
-const {
-  getCheckinStatus,
-  getRetentionCalendar,
-  getRetentionWeeklyReport,
-  getStudyQuizPaper,
-  getTodayHistory,
-  listFavorites,
-  listHistory,
-} = require("../../services/api");
+const { getStudyQuizPaper } = require("../../services/api");
+const { getDashboardOverviewSnapshot } = require("../../services/dashboard-overview");
 const {
   isValidQuizPaperPayload,
   shouldPrefetchQuizPaper,
@@ -23,19 +16,6 @@ const HOME_ACTIONS = [
   { key: "checkin", icon: "签", title: "每日签到" },
   { key: "profile", icon: "我", title: "我的空间" },
 ];
-
-function toMonthText(dateObj) {
-  const yyyy = dateObj.getFullYear();
-  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
-  return `${yyyy}-${mm}`;
-}
-
-function toDateText(dateObj) {
-  const yyyy = dateObj.getFullYear();
-  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
-  const dd = String(dateObj.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
 
 function toTodayLabel(dateObj) {
   const source = dateObj instanceof Date ? dateObj : new Date();
@@ -188,20 +168,30 @@ Page({
     setTabBarSelected(this, HOME_TAB);
     this.prefetchQuizPaperInBackground();
     this._todayHistoryFocusRequest = consumeTodayHistoryFocusRequest();
-    this.loadDashboard();
+    this.loadDashboard({
+      forceRefresh: !!this._todayHistoryFocusRequest,
+    });
   },
 
-  async loadDashboard() {
+  onPullDownRefresh() {
+    this.loadDashboard({ forceRefresh: true }).finally(() => {
+      wx.stopPullDownRefresh();
+    });
+  },
+
+  async loadDashboard(options = {}) {
     this.setData({ isRefreshing: true });
 
-    const [calendarRes, reportRes, historyRes, favoritesRes, todayHistoryRes, checkinRes] = await Promise.allSettled([
-      getRetentionCalendar(toMonthText(new Date())),
-      getRetentionWeeklyReport(),
-      listHistory({ limit: 5, offset: 0 }),
-      listFavorites({ limit: 2, offset: 0 }),
-      getTodayHistory(toDateText(new Date())),
-      getCheckinStatus(),
-    ]);
+    const {
+      calendarRes,
+      reportRes,
+      historyRes,
+      favoritesRes,
+      todayHistoryRes,
+      checkinRes,
+    } = await getDashboardOverviewSnapshot({
+      forceRefresh: !!(options && options.forceRefresh),
+    });
 
     const nextData = {};
 
