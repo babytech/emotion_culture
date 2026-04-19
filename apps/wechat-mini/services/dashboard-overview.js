@@ -1,4 +1,5 @@
 const {
+  getDashboardOverview,
   getCheckinStatus,
   getRetentionCalendar,
   getRetentionWeeklyReport,
@@ -31,6 +32,10 @@ function buildCacheKey(now = new Date()) {
   return `${toMonthText(now)}|${toDateText(now)}`;
 }
 
+function safeText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
 function isCacheFresh(snapshot, nowTs = Date.now()) {
   if (!snapshot || typeof snapshot !== "object") return false;
   const fetchedAt = Number(snapshot.fetchedAt) || 0;
@@ -39,18 +44,42 @@ function isCacheFresh(snapshot, nowTs = Date.now()) {
   return snapshot.cacheKey === buildCacheKey(new Date(nowTs));
 }
 
-async function fetchDashboardOverview() {
-  const now = new Date();
+function toSettledSection(section) {
+  const status = safeText(section && section.status).toLowerCase();
+  if (status === "fulfilled") {
+    const value = section && typeof section.value === "object" ? section.value : {};
+    return {
+      status: "fulfilled",
+      value,
+    };
+  }
+  const reason = safeText(section && section.reason) || "dashboard section unavailable";
+  return {
+    status: "rejected",
+    reason,
+  };
+}
+
+function normalizeAggregateSnapshot(raw, now = new Date()) {
+  if (!raw || typeof raw !== "object") {
+    return null;
+  }
+  return {
+    fetchedAt: Date.now(),
+    cacheKey: buildCacheKey(now),
+    calendarRes: toSettledSection(raw.calendar),
+    reportRes: toSettledSection(raw.weekly_report),
+    historyRes: toSettledSection(raw.history),
+    favoritesRes: toSettledSection(raw.favorites),
+    todayHistoryRes: toSettledSection(raw.today_history),
+    checkinRes: toSettledSection(raw.checkin),
+  };
+}
+
+async function fetchDashboardOverviewLegacy(now = new Date()) {
   const monthText = toMonthText(now);
   const dateText = toDateText(now);
-  const [
-    calendarRes,
-    reportRes,
-    historyRes,
-    favoritesRes,
-    todayHistoryRes,
-    checkinRes,
-  ] = await Promise.allSettled([
+  const [calendarRes, reportRes, historyRes, favoritesRes, todayHistoryRes, checkinRes] = await Promise.allSettled([
     getRetentionCalendar(monthText),
     getRetentionWeeklyReport(),
     listHistory({ limit: HISTORY_LIMIT, offset: 0 }),
@@ -69,6 +98,27 @@ async function fetchDashboardOverview() {
     todayHistoryRes,
     checkinRes,
   };
+}
+
+async function fetchDashboardOverview() {
+  const now = new Date();
+  const monthText = toMonthText(now);
+  const dateText = toDateText(now);
+  try {
+    const aggregate = await getDashboardOverview({
+      month: monthText,
+      date: dateText,
+      historyLimit: HISTORY_LIMIT,
+      favoritesLimit: FAVORITES_LIMIT,
+    });
+    const snapshot = normalizeAggregateSnapshot(aggregate, now);
+    if (snapshot) {
+      return snapshot;
+    }
+  } catch (err) {
+    // fallback to legacy multi-request strategy when aggregate endpoint is unavailable
+  }
+  return fetchDashboardOverviewLegacy(now);
 }
 
 async function getDashboardOverviewSnapshot(options = {}) {

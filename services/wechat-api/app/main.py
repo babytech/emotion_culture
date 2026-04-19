@@ -9,6 +9,7 @@ from app.api.analyze import router as analyze_router
 from app.api.auth import router as auth_router
 from app.api.bootstrap import router as bootstrap_router
 from app.api.checkin import router as checkin_router
+from app.api.dashboard import router as dashboard_router
 from app.api.email import router as email_router
 from app.api.favorites import router as favorites_router
 from app.api.health import router as health_router
@@ -44,6 +45,7 @@ app.include_router(health_router, prefix="/api", tags=["health"])
 app.include_router(auth_router, prefix="/api", tags=["auth"])
 app.include_router(bootstrap_router, prefix="/api", tags=["bootstrap"])
 app.include_router(checkin_router, prefix="/api", tags=["checkin"])
+app.include_router(dashboard_router, prefix="/api", tags=["dashboard"])
 app.include_router(analyze_router, prefix="/api", tags=["analyze"])
 app.include_router(email_router, prefix="/api", tags=["email"])
 app.include_router(favorites_router, prefix="/api", tags=["favorites"])

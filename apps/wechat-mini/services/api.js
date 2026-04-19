@@ -592,6 +592,34 @@ function getTodayHistory(date) {
   });
 }
 
+function getDashboardOverview(options = {}) {
+  const parts = [];
+  const month = (options.month || "").trim();
+  const date = (options.date || "").trim();
+  const historyLimit = Math.max(1, Math.min(Number(options.historyLimit) || 5, 20));
+  const favoritesLimit = Math.max(1, Math.min(Number(options.favoritesLimit) || 2, 20));
+  if (month) {
+    parts.push(`month=${encodeURIComponent(month)}`);
+  }
+  if (date) {
+    parts.push(`date=${encodeURIComponent(date)}`);
+  }
+  parts.push(`history_limit=${historyLimit}`);
+  parts.push(`favorites_limit=${favoritesLimit}`);
+  const query = parts.length ? `?${parts.join("&")}` : "";
+  return callViaContainer(`/api/dashboard/overview${query}`, "GET", undefined, {
+    retryOnTimeout: true,
+    timeoutRetryCount: 1,
+    timeoutRetryDelayMs: 260,
+    retryOnNetwork: true,
+    networkRetryCount: 1,
+    networkRetryDelayMs: 320,
+    retryOnTransientHttp: true,
+    transientHttpRetryCount: 1,
+    transientHttpRetryDelayMs: 420,
+  });
+}
+
 function deleteRetentionWeeklyReport(weekStart) {
   const query = weekStart ? `?week_start=${encodeURIComponent(weekStart)}` : "";
   return callViaContainer(`/api/retention/weekly-report${query}`, "DELETE");
@@ -661,6 +689,7 @@ module.exports = {
   getAnalyzeTask,
   getFavoriteStatus,
   getCheckinStatus,
+  getDashboardOverview,
   getHistoryDetail,
   getHistoryTimeline,
   getMediaGenerateTask,
