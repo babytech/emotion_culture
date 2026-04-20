@@ -1,0 +1,28 @@
+<view class="container ingest-page">
+  <view class="card ingest-card">
+    <view class="ingest-title">题库录入</view>
+    <view class="ingest-sub">选择科目后拍照上传，系统会自动识别并写入题库。</view>
+
+    <view class="ingest-field">
+      <view class="ingest-label">科目</view>
+      <picker
+        class="ingest-picker"
+        mode="selector"
+        range="{{courseOptions}}"
+        range-key="label"
+        value="{{selectedCourseIndex}}"
+        disabled="{{isUploading}}"
+        bindchange="handleCourseChange"
+      >
+        <view class="ingest-picker-value">{{selectedCourseLabel}}</view>
+      </picker>
+    </view>
+
+    <button class="btn btn-primary ingest-btn" bindtap="handleCaptureAndIngest" loading="{{isUploading}}" disabled="{{isUploading}}">
+      {{isUploading ? "识别中..." : "拍照并录入题库"}}
+    </button>
+
+    <view class="ingest-hint">{{uploadHint}}</view>
+    <view wx:if="{{latestResultText}}" class="ingest-result">{{latestResultText}}</view>
+  </view>
+</view>

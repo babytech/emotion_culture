@@ -1,13 +1,17 @@
 const { getStudyQuizPaper, submitStudyQuiz } = require("../../services/api");
+const { ensurePhase5Auth } = require("../../utils/auth-gate");
+const { QUIZ_TAB, setTabBarSelected } = require("../../utils/tabbar");
 const {
   isValidQuizPaperPayload,
   readQuizPaperCache,
   writeQuizPaperCache,
 } = require("../../utils/study-quiz-paper-cache");
+const { getQuizCourseOptions, getQuizCourseLabel, normalizeQuizCourse } = require("../../utils/study-quiz-course");
 
 const QUIZ_CONTEXT_STORAGE_KEY = "ec_latest_quiz_context_v1";
 const QUIZ_DRAFT_STORAGE_KEY = "ec_study_quiz_draft_v1";
 const QUIZ_DRAFT_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+const QUIZ_DURATION_OPTIONS = [10, 20, 30, 45, 60];
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -17,6 +21,17 @@ function createSubmitToken() {
   const stamp = Date.now().toString(36);
   const rand = Math.random().toString(16).slice(2, 10);
   return `qst_${stamp}_${rand}`;
+}
+
+function formatDurationLabel(minutes) {
+  return `${Math.max(1, Number(minutes) || 1)} 分钟`;
+}
+
+function formatCountdown(seconds) {
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const mm = String(Math.floor(safeSeconds / 60)).padStart(2, "0");
+  const ss = String(safeSeconds % 60).padStart(2, "0");
+  return `${mm}:${ss}`;
 }
 
 function showModalAsync(options = {}) {
@@ -37,12 +52,16 @@ function isValidPaperPayload(payload) {
   return isValidQuizPaperPayload(payload);
 }
 
-function readCachedPaper() {
-  return readQuizPaperCache();
+function readCachedPaper(course) {
+  return readQuizPaperCache({
+    course: normalizeQuizCourse(course),
+  });
 }
 
-function writeCachedPaper(paper) {
-  writeQuizPaperCache(paper);
+function writeCachedPaper(paper, course) {
+  writeQuizPaperCache(paper, {
+    course: normalizeQuizCourse(course),
+  });
 }
 
 function mapPaperLoadError(err) {
@@ -84,7 +103,7 @@ function mapSubmitError(err) {
   if (!message) return "提交失败，请稍后重试。";
   const lower = message.toLowerCase();
   if (lower.includes("quiz_paper_mismatch")) {
-    return "题目已更新，请下拉刷新后重试。";
+    return "题目已更新，请重新开始测试。";
   }
   if (isSubmitRetryableError(err)) {
     return "网络波动导致提交超时，请再次点击提交。";
@@ -313,6 +332,7 @@ Page({
     isLoading: false,
     isRefreshingPaper: false,
     isSubmitting: false,
+    hasStarted: false,
     errorMsg: "",
     loadedFromCache: false,
     paperId: "",
@@ -328,16 +348,235 @@ Page({
     currentQuestion: null,
     submitToken: "",
     draftRecovered: false,
+    courseOptions: getQuizCourseOptions(),
+    selectedCourseIndex: 1,
+    selectedCourseLabel: "英语",
+    durationOptions: QUIZ_DURATION_OPTIONS.map(formatDurationLabel),
+    selectedDurationIndex: 1,
+    selectedDurationLabel: formatDurationLabel(QUIZ_DURATION_OPTIONS[1]),
+    remainingSeconds: 0,
+    remainingText: "--:--",
+  },
+
+  onLoad() {
+    const defaultCourse = "english";
+    const courseOptions = getQuizCourseOptions();
+    const selectedCourseIndex = Math.max(
+      0,
+      courseOptions.findIndex((item) => item.value === defaultCourse)
+    );
+    this.setData({
+      courseOptions,
+      selectedCourseIndex,
+      selectedCourseLabel: getQuizCourseLabel(defaultCourse),
+      durationOptions: QUIZ_DURATION_OPTIONS.map(formatDurationLabel),
+      selectedDurationIndex: 1,
+      selectedDurationLabel: formatDurationLabel(QUIZ_DURATION_OPTIONS[1]),
+    });
   },
 
   onShow() {
-    if (!this.data.paperId && !this.data.isLoading) {
-      this.loadPaper();
+    if (ensurePhase5Auth(QUIZ_TAB)) return;
+    setTabBarSelected(this, QUIZ_TAB);
+    this.syncCountdownDisplay({ triggerAutoSubmit: true });
+    if (this.data.hasStarted && Number(this._quizDeadlineTs) > Date.now()) {
+      this.clearCountdownTicker();
+      this._countdownTicker = setInterval(() => {
+        this.syncCountdownDisplay({ triggerAutoSubmit: true });
+      }, 1000);
+    }
+    if (this.data.hasStarted && !this.data.paperId && !this.data.isLoading) {
+      this.loadPaper({
+        course: this.getSelectedCourse(),
+      });
     }
   },
 
+  onHide() {
+    this.clearCountdownTicker();
+  },
+
+  onUnload() {
+    this.clearCountdownTicker();
+  },
+
   onPullDownRefresh() {
-    this.loadPaper({ manual: true, stopPullDown: true });
+    if (!this.data.hasStarted) {
+      wx.stopPullDownRefresh();
+      wx.showToast({
+        title: "请先点击开始测试",
+        icon: "none",
+      });
+      return;
+    }
+    this.loadPaper({ manual: true, stopPullDown: true, course: this.data.paperCourse || this.getSelectedCourse() });
+  },
+
+  getSelectedCourse() {
+    const options = Array.isArray(this.data.courseOptions) ? this.data.courseOptions : [];
+    const item = options[this.data.selectedCourseIndex];
+    return normalizeQuizCourse(item && item.value);
+  },
+
+  getSelectedDurationSeconds() {
+    const idx = Math.max(0, Number(this.data.selectedDurationIndex) || 0);
+    const minutes = QUIZ_DURATION_OPTIONS[idx] || QUIZ_DURATION_OPTIONS[0];
+    return Math.max(60, Number(minutes) * 60);
+  },
+
+  clearCountdownTicker() {
+    if (this._countdownTicker) {
+      clearInterval(this._countdownTicker);
+      this._countdownTicker = null;
+    }
+  },
+
+  startCountdown(seconds) {
+    const totalSeconds = Math.max(1, Number(seconds) || 1);
+    this._quizDeadlineTs = Date.now() + totalSeconds * 1000;
+    this.syncCountdownDisplay();
+    this.clearCountdownTicker();
+    this._countdownTicker = setInterval(() => {
+      this.syncCountdownDisplay({ triggerAutoSubmit: true });
+    }, 1000);
+  },
+
+  stopCountdown() {
+    this.clearCountdownTicker();
+    this._quizDeadlineTs = 0;
+    this._isAutoSubmittingByTimeout = false;
+    this.setData({
+      remainingSeconds: 0,
+      remainingText: "--:--",
+    });
+  },
+
+  syncCountdownDisplay(options = {}) {
+    const deadline = Number(this._quizDeadlineTs) || 0;
+    if (!deadline) {
+      if (this.data.remainingSeconds !== 0 || this.data.remainingText !== "--:--") {
+        this.setData({
+          remainingSeconds: 0,
+          remainingText: "--:--",
+        });
+      }
+      return;
+    }
+
+    const remain = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    if (remain !== this.data.remainingSeconds || this.data.remainingText !== formatCountdown(remain)) {
+      this.setData({
+        remainingSeconds: remain,
+        remainingText: formatCountdown(remain),
+      });
+    }
+
+    if (remain <= 0) {
+      this.stopCountdown();
+      if (options.triggerAutoSubmit) {
+        this.autoSubmitByTimeout();
+      }
+    }
+  },
+
+  autoSubmitByTimeout() {
+    if (!this.data.hasStarted) return;
+    if (this.data.isSubmitting || this._isAutoSubmittingByTimeout) return;
+    this._isAutoSubmittingByTimeout = true;
+    wx.showToast({
+      title: "时间到，正在自动交卷",
+      icon: "none",
+    });
+    this.submitQuiz({
+      force: true,
+      reason: "time_up",
+    }).finally(() => {
+      this._isAutoSubmittingByTimeout = false;
+    });
+  },
+
+  clearPaperState() {
+    this.setData({
+      errorMsg: "",
+      loadedFromCache: false,
+      paperId: "",
+      paperTitle: "",
+      paperVersion: "",
+      totalQuestions: 0,
+      answeredQuestions: 0,
+      unansweredQuestions: 0,
+      progressPercent: 0,
+      questions: [],
+      currentIndex: 0,
+      currentQuestion: null,
+      submitToken: "",
+      draftRecovered: false,
+    });
+  },
+
+  handleCourseChange(event) {
+    if (this.data.hasStarted) {
+      wx.showToast({
+        title: "测试进行中，不能切换科目",
+        icon: "none",
+      });
+      return;
+    }
+    const nextIndex = Math.max(0, Number(event && event.detail && event.detail.value) || 0);
+    const item = (this.data.courseOptions || [])[nextIndex] || {};
+    const nextCourse = normalizeQuizCourse(item.value);
+    this.setData({
+      selectedCourseIndex: nextIndex,
+      selectedCourseLabel: getQuizCourseLabel(nextCourse),
+      paperCourse: nextCourse,
+    });
+    this.clearPaperState();
+    clearDraftCache();
+  },
+
+  handleDurationChange(event) {
+    if (this.data.hasStarted) {
+      wx.showToast({
+        title: "测试进行中，不能修改时长",
+        icon: "none",
+      });
+      return;
+    }
+    const nextIndex = Math.max(0, Number(event && event.detail && event.detail.value) || 0);
+    const minutes = QUIZ_DURATION_OPTIONS[nextIndex] || QUIZ_DURATION_OPTIONS[0];
+    this.setData({
+      selectedDurationIndex: nextIndex,
+      selectedDurationLabel: formatDurationLabel(minutes),
+    });
+  },
+
+  async handleStartQuiz() {
+    if (this.data.isLoading || this.data.isSubmitting) return;
+    if (this.data.hasStarted) {
+      wx.showToast({
+        title: "测试进行中",
+        icon: "none",
+      });
+      return;
+    }
+
+    const targetCourse = this.getSelectedCourse();
+    const durationSeconds = this.getSelectedDurationSeconds();
+    this.clearPaperState();
+    this.setData({
+      hasStarted: true,
+      paperCourse: targetCourse,
+      selectedCourseLabel: getQuizCourseLabel(targetCourse),
+    });
+    this.startCountdown(durationSeconds);
+    await this.loadPaper({
+      manual: true,
+      course: targetCourse,
+    });
+    if (!this.data.paperId || !this.data.questions.length) {
+      this.setData({ hasStarted: false });
+      this.stopCountdown();
+    }
   },
 
   syncQuestionState(nextQuestions, nextIndex = this.data.currentIndex, options = {}) {
@@ -370,15 +609,22 @@ Page({
     const paperId = safeText(response && response.paper_id);
     const draft = readDraftCache();
     const restoredResult = applyDraftToQuestions(questions, draft, paperId);
+    const normalizedCourse = normalizeQuizCourse(
+      safeText(response && response.course) || options.course || this.getSelectedCourse()
+    );
+
     this.setData({
       paperId,
-      paperTitle: safeText(response && response.title) || "英语伴学小测",
-      paperCourse: safeText(response && response.course) || "english",
+      paperTitle: safeText(response && response.title) || `${getQuizCourseLabel(normalizedCourse)}伴学小测`,
+      paperCourse: normalizedCourse,
       paperVersion: safeText(response && response.version),
       totalQuestions,
       draftRecovered: restoredResult.restored,
+      selectedCourseLabel: getQuizCourseLabel(normalizedCourse),
     });
-    this.syncQuestionState(restoredResult.questions, restoredResult.currentIndex, { clearToken: options.clearToken !== false });
+    this.syncQuestionState(restoredResult.questions, restoredResult.currentIndex, {
+      clearToken: options.clearToken !== false,
+    });
     if (restoredResult.restored && !options.silentRestoreNotice) {
       wx.showToast({
         title: "已恢复上次未完成作答",
@@ -392,12 +638,16 @@ Page({
     if (this.data.isLoading || this.data.isRefreshingPaper) return;
     const manual = !!options.manual;
     const stopPullDown = !!options.stopPullDown;
+    const targetCourse = normalizeQuizCourse(options.course || this.data.paperCourse || this.getSelectedCourse());
     const hasQuestions = Array.isArray(this.data.questions) && this.data.questions.length > 0;
-    const cachedPaper = readCachedPaper();
+    const cachedPaper = readCachedPaper(targetCourse);
     let restoredByCachedPaper = false;
 
     if (!hasQuestions && cachedPaper) {
-      restoredByCachedPaper = !!this.applyPaper(cachedPaper, { clearToken: true });
+      restoredByCachedPaper = !!this.applyPaper(cachedPaper, {
+        clearToken: true,
+        course: targetCourse,
+      });
       this.setData({
         loadedFromCache: true,
         errorMsg: "",
@@ -409,21 +659,26 @@ Page({
       isLoading: !useBackgroundRefresh,
       isRefreshingPaper: useBackgroundRefresh,
       errorMsg: "",
+      paperCourse: targetCourse,
     });
     try {
-      const response = await getStudyQuizPaper("english");
+      const response = await getStudyQuizPaper(targetCourse);
       if (!isValidPaperPayload(response)) {
         throw new Error("试卷数据异常，请重试。");
       }
-      writeCachedPaper(response);
-      this.applyPaper(response, { clearToken: true, silentRestoreNotice: restoredByCachedPaper });
+      writeCachedPaper(response, targetCourse);
+      this.applyPaper(response, {
+        clearToken: true,
+        silentRestoreNotice: restoredByCachedPaper,
+        course: targetCourse,
+      });
       this.setData({
         loadedFromCache: false,
         errorMsg: "",
       });
       if (manual) {
         wx.showToast({
-          title: "试卷已刷新",
+          title: "试卷已就绪",
           icon: "none",
         });
       }
@@ -458,7 +713,17 @@ Page({
   },
 
   handleRetryLoadPaper() {
-    this.loadPaper({ manual: true });
+    if (!this.data.hasStarted) {
+      wx.showToast({
+        title: "请先点击开始测试",
+        icon: "none",
+      });
+      return;
+    }
+    this.loadPaper({
+      manual: true,
+      course: this.data.paperCourse || this.getSelectedCourse(),
+    });
   },
 
   updateAnsweredCount(nextQuestions) {
@@ -597,7 +862,7 @@ Page({
       });
     });
     return {
-      course: this.data.paperCourse || "english",
+      course: this.data.paperCourse || this.getSelectedCourse(),
       paper_id: this.data.paperId || undefined,
       submit_token: submitToken || undefined,
       answers,
@@ -627,10 +892,20 @@ Page({
     throw lastError || new Error("提交失败，请稍后重试。");
   },
 
-  async submitQuiz() {
+  async submitQuiz(options = {}) {
     if (this.data.isSubmitting || this.data.isLoading) return;
+    if (!this.data.hasStarted) {
+      wx.showToast({
+        title: "请先点击开始测试",
+        icon: "none",
+      });
+      return;
+    }
 
-    if ((Number(this.data.answeredQuestions) || 0) <= 0) {
+    const force = !!options.force;
+    const submitReason = safeText(options.reason);
+
+    if ((Number(this.data.answeredQuestions) || 0) <= 0 && !force) {
       const msg = "请先完成至少 1 题后再提交。";
       this.setData({ errorMsg: msg });
       wx.showToast({
@@ -641,7 +916,7 @@ Page({
     }
 
     const unanswered = Number(this.data.unansweredQuestions) || 0;
-    if (unanswered > 0) {
+    if (unanswered > 0 && !force) {
       const confirmed = await showModalAsync({
         title: "还有未答题",
         content: `当前还有 ${unanswered} 题未作答，确认现在提交吗？`,
@@ -661,7 +936,7 @@ Page({
       isSubmitting: true,
       errorMsg: "",
     });
-    wx.showLoading({ title: "判分中..." });
+    wx.showLoading({ title: force ? "自动交卷中..." : "判分中..." });
     try {
       const response = await this.requestSubmitWithRetry(payload);
       const summary = (response && response.quiz_record) || {};
@@ -669,14 +944,16 @@ Page({
       clearDraftCache();
       this.setData({
         draftRecovered: false,
+        hasStarted: false,
       });
+      this.stopCountdown();
       try {
         wx.setStorageSync(QUIZ_CONTEXT_STORAGE_KEY, response);
       } catch (err) {
         // ignore
       }
       wx.navigateTo({
-        url: `/pages/study-quiz-result/index?quiz_record_id=${encodeURIComponent(quizRecordId)}&from=submit`,
+        url: `/pages/study-quiz-result/index?quiz_record_id=${encodeURIComponent(quizRecordId)}&from=${encodeURIComponent(submitReason || "submit")}`,
       });
     } catch (err) {
       this.setData({
@@ -690,5 +967,11 @@ Page({
 
   goAnalyzeDirectly() {
     wx.switchTab({ url: "/pages/analyze/index" });
+  },
+
+  openQuizBankIngestPage() {
+    wx.navigateTo({
+      url: `/pages/quiz-bank-ingest/index?course=${encodeURIComponent(this.getSelectedCourse())}`,
+    });
   },
 });

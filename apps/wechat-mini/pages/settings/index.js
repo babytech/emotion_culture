@@ -135,6 +135,6 @@ Page({
   },
 
   goFavorites() {
-    wx.switchTab({ url: "/pages/favorites/index" });
+    wx.navigateTo({ url: "/pages/favorites/index" });
   },
 });

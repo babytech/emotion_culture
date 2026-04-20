@@ -34,27 +34,52 @@
   color: #ffffff;
 }
 
-.home-hero-calm,
-.home-hero-happy {
+.home-hero-calm {
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.3), transparent 38%),
-    radial-gradient(circle at 12% 92%, rgba(255, 180, 120, 0.16), transparent 36%),
-    linear-gradient(135deg, #2e86dd, #3fb9e2 58%, #6fcbff);
+    radial-gradient(circle at 12% 92%, rgba(189, 220, 255, 0.16), transparent 36%),
+    linear-gradient(135deg, #4a86e8, #63a5ff 58%, #8bc4ff);
 }
 
-.home-hero-sad,
+.home-hero-happy {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.24), transparent 36%),
+    radial-gradient(circle at 12% 92%, rgba(199, 255, 214, 0.18), transparent 36%),
+    linear-gradient(135deg, #39a76e, #44be77 58%, #6adf92);
+}
+
+.home-hero-sad {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.24), transparent 36%),
+    radial-gradient(circle at 10% 90%, rgba(208, 214, 223, 0.18), transparent 34%),
+    linear-gradient(135deg, #7c8796, #929cab 58%, #b0bac8);
+}
+
 .home-hero-fear {
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.24), transparent 36%),
-    radial-gradient(circle at 10% 90%, rgba(144, 122, 255, 0.15), transparent 34%),
-    linear-gradient(135deg, #6a78c9, #6ea2d6 58%, #8fc0df);
+    radial-gradient(circle at 10% 90%, rgba(255, 233, 159, 0.22), transparent 36%),
+    linear-gradient(135deg, #d5ab38, #e0be4f 58%, #f0d77f);
+  color: #4f410f;
+}
+
+.home-hero-fear .home-hero-kicker,
+.home-hero-fear .home-hero-sub,
+.home-hero-fear .home-hero-stat,
+.home-hero-fear .home-hero-link {
+  color: rgba(79, 65, 15, 0.9);
+}
+
+.home-hero-fear .home-hero-badge {
+  color: #4f410f;
+  background: rgba(255, 245, 208, 0.78);
 }
 
 .home-hero-angry {
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.22), transparent 36%),
-    radial-gradient(circle at 12% 88%, rgba(255, 164, 120, 0.2), transparent 38%),
-    linear-gradient(135deg, #5a71d5, #6880eb 58%, #74b0ff);
+    radial-gradient(circle at 12% 88%, rgba(255, 183, 145, 0.22), transparent 38%),
+    linear-gradient(135deg, #d4704b, #dd8658 58%, #efad76);
 }
 
 .home-hero-surprise {
@@ -115,42 +140,6 @@
   color: #ffffff;
 }
 
-.home-action-card {
-  padding: 16rpx 12rpx;
-}
-
-.home-action-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8rpx;
-}
-
-.home-action-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.home-action-icon {
-  width: 72rpx;
-  height: 72rpx;
-  border-radius: 999rpx;
-  background: linear-gradient(135deg, #e8f2ff, #e9f8ff 54%, #ffece0);
-  color: #2f63b7;
-  font-size: 30rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.home-action-text {
-  font-size: 22rpx;
-  color: #4b5d82;
-  text-align: center;
-}
-
 .home-checkin-card {
   padding: 20rpx;
   border: none;
@@ -202,79 +191,6 @@
   line-height: 70rpx;
   font-size: 24rpx !important;
   padding: 0 22rpx !important;
-}
-
-.home-week-card {
-  padding: 22rpx 20rpx;
-  border: none;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(132, 186, 255, 0.24), transparent 34%),
-    radial-gradient(circle at 12% 92%, rgba(255, 171, 122, 0.15), transparent 32%),
-    linear-gradient(135deg, #ffffff, #f0f7ff);
-}
-
-.home-week-tag {
-  display: inline-flex;
-  padding: 8rpx 14rpx;
-  border-radius: 999rpx;
-  font-size: 22rpx;
-  color: #3562c0;
-  background: rgba(97, 142, 228, 0.12);
-}
-
-.home-week-title {
-  margin-top: 12rpx;
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #24314d;
-}
-
-.home-week-text {
-  margin-top: 10rpx;
-  font-size: 24rpx;
-  line-height: 1.65;
-  color: #4f6188;
-}
-
-.home-banner-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12rpx;
-}
-
-.home-banner-card {
-  padding: 18rpx 16rpx;
-  border: none;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(156, 201, 255, 0.24), transparent 34%),
-    radial-gradient(circle at 12% 92%, rgba(255, 180, 120, 0.14), transparent 30%),
-    linear-gradient(140deg, #fffefe, #edf7ff);
-}
-
-.home-banner-card-accent {
-  background:
-    radial-gradient(circle at 100% 0%, rgba(255, 194, 133, 0.24), transparent 34%),
-    radial-gradient(circle at 12% 92%, rgba(117, 204, 232, 0.16), transparent 34%),
-    linear-gradient(140deg, #ffffff, #f3f6ff);
-}
-
-.home-banner-label {
-  font-size: 22rpx;
-  color: #6a7fa8;
-}
-
-.home-banner-title {
-  margin-top: 10rpx;
-  font-size: 30rpx;
-  font-weight: 700;
-  color: #1f2f4d;
-}
-
-.home-banner-sub {
-  margin-top: 8rpx;
-  font-size: 22rpx;
-  line-height: 1.55;
-  color: #627598;
 }
 
 .home-today-card {

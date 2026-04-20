@@ -9,14 +9,6 @@ const { ensurePhase5Auth } = require("../../utils/auth-gate");
 const { consumeTodayHistoryFocusRequest } = require("../../utils/today-history-focus");
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
-const HOME_ACTIONS = [
-  { key: "quiz", icon: "测", title: "伴学小测" },
-  { key: "journey", icon: "记", title: "记录中心" },
-  { key: "analyze", icon: "析", title: "快速分析" },
-  { key: "checkin", icon: "签", title: "每日签到" },
-  { key: "profile", icon: "我", title: "我的空间" },
-];
-
 function toTodayLabel(dateObj) {
   const source = dateObj instanceof Date ? dateObj : new Date();
   const month = source.getMonth() + 1;
@@ -128,7 +120,7 @@ function toHeroTheme(emotionCode, emotionLabel) {
   if (code === "neutral" || /平静|平和|宁静/.test(label)) return "calm";
   if (code === "happy" || /高兴|开心|快乐|愉快/.test(label)) return "happy";
   if (code === "angry" || /生气|愤怒|烦躁/.test(label)) return "angry";
-  if (code === "fear" || /恐惧|害怕|担忧|焦虑/.test(label)) return "fear";
+  if (code === "fear" || /恐惧|害怕|担忧|焦虑|惊恐/.test(label)) return "fear";
   if (code === "surprise" || /惊讶|惊喜/.test(label)) return "surprise";
   return "warm";
 }
@@ -153,13 +145,10 @@ Page({
     heroStreak: "0 天",
     heroMonthCount: "0 天",
     heroLatestTime: "等待你开始今天的第一条记录",
-    weekInsightText: "本周洞察稍后更新",
-    weekInsightStatus: "等待周报数据",
     favoritePreview: [],
     recentRecord: null,
     recentRecordStatus: "还没有最近一次结果",
     todayHistory: buildTodayHistoryState(),
-    quickActions: HOME_ACTIONS,
     checkin: normalizeCheckin({}),
   },
 
@@ -184,7 +173,6 @@ Page({
 
     const {
       calendarRes,
-      reportRes,
       historyRes,
       favoritesRes,
       todayHistoryRes,
@@ -199,18 +187,6 @@ Page({
       const calendar = calendarRes.value || {};
       nextData.heroStreak = `${Number(calendar.current_streak) || 0} 天`;
       nextData.heroMonthCount = `${Number(calendar.checked_days) || 0} 天`;
-    }
-
-    if (reportRes.status === "fulfilled") {
-      const report = reportRes.value || {};
-      const dominant = Array.isArray(report.dominant_emotions) ? report.dominant_emotions[0] : null;
-      nextData.weekInsightText = safeText(report.insight) || "本周还在积累新的洞察。";
-      nextData.weekInsightStatus = dominant
-        ? `高频主情绪：${safeText(dominant.label) || safeText(dominant.code) || "待识别"}`
-        : "洞察已更新";
-    } else {
-      nextData.weekInsightText = "周报接口暂时不可用，稍后自动重试。";
-      nextData.weekInsightStatus = "稍后重试";
     }
 
     if (historyRes.status === "fulfilled") {
@@ -266,38 +242,6 @@ Page({
     });
   },
 
-  handleQuickAction(event) {
-    const key = safeText(event && event.currentTarget && event.currentTarget.dataset.key);
-    if (!key) return;
-    if (key === "quiz") {
-      this.openStudyQuizPage();
-      return;
-    }
-    if (key === "journey") {
-      this.openJourneyTab();
-      return;
-    }
-    if (key === "analyze") {
-      this.openAnalyzeTab();
-      return;
-    }
-    if (key === "checkin") {
-      this.openCheckinPage();
-      return;
-    }
-    if (key === "profile") {
-      this.openProfileTab();
-    }
-  },
-
-  openAnalyzeTab() {
-    wx.switchTab({ url: ANALYZE_TAB });
-  },
-
-  openStudyQuizPage() {
-    wx.navigateTo({ url: "/pages/study-quiz/index" });
-  },
-
   openCheckinPage() {
     wx.navigateTo({ url: "/pages/checkin/index" });
   },
@@ -314,7 +258,7 @@ Page({
   },
 
   openFavoritesTab() {
-    wx.switchTab({ url: FAVORITES_TAB });
+    wx.navigateTo({ url: FAVORITES_TAB });
   },
 
   openJourneyTab() {
@@ -327,13 +271,15 @@ Page({
 
   prefetchQuizPaperInBackground() {
     if (this._quizPaperPrefetchInFlight) return;
-    if (!shouldPrefetchQuizPaper()) return;
+    if (!shouldPrefetchQuizPaper({ course: "english" })) return;
 
     this._quizPaperPrefetchInFlight = true;
     getStudyQuizPaper("english")
       .then((paper) => {
         if (!isValidQuizPaperPayload(paper)) return;
-        writeQuizPaperCache(paper);
+        writeQuizPaperCache(paper, {
+          course: "english",
+        });
       })
       .catch(() => {
         // keep silent, quiz page will still handle normal loading/retry

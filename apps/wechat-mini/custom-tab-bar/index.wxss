@@ -9,7 +9,7 @@
 .tab-dock {
   pointer-events: auto;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
   background:
     linear-gradient(
@@ -37,9 +37,9 @@
 }
 
 .tab-label {
-  font-size: 24rpx;
+  font-size: 22rpx;
   line-height: 1.2;
-  letter-spacing: 0.8rpx;
+  letter-spacing: 0.4rpx;
 }
 
 .tab-item-active .tab-label {
@@ -65,5 +65,5 @@
 }
 
 .tab-shell-compact .tab-label {
-  font-size: 22rpx;
+  font-size: 20rpx;
 }

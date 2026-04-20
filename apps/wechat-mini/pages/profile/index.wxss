@@ -34,6 +34,11 @@
   justify-content: center;
   font-size: 34rpx;
   font-weight: 700;
+  overflow: hidden;
+}
+
+.profile-avatar-image {
+  background: #e6eefc;
 }
 
 .profile-member-info {
@@ -62,6 +67,17 @@
   line-height: 64rpx;
   font-size: 24rpx !important;
   padding: 0 20rpx !important;
+}
+
+.profile-profile-sync {
+  margin-top: 12rpx;
+}
+
+.profile-profile-sync-btn {
+  width: 100%;
+  min-height: 64rpx;
+  line-height: 64rpx;
+  font-size: 22rpx !important;
 }
 
 .profile-stats {
@@ -98,28 +114,12 @@
   color: #25334f;
 }
 
-.profile-benefit-banner {
-  margin-top: 14rpx;
-  border-radius: 18rpx;
-  padding: 26rpx 18rpx;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(255, 196, 132, 0.24), transparent 36%),
-    radial-gradient(circle at 12% 90%, rgba(122, 203, 233, 0.14), transparent 34%),
-    linear-gradient(135deg, #edf5ff, #e8f9ff);
-  color: #3f6db0;
-  font-size: 44rpx;
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: 1rpx;
-}
-
 .profile-benefit-sub {
-  margin-top: 12rpx;
+  margin-top: 14rpx;
   font-size: 23rpx;
   color: #66789e;
 }
 
-.profile-quick-card,
 .profile-setting-card,
 .profile-support-card {
   padding: 20rpx;
@@ -130,39 +130,6 @@
   font-size: 30rpx;
   font-weight: 700;
   color: #25334f;
-}
-
-.profile-quick-grid {
-  margin-top: 14rpx;
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8rpx;
-}
-
-.profile-quick-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8rpx;
-}
-
-.profile-quick-icon {
-  width: 70rpx;
-  height: 70rpx;
-  border-radius: 16rpx;
-  background: linear-gradient(135deg, #edf3ff, #e7f7ff 54%, #ffede3);
-  color: #3562bf;
-  font-size: 29rpx;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.profile-quick-text {
-  font-size: 21rpx;
-  text-align: center;
-  color: #5b6d93;
 }
 
 .profile-switch-row {
@@ -212,6 +179,10 @@
 .profile-setting-btn,
 .profile-support-btn {
   width: 100%;
+}
+
+.profile-clear-btn {
+  margin-top: 10rpx;
 }
 
 .profile-support-email {

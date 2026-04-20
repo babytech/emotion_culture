@@ -68,16 +68,19 @@ def _seed_payload() -> dict[str, Any]:
 def _load_cache() -> dict[str, Any]:
     path = _store_path()
     if not path.exists():
-        return {"version": 1, "entries": {}}
+        return {"version": 1, "entries": {}, "month_day_db": {}}
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        return {"version": 1, "entries": {}}
+        return {"version": 1, "entries": {}, "month_day_db": {}}
     if not isinstance(payload, dict):
-        return {"version": 1, "entries": {}}
+        return {"version": 1, "entries": {}, "month_day_db": {}}
     entries = payload.get("entries")
     if not isinstance(entries, dict):
         payload["entries"] = {}
+    month_day_db = payload.get("month_day_db")
+    if not isinstance(month_day_db, dict):
+        payload["month_day_db"] = {}
     return payload
 
 
@@ -97,6 +100,14 @@ def _cache_ttl_seconds() -> int:
         return max(300, int(raw))
     except ValueError:
         return 14 * 24 * 60 * 60
+
+
+def _month_day_db_ttl_seconds() -> int:
+    raw = (os.getenv("TODAY_HISTORY_DB_TTL_SEC", str(120 * 24 * 60 * 60)) or "").strip()
+    try:
+        return max(24 * 60 * 60, int(raw))
+    except ValueError:
+        return 120 * 24 * 60 * 60
 
 
 def _provider_name() -> str:
@@ -219,6 +230,64 @@ def _write_cache_entry(provider: str, date_key: str, entry: dict[str, Any]) -> N
         entries[_cache_bucket_key(provider, date_key)] = {
             "cached_at": _iso_now_utc(),
             "entry": entry,
+        }
+        _save_cache(payload)
+
+
+def _entry_to_dict(entry: TodayHistoryEntry) -> dict[str, Any]:
+    return {
+        "month_day": entry.month_day,
+        "event_year": entry.event_year,
+        "headline": entry.headline,
+        "summary": entry.summary,
+        "optional_note": entry.optional_note,
+        "source_label": entry.source_label,
+    }
+
+
+def _read_month_day_db(month_day: str, *, allow_stale: bool = False) -> list[TodayHistoryEntry]:
+    ttl = timedelta(seconds=_month_day_db_ttl_seconds())
+    now = _now_utc()
+    with _LOCK:
+        payload = _load_cache()
+        db = payload.get("month_day_db") or {}
+        bucket = db.get(month_day)
+        if not isinstance(bucket, dict):
+            return []
+        cached_at = _parse_iso_datetime(bucket.get("cached_at"))
+        if not cached_at:
+            return []
+        if cached_at.tzinfo is None:
+            cached_at = cached_at.replace(tzinfo=timezone.utc)
+        if not allow_stale and now - cached_at > ttl:
+            return []
+        raw_items = bucket.get("entries")
+        if not isinstance(raw_items, list):
+            return []
+
+    normalized: list[TodayHistoryEntry] = []
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            continue
+        entry = _normalize_entry(raw, month_day=month_day, source_label="历史资料库")
+        if not entry:
+            continue
+        normalized.append(entry)
+    return normalized
+
+
+def _write_month_day_db(month_day: str, entries: list[TodayHistoryEntry]) -> None:
+    if not entries:
+        return
+    compact = [_entry_to_dict(item) for item in entries if item]
+    if not compact:
+        return
+    with _LOCK:
+        payload = _load_cache()
+        db = payload.setdefault("month_day_db", {})
+        db[month_day] = {
+            "cached_at": _iso_now_utc(),
+            "entries": compact,
         }
         _save_cache(payload)
 
@@ -399,16 +468,114 @@ def _seed_entry(month_day: str) -> Optional[TodayHistoryEntry]:
     return _normalize_entry(raw, month_day=month_day, source_label="历史资料")
 
 
-def _fetch_http_entry(date_key: str, month_day: str) -> Optional[TodayHistoryEntry]:
+def _month_day_ordinal(month_day: str) -> Optional[int]:
+    text = _safe_text(month_day, 16)
+    if not text:
+        return None
+    try:
+        parsed = datetime.strptime(text, "%m-%d")
+    except ValueError:
+        return None
+    return int(parsed.timetuple().tm_yday)
+
+
+def _circular_day_distance(day_a: int, day_b: int) -> int:
+    base = abs(int(day_a) - int(day_b))
+    return min(base, 365 - base)
+
+
+def _seed_fallback_entry(month_day: str) -> Optional[TodayHistoryEntry]:
+    payload = _seed_payload()
+    if not payload:
+        return None
+
+    target_ordinal = _month_day_ordinal(month_day)
+    best_distance: Optional[int] = None
+    best_raw: Optional[dict[str, Any]] = None
+
+    for seed_month_day, raw in payload.items():
+        if not isinstance(raw, dict):
+            continue
+        if target_ordinal is None:
+            best_raw = raw
+            break
+        seed_ordinal = _month_day_ordinal(str(seed_month_day))
+        if seed_ordinal is None:
+            continue
+        distance = _circular_day_distance(target_ordinal, seed_ordinal)
+        if best_distance is None or distance < best_distance:
+            best_distance = distance
+            best_raw = raw
+
+    if not best_raw:
+        return None
+
+    entry = _normalize_entry(best_raw, month_day=month_day, source_label="历史资料（回退）")
+    if not entry:
+        return None
+    return TodayHistoryEntry(
+        month_day=entry.month_day,
+        event_year=entry.event_year,
+        headline=entry.headline,
+        summary=entry.summary,
+        optional_note=entry.optional_note,
+        source_label="历史资料（回退）",
+    )
+
+
+def _dedupe_entries(entries: list[TodayHistoryEntry]) -> list[TodayHistoryEntry]:
+    unique: dict[str, TodayHistoryEntry] = {}
+    for item in entries:
+        if not item:
+            continue
+        key = f"{(item.event_year or '').strip()}|{item.headline.strip()}|{item.summary[:60].strip()}"
+        if key in unique:
+            continue
+        unique[key] = item
+    return list(unique.values())
+
+
+def _entry_rank(entry: TodayHistoryEntry) -> tuple[int, int, int]:
+    score = 0
+    source = entry.source_label or ""
+    summary_len = len(entry.summary or "")
+    headline_len = len(entry.headline or "")
+    if entry.event_year and re.search(r"\d{3,4}", entry.event_year):
+        score += 2
+    if "维基百科" in source:
+        score += 4
+    elif "AI 检索" in source:
+        score += 2
+    elif "历史资料" in source:
+        score += 1
+    if 8 <= headline_len <= 34:
+        score += 1
+    if 36 <= summary_len <= 180:
+        score += 1
+    # prefer entries with concise headline/summary when rank is tied
+    return score, -headline_len, -summary_len
+
+
+def _pick_best_entry(entries: list[TodayHistoryEntry]) -> Optional[TodayHistoryEntry]:
+    if not entries:
+        return None
+    sorted_entries = sorted(entries, key=_entry_rank, reverse=True)
+    for item in sorted_entries:
+        if not _is_sensitive(item):
+            return item
+    return None
+
+
+def _fetch_http_entries(date_key: str, month_day: str) -> list[TodayHistoryEntry]:
     endpoint = _http_endpoint()
     if not endpoint:
-        return None
+        return []
 
     payload = {
         "date": date_key,
         "month_day": month_day,
         "locale": "zh-CN",
-        "max_items": 3,
+        "max_items": 12,
     }
     payload.update(_http_payload_json())
     headers = _http_headers()
@@ -426,16 +593,133 @@ def _fetch_http_entry(date_key: str, month_day: str) -> Optional[TodayHistoryEnt
         except Exception:
             raw = response.text
     except Exception:
-        return None
+        return []
 
     candidates: list[dict[str, Any]] = []
     _walk_candidates(raw, candidates)
 
+    entries: list[TodayHistoryEntry] = []
     for candidate in candidates:
         entry = _normalize_entry(candidate, month_day=month_day, source_label="AI 检索")
         if entry:
-            return entry
-    return None
+            entries.append(entry)
+        if len(entries) >= 12:
+            break
+    return _dedupe_entries(entries)
+
+
+def _fetch_http_entry(date_key: str, month_day: str) -> Optional[TodayHistoryEntry]:
+    entries = _fetch_http_entries(date_key, month_day)
+    return entries[0] if entries else None
+
+
+def _wikimedia_timeout_sec() -> float:
+    raw = (os.getenv("TODAY_HISTORY_WIKIMEDIA_TIMEOUT_SEC", "8") or "").strip()
+    try:
+        return max(3.0, float(raw))
+    except ValueError:
+        return 8.0
+
+
+def _wikimedia_headers() -> dict[str, str]:
+    headers = {
+        "User-Agent": "emotion-culture/1.0 (today-history; https://github.com/babytech/emotion_culture)",
+        "Accept": "application/json",
+    }
+    custom = _http_headers()
+    for key, value in custom.items():
+        if key.lower() in {"authorization", "x-api-key"}:
+            continue
+        headers[key] = value
+    return headers
+
+
+def _wikimedia_event_headline(event: dict[str, Any], summary: str, event_year: str) -> str:
+    pages = event.get("pages")
+    if isinstance(pages, list):
+        for page in pages:
+            if not isinstance(page, dict):
+                continue
+            titles = page.get("titles")
+            if isinstance(titles, dict):
+                normalized_title = _safe_text(
+                    titles.get("normalized") or titles.get("display") or titles.get("canonical"),
+                    48,
+                )
+                if normalized_title:
+                    return normalized_title
+            normalized_title = _safe_text(
+                page.get("normalizedtitle") or page.get("displaytitle") or page.get("title"),
+                48,
+            )
+            if normalized_title:
+                return normalized_title
+    if summary:
+        if "。" in summary:
+            return _safe_text(summary.split("。", 1)[0], 48)
+        if "，" in summary:
+            return _safe_text(summary.split("，", 1)[0], 48)
+    return _safe_text(f"{event_year}年历史事件" if event_year else "历史事件", 48)
+
+
+def _fetch_wikimedia_entries(target_date: datetime, month_day: str, locale: str) -> list[TodayHistoryEntry]:
+    month = int(target_date.strftime("%m"))
+    day = int(target_date.strftime("%d"))
+    url = f"https://api.wikimedia.org/feed/v1/wikipedia/{locale}/onthisday/events/{month}/{day}"
+    try:
+        response = requests.get(
+            url,
+            headers=_wikimedia_headers(),
+            timeout=_wikimedia_timeout_sec(),
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception:
+        return []
+
+    events = payload.get("events")
+    if not isinstance(events, list):
+        return []
+
+    entries: list[TodayHistoryEntry] = []
+    for event in events[:60]:
+        if not isinstance(event, dict):
+            continue
+        summary = _safe_text(event.get("text"), 280)
+        if not summary:
+            continue
+        event_year = _safe_text(event.get("year"), 16) or None
+        headline = _wikimedia_event_headline(event, summary, event_year or "")
+        entry = _normalize_entry(
+            {
+                "event_year": event_year,
+                "headline": headline,
+                "summary": summary,
+                "source_label": "维基百科",
+            },
+            month_day=month_day,
+            source_label="维基百科",
+        )
+        if entry:
+            entries.append(entry)
+        if len(entries) >= 30:
+            break
+    return _dedupe_entries(entries)
+
+
+def _fetch_online_database_entries(target_date: datetime, date_key: str, month_day: str) -> list[TodayHistoryEntry]:
+    provider = _provider_name()
+    aggregated: list[TodayHistoryEntry] = []
+
+    if provider in {"auto", "wiki", "wikipedia", "wikimedia"}:
+        aggregated.extend(_fetch_wikimedia_entries(target_date, month_day, "zh"))
+        if len(aggregated) < 6:
+            aggregated.extend(_fetch_wikimedia_entries(target_date, month_day, "en"))
+
+    if provider in {"auto", "http"}:
+        aggregated.extend(_fetch_http_entries(date_key, month_day))
+
+    return _dedupe_entries(aggregated)
 
 
 def _build_response(
@@ -481,41 +765,92 @@ def get_today_history(date_value: Optional[str] = None) -> TodayHistoryResponse:
                 cache_hit=True,
             )
 
-    entry: Optional[TodayHistoryEntry] = None
-    if provider in {"auto", "http"}:
-        entry = _fetch_http_entry(date_key, month_day)
-    if not entry and provider in {"auto", "seed", "mock"}:
-        entry = _seed_entry(month_day)
-
-    if entry and _is_sensitive(entry):
-        return _build_response(
-            date_key=date_key,
-            month_day=month_day,
-            status="filtered",
-            status_message="今日历史内容已自动收起",
-            available=False,
-        )
-
-    if entry:
+    db_entries = _read_month_day_db(month_day)
+    db_best = _pick_best_entry(db_entries)
+    if db_best:
         _write_cache_entry(
             cache_provider,
             date_key,
             {
-                "month_day": entry.month_day,
-                "event_year": entry.event_year,
-                "headline": entry.headline,
-                "summary": entry.summary,
-                "optional_note": entry.optional_note,
-                "source_label": entry.source_label,
+                "month_day": db_best.month_day,
+                "event_year": db_best.event_year,
+                "headline": db_best.headline,
+                "summary": db_best.summary,
+                "optional_note": db_best.optional_note,
+                "source_label": db_best.source_label,
             },
         )
         return _build_response(
             date_key=date_key,
             month_day=month_day,
             status="ok",
-            status_message="可展开查看",
+            status_message="已整理",
             available=True,
-            entry=entry,
+            entry=db_best,
+            cache_hit=True,
+        )
+
+    online_entries: list[TodayHistoryEntry] = []
+    if provider not in {"seed", "mock"}:
+        online_entries = _fetch_online_database_entries(target_date, date_key, month_day)
+        online_entries = [item for item in online_entries if not _is_sensitive(item)]
+        online_entries = _dedupe_entries(online_entries)
+
+    if online_entries:
+        _write_month_day_db(month_day, online_entries[:40])
+        entry = _pick_best_entry(online_entries)
+        if entry:
+            _write_cache_entry(
+                cache_provider,
+                date_key,
+                {
+                    "month_day": entry.month_day,
+                    "event_year": entry.event_year,
+                    "headline": entry.headline,
+                    "summary": entry.summary,
+                    "optional_note": entry.optional_note,
+                    "source_label": entry.source_label,
+                },
+            )
+            return _build_response(
+                date_key=date_key,
+                month_day=month_day,
+                status="ok",
+                status_message="可展开查看",
+                available=True,
+                entry=entry,
+                cache_hit=False,
+            )
+
+    seed_candidates: list[TodayHistoryEntry] = []
+    if provider in {"auto", "seed", "mock", "http", "wiki", "wikipedia", "wikimedia"}:
+        seed = _seed_entry(month_day)
+        if seed:
+            seed_candidates.append(seed)
+        fallback_seed = _seed_fallback_entry(month_day)
+        if fallback_seed:
+            seed_candidates.append(fallback_seed)
+    seed_entry = _pick_best_entry(seed_candidates)
+    if seed_entry:
+        _write_cache_entry(
+            cache_provider,
+            date_key,
+            {
+                "month_day": seed_entry.month_day,
+                "event_year": seed_entry.event_year,
+                "headline": seed_entry.headline,
+                "summary": seed_entry.summary,
+                "optional_note": seed_entry.optional_note,
+                "source_label": seed_entry.source_label,
+            },
+        )
+        return _build_response(
+            date_key=date_key,
+            month_day=month_day,
+            status="degraded",
+            status_message="当前展示离线历史资料",
+            available=True,
+            entry=seed_entry,
             cache_hit=False,
         )
 
@@ -532,6 +867,19 @@ def get_today_history(date_value: Optional[str] = None) -> TodayHistoryResponse:
                 entry=stale_entry,
                 cache_hit=True,
             )
+
+    stale_db_entries = _read_month_day_db(month_day, allow_stale=True)
+    stale_db_entry = _pick_best_entry(stale_db_entries)
+    if stale_db_entry:
+        return _build_response(
+            date_key=date_key,
+            month_day=month_day,
+            status="degraded",
+            status_message="当前展示历史缓存内容",
+            available=True,
+            entry=stale_db_entry,
+            cache_hit=True,
+        )
 
     return _build_response(
         date_key=date_key,

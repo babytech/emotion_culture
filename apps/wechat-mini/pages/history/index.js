@@ -1,4 +1,5 @@
 const { clearHistory, deleteHistoryItem, getHistoryTimeline } = require("../../services/api");
+const { getQuizCourseLabel } = require("../../utils/study-quiz-course");
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -20,12 +21,6 @@ function formatDateTime(value) {
   }
 
   return raw.replace("T", " ").replace("Z", "");
-}
-
-function courseLabel(course) {
-  const normalized = safeText(course).toLowerCase();
-  if (normalized === "english") return "英语";
-  return normalized || "课程";
 }
 
 function tabLabelByType(type) {
@@ -50,7 +45,7 @@ function mapTimelineItem(item) {
     quizGrade,
     quizGradeLabel: quizGrade || "-",
     quizCourse: safeText(item && item.quiz_course),
-    quizCourseLabel: courseLabel(item && item.quiz_course),
+    quizCourseLabel: getQuizCourseLabel(item && item.quiz_course),
     typeLabel: isQuiz ? "伴学小测" : "情绪分析",
     typeBadgeClass: isQuiz ? "history-badge-quiz" : "history-badge-emotion",
     actionLabel: isQuiz ? "查看成绩" : "查看详情",

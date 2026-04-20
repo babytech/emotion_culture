@@ -18,4 +18,8 @@ module.exports = {
   // - default: rely on WeChat natural identity injected by Cloud Hosting headers (x-wx-openid)
   // - fallback: set true only for local/dev environments that cannot provide WeChat identity
   enableClientUserIdFallback: false,
+
+  // Optional admin token for quiz bank ingest endpoint.
+  // Keep empty unless backend configured STUDY_QUIZ_ADMIN_TOKEN.
+  studyQuizAdminToken: "",
 };

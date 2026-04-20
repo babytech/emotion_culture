@@ -34,8 +34,51 @@ from app.services.history_service import (
 from app.services.points_service import credit_points_for_action
 
 
+_COURSE_CHINESE = "chinese"
 _COURSE_ENGLISH = "english"
-_SUPPORTED_COURSES = {_COURSE_ENGLISH}
+_COURSE_MATH = "math"
+_COURSE_PHYSICS = "physics"
+_COURSE_CHEMISTRY = "chemistry"
+_COURSE_HISTORY = "history"
+_COURSE_GEOGRAPHY = "geography"
+_SUPPORTED_COURSES = {
+    _COURSE_CHINESE,
+    _COURSE_ENGLISH,
+    _COURSE_MATH,
+    _COURSE_PHYSICS,
+    _COURSE_CHEMISTRY,
+    _COURSE_HISTORY,
+    _COURSE_GEOGRAPHY,
+}
+_COURSE_DISPLAY_NAME = {
+    _COURSE_CHINESE: "语文",
+    _COURSE_ENGLISH: "英语",
+    _COURSE_MATH: "数学",
+    _COURSE_PHYSICS: "物理",
+    _COURSE_CHEMISTRY: "化学",
+    _COURSE_HISTORY: "历史",
+    _COURSE_GEOGRAPHY: "地理",
+}
+_COURSE_ALIASES = {
+    "zh": _COURSE_CHINESE,
+    "cn": _COURSE_CHINESE,
+    "chinese": _COURSE_CHINESE,
+    "语文": _COURSE_CHINESE,
+    "english": _COURSE_ENGLISH,
+    "en": _COURSE_ENGLISH,
+    "英语": _COURSE_ENGLISH,
+    "math": _COURSE_MATH,
+    "mathematics": _COURSE_MATH,
+    "数学": _COURSE_MATH,
+    "physics": _COURSE_PHYSICS,
+    "物理": _COURSE_PHYSICS,
+    "chemistry": _COURSE_CHEMISTRY,
+    "化学": _COURSE_CHEMISTRY,
+    "history": _COURSE_HISTORY,
+    "历史": _COURSE_HISTORY,
+    "geography": _COURSE_GEOGRAPHY,
+    "地理": _COURSE_GEOGRAPHY,
+}
 _BANK_STORE_LOCK = threading.RLock()
 _DEFAULT_BANK_STORE_PATH = "/tmp/emotion_culture/study_quiz_bank_store.json"
 
@@ -46,18 +89,21 @@ def _iso_now_utc() -> str:
 
 def _seed_file_path(course: str) -> Path:
     base_dir = Path(__file__).resolve().parents[1] / "core"
-    if course == _COURSE_ENGLISH:
+    # Stage2 multi-subject rollout: before each subject has its own seed, fall back
+    # to the validated english seed to keep all subject paths available.
+    if course in _SUPPORTED_COURSES:
         return base_dir / "study_quiz_english_seed.json"
-    raise ValueError("[QUIZ_COURSE_UNSUPPORTED] 当前只支持英语试点。")
+    raise ValueError("[QUIZ_COURSE_UNSUPPORTED] 当前仅支持语文/英语/数学/物理/化学/历史/地理。")
 
 
 def _normalize_course(course: Optional[str]) -> str:
     value = (course or _COURSE_ENGLISH).strip().lower()
     if not value:
         return _COURSE_ENGLISH
-    if value not in _SUPPORTED_COURSES:
-        raise ValueError("[QUIZ_COURSE_UNSUPPORTED] 当前只支持英语试点。")
-    return value
+    normalized = _COURSE_ALIASES.get(value)
+    if normalized in _SUPPORTED_COURSES:
+        return normalized
+    raise ValueError("[QUIZ_COURSE_UNSUPPORTED] 当前仅支持语文/英语/数学/物理/化学/历史/地理。")
 
 
 def _bank_store_path() -> Path:
@@ -177,7 +223,16 @@ def _load_course_bank(course: str) -> dict[str, Any]:
     questions = payload.get("questions")
     if not isinstance(questions, list) or not questions:
         raise ValueError("[QUIZ_BANK_EMPTY] 题库为空。")
-    return payload
+
+    normalized_payload = dict(payload)
+    normalized_payload["course"] = course
+    display_name = _COURSE_DISPLAY_NAME.get(course) or "课程"
+    raw_title = str(normalized_payload.get("title") or "").strip()
+    if not raw_title:
+        normalized_payload["title"] = f"{display_name}伴学小测"
+    elif course != _COURSE_ENGLISH and ("英语" in raw_title or raw_title.lower().startswith("english")):
+        normalized_payload["title"] = f"{display_name}伴学小测"
+    return normalized_payload
 
 
 def _build_paper_id(course: str, version: str) -> str:
@@ -206,11 +261,13 @@ def get_quiz_paper(course: Optional[str] = None) -> QuizPaperResponse:
     questions = [_to_public_question(item) for item in bank.get("questions", []) if isinstance(item, dict)]
     if not questions:
         raise ValueError("[QUIZ_BANK_EMPTY] 题库为空。")
+    display_name = _COURSE_DISPLAY_NAME.get(normalized_course) or "课程"
+    default_title = f"{display_name}伴学小测"
 
     return QuizPaperResponse(
         paper_id=_build_paper_id(normalized_course, version),
         course=normalized_course,
-        title=str(bank.get("title") or "伴学小测"),
+        title=str(bank.get("title") or default_title),
         version=version,
         total_questions=len(questions),
         questions=questions,
@@ -226,6 +283,7 @@ def upsert_quiz_bank(
     source_type: str = "manual",
 ) -> QuizBankIngestResponse:
     normalized_course = _normalize_course(course)
+    default_title = f"{_COURSE_DISPLAY_NAME.get(normalized_course) or '课程'}伴学小测"
     cleaned_questions: list[dict[str, Any]] = []
     for index, raw in enumerate(questions):
         if not isinstance(raw, dict):
@@ -237,7 +295,7 @@ def upsert_quiz_bank(
 
     payload = {
         "course": normalized_course,
-        "title": (title or "伴学小测").strip() or "伴学小测",
+        "title": (title or default_title).strip() or default_title,
         "version": (version or _iso_now_utc().replace(":", "").replace("-", "")).strip(),
         "questions": cleaned_questions,
         "updated_at": _iso_now_utc(),

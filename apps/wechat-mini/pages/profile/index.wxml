@@ -3,13 +3,19 @@
 
   <view class="card profile-member-card">
     <view class="profile-member-main">
-      <view class="profile-avatar">微</view>
+      <image wx:if="{{memberAvatarUrl}}" class="profile-avatar profile-avatar-image" src="{{memberAvatarUrl}}" mode="aspectFill" />
+      <view wx:else class="profile-avatar">{{memberAvatarText}}</view>
       <view class="profile-member-info">
         <view class="profile-member-name">{{memberName}}</view>
         <view class="profile-member-level">{{memberLevel}}</view>
       </view>
       <button class="btn btn-primary profile-sign-btn" bindtap="openCheckinPage">
         {{checkin.signedToday ? "已签到" : "签到"}}
+      </button>
+    </view>
+    <view class="profile-profile-sync">
+      <button class="btn btn-secondary profile-profile-sync-btn" bindtap="syncWechatProfile" loading="{{isSyncingProfile}}">
+        同步微信昵称和头像
       </button>
     </view>
 
@@ -31,24 +37,7 @@
 
   <view class="card profile-benefit-card">
     <view class="profile-benefit-title">我的权益</view>
-    <view class="profile-benefit-banner">SUNTEC Emotion Club</view>
     <view class="profile-benefit-sub">{{checkin.message}}</view>
-  </view>
-
-  <view class="card profile-quick-card">
-    <view class="profile-section-title">常用服务</view>
-    <view class="profile-quick-grid">
-      <view
-        wx:for="{{quickActions}}"
-        wx:key="key"
-        class="profile-quick-item"
-        data-key="{{item.key}}"
-        bindtap="handleQuickAction"
-      >
-        <view class="profile-quick-icon">{{item.icon}}</view>
-        <view class="profile-quick-text">{{item.title}}</view>
-      </view>
-    </view>
   </view>
 
   <view class="card profile-setting-card">
@@ -67,9 +56,10 @@
     </view>
     <view wx:if="{{errorMsg}}" class="profile-error">{{errorMsg}}</view>
     <view class="profile-setting-actions">
-      <button class="btn btn-secondary profile-setting-btn" bindtap="handleClearHistory">清空历史</button>
+      <button class="btn btn-secondary profile-setting-btn" bindtap="goFavorites">看收藏</button>
       <button class="btn btn-secondary profile-setting-btn" bindtap="goSettingsDetail">更多设置</button>
     </view>
+    <button class="btn btn-secondary profile-clear-btn" bindtap="handleClearHistory">清空历史</button>
   </view>
 
   <view class="card profile-support-card">

@@ -1,17 +1,49 @@
 <view class="container quiz-page">
   <view class="card quiz-hero">
     <view class="quiz-kicker">伴学小测</view>
-    <view class="quiz-title">{{paperTitle || "英语伴学小测"}}</view>
-    <view class="quiz-sub">先做小测，再做情绪分析。</view>
+    <view class="quiz-title">{{paperTitle || (selectedCourseLabel + "伴学小测")}}</view>
+    <view class="quiz-sub">先选科目和时长，再开始测试。</view>
+
+    <view class="quiz-config-grid">
+      <view class="quiz-config-item">
+        <view class="quiz-config-label">测试科目</view>
+        <picker
+          class="quiz-picker"
+          mode="selector"
+          range="{{courseOptions}}"
+          range-key="label"
+          value="{{selectedCourseIndex}}"
+          disabled="{{hasStarted}}"
+          bindchange="handleCourseChange"
+        >
+          <view class="quiz-picker-value">{{selectedCourseLabel}}</view>
+        </picker>
+      </view>
+      <view class="quiz-config-item">
+        <view class="quiz-config-label">测试时长</view>
+        <picker
+          class="quiz-picker"
+          mode="selector"
+          range="{{durationOptions}}"
+          value="{{selectedDurationIndex}}"
+          disabled="{{hasStarted}}"
+          bindchange="handleDurationChange"
+        >
+          <view class="quiz-picker-value">{{selectedDurationLabel}}</view>
+        </picker>
+      </view>
+    </view>
+
     <view class="quiz-meta-row">
-      <view class="status-chip">进度 {{answeredQuestions}} / {{totalQuestions}}</view>
-      <view class="status-chip">未答 {{unansweredQuestions}}</view>
+      <view wx:if="{{hasStarted}}" class="status-chip status-chip-countdown">倒计时 {{remainingText}}</view>
+      <view wx:if="{{hasStarted}}" class="status-chip">进度 {{answeredQuestions}} / {{totalQuestions}}</view>
+      <view wx:if="{{hasStarted}}" class="status-chip">未答 {{unansweredQuestions}}</view>
       <view wx:if="{{loadedFromCache}}" class="status-chip">缓存题库</view>
       <view wx:if="{{isRefreshingPaper}}" class="status-chip">题库更新中</view>
       <view wx:if="{{draftRecovered}}" class="status-chip">已恢复草稿</view>
       <view wx:if="{{paperVersion}}" class="status-chip">版本 {{paperVersion}}</view>
     </view>
-    <view class="quiz-progress-track">
+    <view wx:if="{{hasStarted}}" class="quiz-progress-track">
       <view class="quiz-progress-fill" style="width: {{progressPercent}}%;"></view>
     </view>
   </view>
@@ -26,9 +58,14 @@
       重试加载
     </button>
   </view>
-  <view wx:if="{{isLoading && !currentQuestion}}" class="card loading-card">试卷加载中...</view>
+  <view wx:if="{{hasStarted && isLoading && !currentQuestion}}" class="card loading-card">试卷加载中...</view>
 
-  <block wx:if="{{!isLoading && currentQuestion}}">
+  <view wx:if="{{!hasStarted}}" class="card quiz-waiting-card">
+    <view class="quiz-waiting-title">准备开始测试</view>
+    <view class="quiz-waiting-text">点击底部“开始测试”后才会显示第一题。</view>
+  </view>
+
+  <block wx:if="{{hasStarted && !isLoading && currentQuestion}}">
     <view class="card question-card">
       <view class="question-head">
         <view class="question-index">第 {{currentIndex + 1}} / {{totalQuestions}} 题</view>
@@ -121,6 +158,16 @@
 
   <view class="quiz-action-row">
     <button
+      wx:if="{{!hasStarted}}"
+      class="btn btn-primary"
+      bindtap="handleStartQuiz"
+      loading="{{isLoading}}"
+      disabled="{{isLoading || isSubmitting}}"
+    >
+      {{isLoading ? "准备中..." : "开始测试"}}
+    </button>
+    <button
+      wx:if="{{hasStarted}}"
       class="btn btn-primary"
       bindtap="submitQuiz"
       loading="{{isSubmitting}}"
@@ -128,6 +175,7 @@
     >
       {{isSubmitting ? "判分中..." : "提交并查看成绩"}}
     </button>
-    <button class="btn btn-secondary" bindtap="goAnalyzeDirectly">直接去情绪分析</button>
+    <button class="btn btn-secondary" bindtap="openQuizBankIngestPage">题库录入</button>
+    <button wx:if="{{!hasStarted}}" class="btn btn-secondary" bindtap="goAnalyzeDirectly">直接去情绪分析</button>
   </view>
 </view>

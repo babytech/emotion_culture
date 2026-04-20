@@ -1,15 +1,9 @@
 const { clearHistory, getCheckinStatus, getSettings, updateSettings } = require("../../services/api");
 const { ensurePhase5Auth } = require("../../utils/auth-gate");
-const { ANALYZE_TAB, FAVORITES_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
+const { FAVORITES_TAB, PROFILE_TAB, setTabBarSelected } = require("../../utils/tabbar");
 
 const FEEDBACK_EMAIL = "babytech@126.com";
-const QUICK_ACTIONS = [
-  { key: "history", title: "我的记录", icon: "记" },
-  { key: "favorites", title: "我的收藏", icon: "藏" },
-  { key: "analyze", title: "继续分析", icon: "析" },
-  { key: "checkin", title: "每日签到", icon: "签" },
-  { key: "settings", title: "设置", icon: "设" },
-];
+const WECHAT_PROFILE_STORAGE_KEY = "ec_wechat_profile_v1";
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
@@ -30,25 +24,46 @@ function normalizeCheckin(raw) {
   };
 }
 
+function buildAvatarText(name) {
+  const normalized = safeText(name);
+  if (!normalized) return "微";
+  return normalized.slice(0, 1);
+}
+
+function normalizeWechatProfile(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const nickName = safeText(raw.nickName || raw.nickname || raw.name);
+  const avatarUrl = safeText(raw.avatarUrl || raw.avatar || raw.avatar_url);
+  if (!nickName && !avatarUrl) return null;
+  return {
+    nickName: nickName || "微信用户",
+    avatarUrl,
+  };
+}
+
 Page({
   data: {
     isLoading: false,
     isSaving: false,
+    isSyncingProfile: false,
     saveHistory: true,
     retentionDays: 180,
     updatedAtText: "最近更新：尚未同步",
     errorMsg: "",
-    quickActions: QUICK_ACTIONS,
     privacyExpanded: false,
     feedbackEmail: FEEDBACK_EMAIL,
     memberName: "微信用户",
-    memberLevel: "普通会员",
+    memberLevel: "微信身份已绑定",
+    memberAvatarUrl: "",
+    memberAvatarText: "微",
     checkin: normalizeCheckin({}),
   },
 
   onShow() {
     if (ensurePhase5Auth(PROFILE_TAB)) return;
     setTabBarSelected(this, PROFILE_TAB);
+    this.loadStoredWechatProfile();
+    this.trySyncWechatProfileSilently();
     this.loadAllData();
   },
 
@@ -164,30 +179,6 @@ Page({
     });
   },
 
-  handleQuickAction(event) {
-    const key = safeText(event && event.currentTarget && event.currentTarget.dataset.key);
-    if (!key) return;
-    if (key === "history") {
-      this.goHistory();
-      return;
-    }
-    if (key === "favorites") {
-      this.goFavorites();
-      return;
-    }
-    if (key === "analyze") {
-      this.goAnalyze();
-      return;
-    }
-    if (key === "checkin") {
-      this.openCheckinPage();
-      return;
-    }
-    if (key === "settings") {
-      this.goSettingsDetail();
-    }
-  },
-
   togglePrivacyExpanded() {
     this.setData({
       privacyExpanded: !this.data.privacyExpanded,
@@ -203,14 +194,102 @@ Page({
   },
 
   goFavorites() {
-    wx.switchTab({ url: FAVORITES_TAB });
-  },
-
-  goAnalyze() {
-    wx.switchTab({ url: ANALYZE_TAB });
+    wx.navigateTo({ url: FAVORITES_TAB });
   },
 
   goSettingsDetail() {
     wx.navigateTo({ url: "/pages/settings/index" });
+  },
+
+  loadStoredWechatProfile() {
+    let stored = null;
+    try {
+      stored = wx.getStorageSync(WECHAT_PROFILE_STORAGE_KEY);
+    } catch (err) {
+      stored = null;
+    }
+    const profile = normalizeWechatProfile(stored);
+    if (!profile) return;
+    this.applyWechatProfile(profile);
+  },
+
+  saveWechatProfile(profile) {
+    try {
+      wx.setStorageSync(WECHAT_PROFILE_STORAGE_KEY, {
+        nickName: profile.nickName,
+        avatarUrl: profile.avatarUrl,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      // ignore
+    }
+  },
+
+  applyWechatProfile(profile) {
+    const normalized = normalizeWechatProfile(profile);
+    if (!normalized) return;
+    this.setData({
+      memberName: normalized.nickName || "微信用户",
+      memberAvatarUrl: normalized.avatarUrl || "",
+      memberAvatarText: buildAvatarText(normalized.nickName || "微信用户"),
+    });
+  },
+
+  trySyncWechatProfileSilently() {
+    if (typeof wx.getSetting !== "function" || typeof wx.getUserInfo !== "function") return;
+    wx.getSetting({
+      success: (settingRes) => {
+        const authSetting = (settingRes && settingRes.authSetting) || {};
+        if (!authSetting["scope.userInfo"]) return;
+        wx.getUserInfo({
+          success: (userInfoRes) => {
+            const userInfo = normalizeWechatProfile(userInfoRes && userInfoRes.userInfo);
+            if (!userInfo) return;
+            this.applyWechatProfile(userInfo);
+            this.saveWechatProfile(userInfo);
+          },
+        });
+      },
+    });
+  },
+
+  syncWechatProfile() {
+    if (this.data.isSyncingProfile) return;
+    if (typeof wx.getUserProfile !== "function") {
+      wx.showToast({
+        title: "当前微信版本不支持同步昵称头像",
+        icon: "none",
+      });
+      return;
+    }
+    this.setData({ isSyncingProfile: true });
+    wx.getUserProfile({
+      desc: "用于在“我的”页展示你的微信昵称和头像",
+      success: (res) => {
+        const userInfo = normalizeWechatProfile(res && res.userInfo);
+        if (!userInfo) {
+          wx.showToast({
+            title: "未获取到昵称头像",
+            icon: "none",
+          });
+          return;
+        }
+        this.applyWechatProfile(userInfo);
+        this.saveWechatProfile(userInfo);
+        wx.showToast({
+          title: "昵称头像已同步",
+          icon: "none",
+        });
+      },
+      fail: (err) => {
+        wx.showToast({
+          title: (err && err.errMsg) ? "你还没有授权昵称头像" : "同步失败，请稍后重试",
+          icon: "none",
+        });
+      },
+      complete: () => {
+        this.setData({ isSyncingProfile: false });
+      },
+    });
   },
 });

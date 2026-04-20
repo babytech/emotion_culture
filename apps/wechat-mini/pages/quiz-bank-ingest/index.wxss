@@ -1,0 +1,66 @@
+.ingest-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14rpx;
+}
+
+.ingest-card {
+  padding: 20rpx;
+  border: none;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(143, 196, 255, 0.26), transparent 36%),
+    linear-gradient(135deg, #ffffff, #eef6ff);
+}
+
+.ingest-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1f3253;
+}
+
+.ingest-sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #5e7399;
+}
+
+.ingest-field {
+  margin-top: 16rpx;
+  padding: 14rpx;
+  border-radius: 14rpx;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.ingest-label {
+  font-size: 22rpx;
+  color: #7083a8;
+}
+
+.ingest-picker {
+  margin-top: 8rpx;
+}
+
+.ingest-picker-value {
+  font-size: 28rpx;
+  color: #2d446b;
+  font-weight: 700;
+}
+
+.ingest-btn {
+  margin-top: 16rpx;
+}
+
+.ingest-hint {
+  margin-top: 12rpx;
+  font-size: 23rpx;
+  line-height: 1.6;
+  color: #63779f;
+}
+
+.ingest-result {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  color: #2f66c6;
+  font-weight: 700;
+}

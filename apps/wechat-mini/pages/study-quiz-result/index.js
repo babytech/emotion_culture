@@ -1,16 +1,11 @@
 const { getStudyQuizHistoryDetail } = require("../../services/api");
+const { getQuizCourseLabel } = require("../../utils/study-quiz-course");
 
 const QUIZ_CONTEXT_STORAGE_KEY = "ec_latest_quiz_context_v1";
 const ANALYZE_ENTRY_CONTEXT_STORAGE_KEY = "ec_analyze_entry_context_v1";
 
 function safeText(value) {
   return typeof value === "string" ? value.trim() : "";
-}
-
-function courseLabel(course) {
-  const normalized = safeText(course).toLowerCase();
-  if (normalized === "english") return "英语";
-  return normalized || "课程";
 }
 
 function formatDateTime(value) {
@@ -53,7 +48,7 @@ function buildViewData(response) {
     summary: {
       quizRecordId: safeText(quizRecord.quiz_record_id),
       course: safeText(quizRecord.course) || "english",
-      courseLabel: courseLabel(quizRecord.course),
+      courseLabel: getQuizCourseLabel(quizRecord.course),
       score,
       grade: safeText(quizRecord.grade) || "C",
       totalQuestions,
@@ -164,7 +159,7 @@ Page({
   },
 
   retryQuiz() {
-    wx.navigateTo({
+    wx.switchTab({
       url: "/pages/study-quiz/index",
     });
   },

@@ -17,21 +17,6 @@
     </view>
   </view>
 
-  <view class="card home-action-card">
-    <view class="home-action-grid">
-      <view
-        wx:for="{{quickActions}}"
-        wx:key="key"
-        class="home-action-item"
-        data-key="{{item.key}}"
-        bindtap="handleQuickAction"
-      >
-        <view class="home-action-icon">{{item.icon}}</view>
-        <view class="home-action-text">{{item.title}}</view>
-      </view>
-    </view>
-  </view>
-
   <view class="card home-checkin-card">
     <view class="home-checkin-head">
       <view class="home-checkin-title">每日签到</view>
@@ -43,25 +28,6 @@
       <button class="btn btn-primary home-checkin-btn" bindtap="openCheckinPage">
         {{checkin.signedToday ? "已签到" : "签到 +" + checkin.dailyPoints}}
       </button>
-    </view>
-  </view>
-
-  <view class="card home-week-card">
-    <view class="home-week-tag">{{weekInsightStatus}}</view>
-    <view class="home-week-title">本周洞察</view>
-    <view class="home-week-text">{{weekInsightText}}</view>
-  </view>
-
-  <view class="home-banner-grid">
-    <view class="card home-banner-card" bindtap="openStudyQuizPage">
-      <view class="home-banner-label">伴学小测</view>
-      <view class="home-banner-title">先测再分析</view>
-      <view class="home-banner-sub">10 题英语轻量测验</view>
-    </view>
-    <view class="card home-banner-card home-banner-card-accent" bindtap="openAnalyzeTab">
-      <view class="home-banner-label">直接分析</view>
-      <view class="home-banner-title">立即开始</view>
-      <view class="home-banner-sub">文字 / 自拍 / 录音任选</view>
     </view>
   </view>
 

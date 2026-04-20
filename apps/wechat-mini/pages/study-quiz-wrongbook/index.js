@@ -114,7 +114,7 @@ Page({
   },
 
   retryQuiz() {
-    wx.navigateTo({
+    wx.switchTab({
       url: "/pages/study-quiz/index",
     });
   },

@@ -1,7 +1,9 @@
-const { HOME_TAB, JOURNEY_TAB, PROFILE_TAB } = require("../utils/tabbar");
+const { HOME_TAB, QUIZ_TAB, ANALYZE_TAB, JOURNEY_TAB, PROFILE_TAB } = require("../utils/tabbar");
 
 const TAB_ITEMS = [
   { pagePath: HOME_TAB, text: "首页" },
+  { pagePath: QUIZ_TAB, text: "测试" },
+  { pagePath: ANALYZE_TAB, text: "分析" },
   { pagePath: JOURNEY_TAB, text: "记录" },
   { pagePath: PROFILE_TAB, text: "我的" },
 ];

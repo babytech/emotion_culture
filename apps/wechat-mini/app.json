@@ -4,6 +4,7 @@
     "pages/selfie-camera/index",
     "pages/home/index",
     "pages/study-quiz/index",
+    "pages/quiz-bank-ingest/index",
     "pages/study-quiz-result/index",
     "pages/study-quiz-wrongbook/index",
     "pages/journey/index",
@@ -40,16 +41,16 @@
         "text": "首页"
       },
       {
-        "pagePath": "pages/journey/index",
-        "text": "记录"
+        "pagePath": "pages/study-quiz/index",
+        "text": "测试"
       },
       {
         "pagePath": "pages/analyze/index",
         "text": "分析"
       },
       {
-        "pagePath": "pages/favorites/index",
-        "text": "收藏"
+        "pagePath": "pages/journey/index",
+        "text": "记录"
       },
       {
         "pagePath": "pages/profile/index",

@@ -11,6 +11,7 @@ const {
 const { uploadTempFile } = require("../../services/cloud");
 const { requestAnalyzeWorkspaceReset } = require("../../utils/analyze-workspace");
 const { ANALYZE_TAB, FAVORITES_TAB, HOME_TAB, JOURNEY_TAB } = require("../../utils/tabbar");
+const { getQuizCourseLabel } = require("../../utils/study-quiz-course");
 
 const DEFAULT_DAILY_SUGGESTION = "今天先做一件你能马上完成的小行动，逐步稳住状态。";
 const FAVORITE_TYPE_POEM = "poem";
@@ -208,7 +209,7 @@ function buildStudyQuizLinkInfo(request) {
   }
 
   const rawCourse = safeText(request && request.study_quiz_course).toLowerCase();
-  const courseLabel = rawCourse === "english" ? "英语" : "学习";
+  const courseLabel = getQuizCourseLabel(rawCourse || "english");
   const score = Number(request && request.study_quiz_score);
   const grade = safeText(request && request.study_quiz_grade);
   let scoreText = "已完成";
@@ -1424,7 +1425,7 @@ Page({
   },
 
   goFavorites() {
-    wx.switchTab({ url: FAVORITES_TAB });
+    wx.navigateTo({ url: FAVORITES_TAB });
   },
 
   goShareCard() {

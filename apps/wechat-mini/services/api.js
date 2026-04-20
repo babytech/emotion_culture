@@ -562,6 +562,63 @@ function getStudyQuizWrongbook(options = {}) {
   return callViaContainer(`/api/study-quiz/wrongbook?limit=${limit}&offset=${offset}`, "GET");
 }
 
+function ingestStudyQuizBankFile(payload = {}) {
+  const tempFilePath = (payload.tempFilePath || payload.filePath || "").trim();
+  if (!tempFilePath) {
+    return Promise.reject(new Error("tempFilePath is required"));
+  }
+  const normalizedCourse = ((payload.course || "english").trim().toLowerCase() || "english").slice(0, 32);
+  const title = (payload.title || "伴学小测").trim().slice(0, 80);
+  const version = (payload.version || "").trim().slice(0, 80);
+  const url = buildApiRequestUrl("/api/study-quiz/bank/ingest");
+  if (!url) {
+    return Promise.reject(new Error("apiBaseUrl is not configured"));
+  }
+
+  return new Promise((resolve, reject) => {
+    const header = {};
+    if (shouldUseClientUserIdFallback()) {
+      header["X-EC-USER-ID"] = getOrCreateClientUserId();
+    }
+    const adminToken = (config.studyQuizAdminToken || "").trim();
+    if (adminToken) {
+      header["x-admin-token"] = adminToken;
+    }
+
+    wx.uploadFile({
+      url,
+      filePath: tempFilePath,
+      name: "file",
+      timeout: 32000,
+      header,
+      formData: {
+        course: normalizedCourse,
+        title: title || "伴学小测",
+        version,
+      },
+      success(res) {
+        const statusCode = Number(res && res.statusCode) || 0;
+        let body = {};
+        try {
+          body = JSON.parse((res && res.data) || "{}");
+        } catch (err) {
+          body = {};
+        }
+        if (statusCode >= 200 && statusCode < 300) {
+          resolve(body);
+          return;
+        }
+        const detail = (body && (body.detail || body.message || body.code)) || `HTTP ${statusCode || "ERR"}`;
+        reject(new Error(detail));
+      },
+      fail(err) {
+        const message = (err && err.errMsg) || "upload failed";
+        reject(new Error(message));
+      },
+    });
+  });
+}
+
 function getSettings() {
   return callViaContainer("/api/settings", "GET");
 }
@@ -698,6 +755,7 @@ module.exports = {
   getStudyQuizPaper,
   getStudyQuizHistoryDetail,
   getStudyQuizWrongbook,
+  ingestStudyQuizBankFile,
   getTodayHistory,
   getRetentionWriteSettings,
   getSettings,

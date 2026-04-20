@@ -32,6 +32,34 @@
   color: #607398;
 }
 
+.quiz-config-grid {
+  margin-top: 14rpx;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10rpx;
+}
+
+.quiz-config-item {
+  padding: 14rpx 12rpx;
+  border-radius: 14rpx;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.quiz-config-label {
+  font-size: 22rpx;
+  color: #6a7ea5;
+}
+
+.quiz-picker {
+  margin-top: 8rpx;
+}
+
+.quiz-picker-value {
+  font-size: 25rpx;
+  color: #263a5e;
+  font-weight: 700;
+}
+
 .quiz-meta-row {
   margin-top: 12rpx;
   display: flex;
@@ -45,6 +73,12 @@
   background: rgba(80, 122, 204, 0.14);
   color: #4a6faf;
   font-size: 22rpx;
+}
+
+.status-chip-countdown {
+  background: rgba(44, 109, 255, 0.16);
+  color: #2f66c6;
+  font-weight: 700;
 }
 
 .quiz-progress-track {
@@ -67,6 +101,27 @@
 .error-card {
   padding: 18rpx;
   border: none;
+}
+
+.quiz-waiting-card {
+  padding: 20rpx;
+  border: none;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(160, 206, 255, 0.2), transparent 36%),
+    linear-gradient(135deg, #ffffff, #f4f8ff);
+}
+
+.quiz-waiting-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #2a3e62;
+}
+
+.quiz-waiting-text {
+  margin-top: 10rpx;
+  font-size: 24rpx;
+  line-height: 1.6;
+  color: #60759e;
 }
 
 .error-card {
