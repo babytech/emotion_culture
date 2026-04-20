@@ -42,6 +42,7 @@ from app.schemas.retention import (
 from app.schemas.settings import UserSettingsResponse
 from app.schemas.study_quiz import (
     QuizHistoryResponse,
+    QuizPointsReward,
     QuizQuestionResult,
     QuizRecordSummary,
     QuizSubmitResponse,
@@ -703,6 +704,48 @@ def list_history_summaries(user_id: str, limit: int = 20, offset: int = 0) -> Hi
         return HistoryListResponse(items=items, total=total)
 
 
+def get_recent_analysis_content_ids(user_id: str, limit: int = 8) -> dict[str, list[str]]:
+    normalized_user_id = _normalize_user_id(user_id)
+    safe_limit = max(1, min(int(limit or 8), 24))
+
+    with _STORE_LOCK:
+        payload = _load_store()
+        bucket = _ensure_user_bucket(payload, normalized_user_id)
+        changed = _cleanup_user_history(bucket)
+        if _cleanup_retention_data(bucket):
+            changed = True
+
+        history = bucket.get("history", [])
+        poem_ids: list[str] = []
+        guochao_ids: list[str] = []
+
+        if isinstance(history, list):
+            for entry in history:
+                if len(poem_ids) >= safe_limit and len(guochao_ids) >= safe_limit:
+                    break
+                if not isinstance(entry, dict):
+                    continue
+
+                internal_fields = entry.get("internal_fields", {})
+                if not isinstance(internal_fields, dict):
+                    continue
+
+                poem_id = str(internal_fields.get("poem_id") or "").strip()
+                if poem_id and poem_id not in poem_ids:
+                    poem_ids.append(poem_id)
+
+                guochao_id = str(internal_fields.get("guochao_id") or "").strip()
+                if guochao_id and guochao_id not in guochao_ids:
+                    guochao_ids.append(guochao_id)
+
+        if changed:
+            _save_store(payload)
+        return {
+            "poem_ids": poem_ids[:safe_limit],
+            "guochao_ids": guochao_ids[:safe_limit],
+        }
+
+
 _QUIZ_NEXT_ACTION_HINT = "小测已完成，可去做一次情绪分析，看看今天更适合怎样安排学习节奏。"
 
 
@@ -735,6 +778,7 @@ def record_quiz_submission(
     results: list[QuizQuestionResult],
     wrong_items: list[QuizWrongItem],
     submit_token: Optional[str] = None,
+    points_reward: Optional[QuizPointsReward] = None,
 ) -> QuizRecordSummary:
     normalized_user_id = _normalize_user_id(user_id)
     with _STORE_LOCK:
@@ -770,6 +814,7 @@ def record_quiz_submission(
                 "summary": summary_payload,
                 "results": results_payload,
                 "wrong_items": wrong_items_payload,
+                "points_reward": points_reward.model_dump(mode="json") if points_reward else None,
             },
         )
 
@@ -838,8 +883,10 @@ def _build_quiz_submit_response_from_entry(entry: dict[str, Any]) -> Optional[Qu
 
     results_payload = entry.get("results")
     wrong_payload = entry.get("wrong_items")
+    points_reward_payload = entry.get("points_reward")
     results: list[QuizQuestionResult] = []
     wrong_items: list[QuizWrongItem] = []
+    points_reward: Optional[QuizPointsReward] = None
 
     if isinstance(results_payload, list):
         for item in results_payload:
@@ -853,12 +900,18 @@ def _build_quiz_submit_response_from_entry(entry: dict[str, Any]) -> Optional[Qu
                 wrong_items.append(QuizWrongItem.model_validate(item))
             except Exception:
                 continue
+    if isinstance(points_reward_payload, dict):
+        try:
+            points_reward = QuizPointsReward.model_validate(points_reward_payload)
+        except Exception:
+            points_reward = None
 
     return QuizSubmitResponse(
         quiz_record=summary,
         results=results,
         wrong_items=wrong_items,
         next_action_hint=_QUIZ_NEXT_ACTION_HINT,
+        points_reward=points_reward,
     )
 
 

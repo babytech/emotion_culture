@@ -1,18 +1,18 @@
 :root {
-  --paper: #eef3ff;
-  --paper-deep: #e6edff;
-  --paper-glow: #f9fbff;
-  --ink: #1f2d49;
-  --ink-soft: #47587c;
-  --accent: #2f6fff;
-  --accent-strong: #4a8dff;
-  --accent-2: #e1b84f;
-  --accent-2-soft: #f8edc7;
-  --muted: #7184a8;
-  --line: rgba(95, 118, 162, 0.16);
-  --card: rgba(255, 255, 255, 0.95);
-  --shadow-lg: 0 16rpx 40rpx rgba(62, 88, 138, 0.14);
-  --shadow-sm: 0 8rpx 20rpx rgba(62, 88, 138, 0.08);
+  --paper: #edf4ff;
+  --paper-deep: #e6efff;
+  --paper-glow: #fbfdff;
+  --ink: #1d2b47;
+  --ink-soft: #46597f;
+  --accent: #316fff;
+  --accent-strong: #38c6d5;
+  --accent-2: #ff9f72;
+  --accent-2-soft: #ffe6d8;
+  --muted: #6f83a8;
+  --line: rgba(90, 117, 168, 0.14);
+  --card: rgba(255, 255, 255, 0.9);
+  --shadow-lg: 0 18rpx 44rpx rgba(54, 85, 139, 0.13);
+  --shadow-sm: 0 10rpx 24rpx rgba(54, 85, 139, 0.08);
   --success-bg: #e8f7ee;
   --success-ink: #0f6c4d;
   --warn-bg: #fff5e4;
@@ -24,9 +24,10 @@
 page {
   min-height: 100%;
   background:
-    radial-gradient(circle at 8% 12%, rgba(136, 178, 255, 0.26), transparent 34%),
-    radial-gradient(circle at 100% 2%, rgba(228, 203, 136, 0.16), transparent 34%),
-    linear-gradient(180deg, rgba(250, 252, 255, 0.95), rgba(238, 244, 255, 0.98)),
+    radial-gradient(circle at 8% 12%, rgba(109, 166, 255, 0.25), transparent 34%),
+    radial-gradient(circle at 95% 6%, rgba(91, 219, 235, 0.2), transparent 34%),
+    radial-gradient(circle at 88% 96%, rgba(255, 172, 122, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(251, 253, 255, 0.96), rgba(236, 244, 255, 0.98)),
     var(--paper);
   color: var(--ink);
   font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -41,9 +42,9 @@ page {
 .card {
   background: var(--card);
   border-radius: 24rpx;
-  border: 2rpx solid rgba(102, 124, 170, 0.08);
+  border: 2rpx solid rgba(106, 133, 182, 0.08);
   box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(10rpx);
+  backdrop-filter: blur(12rpx);
 }
 
 .btn {
@@ -70,16 +71,16 @@ page {
 
 .btn-primary {
   color: #fff !important;
-  background-color: #2f6fff !important;
-  background-image: linear-gradient(135deg, #2f6fff 0%, #5a93ff 100%) !important;
-  border-color: rgba(44, 95, 188, 0.2) !important;
+  background-color: #316fff !important;
+  background-image: linear-gradient(135deg, #316fff 0%, #40a4ff 52%, #38c6d5 100%) !important;
+  border-color: rgba(45, 98, 190, 0.2) !important;
   text-shadow: 0 1rpx 0 rgba(0, 0, 0, 0.12);
 }
 
 .btn-secondary {
-  color: #36588e !important;
+  color: #35578f !important;
   background-color: #f4f8ff !important;
-  background-image: linear-gradient(135deg, #f8fbff 0%, #e6efff 100%) !important;
+  background-image: linear-gradient(135deg, #fcfdff 0%, #e8f4ff 54%, #ffece2 100%) !important;
   border-color: rgba(84, 111, 164, 0.12) !important;
 }
 
@@ -115,7 +116,8 @@ page {
   padding: 34rpx 30rpx;
   background:
     radial-gradient(circle at 88% 8%, rgba(255, 255, 255, 0.42), transparent 26%),
-    linear-gradient(135deg, rgba(147, 37, 29, 0.18), rgba(211, 160, 91, 0.22)),
+    radial-gradient(circle at 12% 90%, rgba(255, 155, 109, 0.16), transparent 34%),
+    linear-gradient(135deg, rgba(73, 116, 221, 0.2), rgba(56, 184, 210, 0.18)),
     var(--card);
 }
 
@@ -123,7 +125,7 @@ page {
   font-size: 21rpx;
   letter-spacing: 3rpx;
   text-transform: uppercase;
-  color: #92644a;
+  color: #5079b8;
 }
 
 .shell-title {
@@ -137,7 +139,7 @@ page {
   margin-top: 16rpx;
   font-size: 26rpx;
   line-height: 1.7;
-  color: #6d5b4c;
+  color: #58709d;
 }
 
 .shell-badge {
@@ -146,9 +148,9 @@ page {
   justify-content: center;
   padding: 10rpx 18rpx;
   border-radius: 999rpx;
-  background: rgba(255, 251, 243, 0.84);
-  border: 2rpx solid rgba(147, 37, 29, 0.1);
-  color: #7d5640;
+  background: rgba(241, 248, 255, 0.88);
+  border: 2rpx solid rgba(60, 123, 210, 0.14);
+  color: #3f65a5;
   font-size: 22rpx;
   white-space: nowrap;
 }
@@ -162,13 +164,13 @@ page {
 .metric-card {
   padding: 22rpx 20rpx;
   border-radius: 24rpx;
-  background: rgba(255, 251, 245, 0.78);
-  border: 2rpx solid rgba(147, 37, 29, 0.08);
+  background: rgba(244, 250, 255, 0.8);
+  border: 2rpx solid rgba(61, 127, 209, 0.08);
 }
 
 .metric-label {
   font-size: 22rpx;
-  color: #8a715d;
+  color: #6078a3;
 }
 
 .metric-value {
@@ -176,7 +178,7 @@ page {
   font-size: 30rpx;
   line-height: 1.2;
   font-weight: 700;
-  color: #7e4d2d;
+  color: #2f5ea7;
 }
 
 .section-card {
@@ -199,7 +201,7 @@ page {
   font-size: 21rpx;
   letter-spacing: 3rpx;
   text-transform: uppercase;
-  color: #95674b;
+  color: #5579b6;
 }
 
 .section-title {
@@ -213,14 +215,14 @@ page {
   margin-top: 8rpx;
   font-size: 24rpx;
   line-height: 1.66;
-  color: #7b695c;
+  color: #61779f;
 }
 
 .status-chip {
   padding: 8rpx 16rpx;
   border-radius: 999rpx;
-  background: rgba(247, 230, 199, 0.82);
-  color: #835628;
+  background: rgba(227, 243, 255, 0.84);
+  color: #3f6aa8;
   font-size: 22rpx;
   white-space: nowrap;
 }
@@ -229,8 +231,8 @@ page {
   margin-top: 18rpx;
   padding: 20rpx 18rpx;
   border-radius: 22rpx;
-  background: rgba(255, 248, 238, 0.82);
-  border: 2rpx solid rgba(147, 37, 29, 0.08);
+  background: rgba(244, 250, 255, 0.82);
+  border: 2rpx solid rgba(71, 127, 199, 0.08);
 }
 
 .state-panel-muted {
@@ -247,17 +249,17 @@ page {
 .mini-tag {
   padding: 10rpx 16rpx;
   border-radius: 999rpx;
-  background: rgba(255, 251, 243, 0.82);
-  border: 2rpx solid rgba(147, 37, 29, 0.08);
+  background: rgba(243, 250, 255, 0.86);
+  border: 2rpx solid rgba(64, 126, 200, 0.08);
   font-size: 23rpx;
-  color: #6b4f3b;
+  color: #3e649f;
 }
 
 .empty-copy {
   padding: 22rpx 20rpx;
   border-radius: 22rpx;
-  background: rgba(246, 240, 231, 0.76);
-  color: #7b6d5f;
+  background: rgba(243, 249, 255, 0.76);
+  color: #657ca5;
   font-size: 25rpx;
   line-height: 1.7;
 }

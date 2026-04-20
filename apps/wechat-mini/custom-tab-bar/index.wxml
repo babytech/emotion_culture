@@ -7,9 +7,6 @@
       data-url="{{item.pagePath}}"
       bindtap="handleTabTap"
     >
-      <view class="tab-icon {{selected === item.pagePath ? 'tab-icon-active' : ''}}">
-        {{item.icon}}
-      </view>
       <view class="tab-label">{{item.text}}</view>
       <view class="tab-indicator"></view>
     </view>

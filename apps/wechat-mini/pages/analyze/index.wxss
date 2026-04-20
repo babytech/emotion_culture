@@ -9,8 +9,9 @@
   padding: 20rpx;
   border: none;
   background:
-    radial-gradient(circle at 100% 0%, rgba(136, 182, 255, 0.26), transparent 38%),
-    linear-gradient(135deg, #ffffff, #edf5ff);
+    radial-gradient(circle at 100% 0%, rgba(136, 182, 255, 0.24), transparent 38%),
+    radial-gradient(circle at 12% 90%, rgba(255, 177, 121, 0.14), transparent 34%),
+    linear-gradient(135deg, #ffffff, #edf6ff);
 }
 
 .analyze-head-top {
@@ -43,7 +44,7 @@
 .analyze-head-item {
   padding: 12rpx 10rpx;
   border-radius: 14rpx;
-  background: #f4f8ff;
+  background: linear-gradient(135deg, #f4f8ff, #eef8ff 56%, #fff0e8);
   text-align: center;
 }
 
@@ -67,8 +68,9 @@
 
 .analyze-entry-card {
   background:
-    radial-gradient(circle at 100% 0%, rgba(255, 230, 168, 0.24), transparent 38%),
-    linear-gradient(135deg, #ffffff, #f3f8ff);
+    radial-gradient(circle at 100% 0%, rgba(255, 201, 135, 0.24), transparent 38%),
+    radial-gradient(circle at 8% 92%, rgba(108, 198, 229, 0.16), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f2f8ff);
 }
 
 .analyze-entry-title {
@@ -101,8 +103,8 @@
   padding: 6rpx 12rpx;
   border-radius: 999rpx;
   font-size: 21rpx;
-  color: #5a74a5;
-  background: #edf3ff;
+  color: #4c70ad;
+  background: linear-gradient(135deg, #edf3ff, #e9f7ff);
 }
 
 .runtime-note-row {
@@ -126,7 +128,7 @@
   width: 100%;
   border-radius: 14rpx;
   border: 2rpx solid rgba(88, 116, 166, 0.14);
-  background: #f8fbff;
+  background: linear-gradient(180deg, #f9fcff, #f2f8ff);
   padding: 16rpx;
   box-sizing: border-box;
   font-size: 28rpx;
@@ -171,7 +173,7 @@
   margin-top: 12rpx;
   padding: 10rpx;
   border-radius: 14rpx;
-  background: #f4f8ff;
+  background: linear-gradient(135deg, #f4f8ff, #edf8ff);
 }
 
 .preview-wrap-pending {
@@ -267,7 +269,7 @@
 .analyze-dock-card {
   padding: 14rpx;
   border: none;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 12rpx 28rpx rgba(53, 89, 152, 0.16);
 }
 

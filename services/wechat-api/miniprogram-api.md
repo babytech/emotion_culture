@@ -668,7 +668,14 @@ Response example:
       "score_full": 10
     }
   ],
-  "next_action_hint": "小测已完成，可去做一次情绪分析，看看今天更适合怎样安排学习节奏。"
+  "next_action_hint": "小测已完成，可去做一次情绪分析，看看今天更适合怎样安排学习节奏。",
+  "points_reward": {
+    "awarded": true,
+    "points": 6,
+    "balance": 34,
+    "reason": "study_quiz_submit",
+    "action_key": "quiz_submit:qzr_abc123"
+  }
 }
 ```
 
@@ -683,6 +690,17 @@ Response example:
 `GET /api/study-quiz/wrongbook?limit=20&offset=0`
 
 - returns wrongbook summary for current user
+
+`POST /api/study-quiz/bank/ingest` (admin)
+
+- 管理态题库导入接口（支持 `jpg/png/pdf/json/csv`）
+- 需要 `x-admin-token`（当服务端配置了 `STUDY_QUIZ_ADMIN_TOKEN`）
+- 图片/PDF 会调用 OCR 适配器（`STUDY_QUIZ_OCR_HTTP_ENDPOINT`）
+- 导入后会覆盖运行时题库并返回标准化题目 + `excel_rows`
+
+`GET /api/study-quiz/bank/export?course=english` (admin)
+
+- 导出当前课程题库为 Excel 可打开的 `.xls`（TSV 兼容格式）
 
 ## 6) Retention APIs (phase-2 base)
 

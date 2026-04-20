@@ -227,7 +227,7 @@ def run_analysis_sync_for_user(
         logger.warning("media retention cleanup skipped: %s", exc)
 
     _track_media_ids(payload)
-    response = run_analysis(payload, progress_callback=progress_callback)
+    response = run_analysis(payload, progress_callback=progress_callback, user_id=user_id)
     try:
         record_analysis_summary(user_id=user_id, response=response)
     except Exception as exc:  # pragma: no cover

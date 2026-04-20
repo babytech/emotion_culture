@@ -88,11 +88,20 @@ class QuizRecordSummary(BaseModel):
     wrong_count: int
 
 
+class QuizPointsReward(BaseModel):
+    awarded: bool = False
+    points: int = 0
+    balance: Optional[int] = None
+    reason: str = "quiz_submit"
+    action_key: Optional[str] = None
+
+
 class QuizSubmitResponse(BaseModel):
     quiz_record: QuizRecordSummary
     results: list[QuizQuestionResult] = Field(default_factory=list)
     wrong_items: list[QuizWrongItem] = Field(default_factory=list)
     next_action_hint: str
+    points_reward: Optional[QuizPointsReward] = None
 
 
 class QuizHistoryResponse(BaseModel):
@@ -115,3 +124,27 @@ class QuizWrongbookEntry(BaseModel):
 class QuizWrongbookResponse(BaseModel):
     items: list[QuizWrongbookEntry] = Field(default_factory=list)
     total: int = 0
+
+
+class QuizBankIngestQuestion(BaseModel):
+    question_id: str
+    type: QuizQuestionType
+    stem: str
+    options: list[QuizQuestionOption] = Field(default_factory=list)
+    fills: list[QuizFillItem] = Field(default_factory=list)
+    answer: str
+    audio: str = "no"
+    tags: list[str] = Field(default_factory=list)
+    difficulty: str = "normal"
+
+
+class QuizBankIngestResponse(BaseModel):
+    course: str
+    title: str
+    version: str
+    source_type: str
+    persisted: bool = True
+    total_questions: int
+    questions: list[QuizBankIngestQuestion] = Field(default_factory=list)
+    excel_rows: list[list[str]] = Field(default_factory=list)
+    note: Optional[str] = None

@@ -21,6 +21,10 @@
       <view class="summary-line">已作答：{{summary.answeredQuestions}} 题</view>
       <view class="summary-line">未作答：{{summary.unansweredQuestions}} 题</view>
       <view class="summary-line">半对：{{summary.partialCount}} 题</view>
+      <view wx:if="{{pointsReward}}" class="summary-line">
+        本次积分：{{pointsReward.awarded ? "+" : ""}}{{pointsReward.points}}
+        <text wx:if="{{pointsReward.balance !== null}}">（余额 {{pointsReward.balance}}）</text>
+      </view>
       <view class="summary-line hint-line">{{nextActionHint}}</view>
     </view>
 

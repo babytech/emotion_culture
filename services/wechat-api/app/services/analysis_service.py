@@ -32,6 +32,7 @@ from app.schemas.analyze import (
     ResultCard,
     SystemFields,
 )
+from app.services.history_service import get_recent_analysis_content_ids
 from app.services.storage_service import cleanup_temp_files, resolve_media_paths
 
 
@@ -531,9 +532,13 @@ def _select_emotion(
     weights = {key: 0.0 for key in _emotions}
 
     if text_input and text_emotion:
-        weights[text_emotion] += 0.5
+        text_length = len((text_input or "").strip())
+        text_weight = 0.55 if text_length >= 12 else 0.45
+        if text_length >= 40:
+            text_weight = 0.62
+        weights[text_emotion] += text_weight
         if face_emotion == text_emotion:
-            weights[text_emotion] += 0.2
+            weights[text_emotion] += 0.18
         if speech_emotion == text_emotion:
             weights[text_emotion] += 0.2
     else:
@@ -554,9 +559,70 @@ def _select_emotion(
     return best, weights
 
 
-def _pick_guochao_name(emotion: str) -> str:
+def _poem_entry_id(poet: str, poem_text: str) -> str:
+    return _short_hash(f"{poet}|{poem_text}", "poem")
+
+
+def _guochao_entry_id(name: str) -> str:
+    return _short_hash(name, "gc")
+
+
+def _pick_poem_for_emotion(
+    emotion: str,
+    recent_poem_ids: Optional[list[str]] = None,
+) -> tuple[str, str, str]:
+    fallback_emotion = emotion if emotion in _culture_manager.poems_data else "neutral"
+    pool = _culture_manager.poems_data.get(fallback_emotion, []) or _culture_manager.poems_data.get("neutral", [])
+    if not pool:
+        poet = "佚名"
+        poem_text = "暂无适合的诗词"
+        return poet, poem_text, _poem_entry_id(poet, poem_text)
+
+    recent_set = {item for item in (recent_poem_ids or []) if item}
+    available: list[dict[str, str]] = []
+    for raw in pool:
+        if not isinstance(raw, dict):
+            continue
+        poet = str(raw.get("poet") or "佚名").strip() or "佚名"
+        poem_text = str(raw.get("text") or "").strip() or "暂无诗词"
+        if _poem_entry_id(poet, poem_text) in recent_set:
+            continue
+        available.append({"poet": poet, "text": poem_text})
+
+    candidate_pool = available or [
+        {
+            "poet": str(item.get("poet") or "佚名").strip() or "佚名",
+            "text": str(item.get("text") or "").strip() or "暂无诗词",
+        }
+        for item in pool
+        if isinstance(item, dict)
+    ]
+    if not candidate_pool:
+        poet = "佚名"
+        poem_text = "暂无适合的诗词"
+        return poet, poem_text, _poem_entry_id(poet, poem_text)
+
+    chosen = random.choice(candidate_pool)
+    poet = str(chosen.get("poet") or "佚名").strip() or "佚名"
+    poem_text = str(chosen.get("text") or "").strip() or "暂无诗词"
+    return poet, poem_text, _poem_entry_id(poet, poem_text)
+
+
+def _pick_guochao_name(
+    emotion: str,
+    recent_guochao_ids: Optional[list[str]] = None,
+) -> tuple[str, str]:
     choices = guochao_characters.get(emotion, guochao_characters["neutral"])
-    return random.choice(choices)
+    normalized_choices = [str(item).strip() for item in choices if str(item).strip()]
+    if not normalized_choices:
+        normalized_choices = [str(item).strip() for item in guochao_characters.get("neutral", []) if str(item).strip()]
+    if not normalized_choices:
+        normalized_choices = ["国潮伙伴"]
+
+    recent_set = {item for item in (recent_guochao_ids or []) if item}
+    available = [name for name in normalized_choices if _guochao_entry_id(name) not in recent_set]
+    picked = random.choice(available or normalized_choices)
+    return picked, _guochao_entry_id(picked)
 
 
 def _build_secondary_emotions(primary_emotion: str, weights: dict[str, float]) -> list[EmotionBrief]:
@@ -666,7 +732,11 @@ def _emit_progress(progress_callback: ProgressCallback, stage: str, message: Opt
         logger.debug("analysis progress callback skipped: stage=%s detail=%s", stage, exc)
 
 
-def run_analysis(payload: AnalyzeRequest, progress_callback: ProgressCallback = None) -> AnalyzeResponse:
+def run_analysis(
+    payload: AnalyzeRequest,
+    progress_callback: ProgressCallback = None,
+    user_id: Optional[str] = None,
+) -> AnalyzeResponse:
     total_started = perf_counter()
     resolve_started = perf_counter()
     resolved = resolve_media_paths(payload)
@@ -752,14 +822,35 @@ def run_analysis(payload: AnalyzeRequest, progress_callback: ProgressCallback = 
             speech_emotion=speech_emotion,
         )
 
-        poet, poem_text = _culture_manager.get_poem_for_emotion(chosen_emotion)
+        recent_poem_ids: list[str] = []
+        recent_guochao_ids: list[str] = []
+        normalized_user_id = (user_id or "").strip()
+        if normalized_user_id:
+            recent_limit = _env_int("ANALYZE_RECENT_AVOID_WINDOW", 8)
+            try:
+                recent_payload = get_recent_analysis_content_ids(
+                    user_id=normalized_user_id,
+                    limit=recent_limit,
+                )
+                recent_poem_ids = list(recent_payload.get("poem_ids") or [])
+                recent_guochao_ids = list(recent_payload.get("guochao_ids") or [])
+            except Exception as exc:  # pragma: no cover
+                logger.debug("recent analysis ids unavailable: %s", exc)
+
+        poet, poem_text, poem_id = _pick_poem_for_emotion(
+            chosen_emotion,
+            recent_poem_ids=recent_poem_ids,
+        )
         interpretation = _culture_manager.get_rich_poem_interpretation(
             poet=poet,
             poem_text=poem_text,
             emotion=chosen_emotion,
         )
 
-        character_name = _pick_guochao_name(chosen_emotion)
+        character_name, guochao_id = _pick_guochao_name(
+            chosen_emotion,
+            recent_guochao_ids=recent_guochao_ids,
+        )
         comfort = comfort_text.get(chosen_emotion, comfort_text["neutral"])
         emotion_label = _culture_manager.translate_emotion(chosen_emotion)
         secondary_emotions = _build_secondary_emotions(chosen_emotion, weights)
@@ -784,8 +875,6 @@ def run_analysis(payload: AnalyzeRequest, progress_callback: ProgressCallback = 
         processing_metrics_ms["fusion_render_ms"] = _elapsed_ms(fusion_started)
         _emit_progress(progress_callback, "fusion_done", "分析中：结果已生成，正在整理展示内容...")
 
-        poem_id = _short_hash(f"{poet}|{poem_text}", "poem")
-        guochao_id = _short_hash(character_name, "gc")
         processing_metrics_ms["total_ms"] = _elapsed_ms(total_started)
         _emit_progress(progress_callback, "result_ready", "分析中：结果已生成，正在落库并准备打开结果页...")
 

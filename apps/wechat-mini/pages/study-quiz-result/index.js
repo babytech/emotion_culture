@@ -40,12 +40,14 @@ function buildViewData(response) {
   const quizRecord = (response && response.quiz_record) || {};
   const results = Array.isArray(response && response.results) ? response.results : [];
   const wrongItems = Array.isArray(response && response.wrong_items) ? response.wrong_items : [];
+  const pointsReward = response && response.points_reward ? response.points_reward : null;
   const totalQuestions = Number(quizRecord.total_questions) || results.length || 0;
   const correctCount = Number(quizRecord.correct_count) || 0;
   const score = Number(quizRecord.score) || 0;
   const answered = Number(quizRecord.answered_questions) || 0;
   const unanswered = Math.max(0, totalQuestions - answered);
   const correctRate = totalQuestions > 0 ? `${Math.round((correctCount / totalQuestions) * 100)}%` : "0%";
+  const parsedBalance = pointsReward ? Number(pointsReward.balance) : NaN;
   return {
     hasData: !!safeText(quizRecord.quiz_record_id),
     summary: {
@@ -67,6 +69,13 @@ function buildViewData(response) {
     },
     results,
     wrongItems,
+    pointsReward: pointsReward
+      ? {
+          awarded: !!pointsReward.awarded,
+          points: Number(pointsReward.points) || 0,
+          balance: Number.isFinite(parsedBalance) ? parsedBalance : null,
+        }
+      : null,
     nextActionHint:
       safeText(response && response.next_action_hint) || "小测完成后，去做一次情绪分析会更有帮助。",
   };
@@ -89,6 +98,7 @@ Page({
     summary: null,
     results: [],
     wrongItems: [],
+    pointsReward: null,
     nextActionHint: "",
   },
 

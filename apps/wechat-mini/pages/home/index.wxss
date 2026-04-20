@@ -29,7 +29,8 @@
   border: none;
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.28), transparent 36%),
-    linear-gradient(135deg, #2e6dff, #4a8fff 58%, #6ea8ff);
+    radial-gradient(circle at 12% 92%, rgba(255, 166, 122, 0.2), transparent 38%),
+    linear-gradient(135deg, #3a68f2, #4f89ff 52%, #3ec4d3);
   color: #ffffff;
 }
 
@@ -37,26 +38,30 @@
 .home-hero-happy {
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.3), transparent 38%),
-    linear-gradient(135deg, #2f7de8, #54a4f4 58%, #87c5ff);
+    radial-gradient(circle at 12% 92%, rgba(255, 180, 120, 0.16), transparent 36%),
+    linear-gradient(135deg, #2e86dd, #3fb9e2 58%, #6fcbff);
 }
 
 .home-hero-sad,
 .home-hero-fear {
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.24), transparent 36%),
-    linear-gradient(135deg, #5a79af, #7796c8 58%, #9db7da);
+    radial-gradient(circle at 10% 90%, rgba(144, 122, 255, 0.15), transparent 34%),
+    linear-gradient(135deg, #6a78c9, #6ea2d6 58%, #8fc0df);
 }
 
 .home-hero-angry {
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.22), transparent 36%),
-    linear-gradient(135deg, #5f7ad0, #6389e6 58%, #8ea4f5);
+    radial-gradient(circle at 12% 88%, rgba(255, 164, 120, 0.2), transparent 38%),
+    linear-gradient(135deg, #5a71d5, #6880eb 58%, #74b0ff);
 }
 
 .home-hero-surprise {
   background:
     radial-gradient(circle at 100% 0%, rgba(255, 255, 255, 0.24), transparent 36%),
-    linear-gradient(135deg, #4a7bea, #5e95ff 58%, #87b7ff);
+    radial-gradient(circle at 10% 90%, rgba(255, 176, 121, 0.18), transparent 36%),
+    linear-gradient(135deg, #4b75ea, #5f92ff 58%, #52c9d8);
 }
 
 .home-hero-head {
@@ -131,8 +136,8 @@
   width: 72rpx;
   height: 72rpx;
   border-radius: 999rpx;
-  background: linear-gradient(135deg, #eaf1ff, #dce8ff);
-  color: #305db7;
+  background: linear-gradient(135deg, #e8f2ff, #e9f8ff 54%, #ffece0);
+  color: #2f63b7;
   font-size: 30rpx;
   font-weight: 700;
   display: flex;
@@ -150,8 +155,9 @@
   padding: 20rpx;
   border: none;
   background:
-    radial-gradient(circle at 100% 0%, rgba(249, 225, 146, 0.32), transparent 38%),
-    linear-gradient(135deg, #ffffff, #f8fbff);
+    radial-gradient(circle at 100% 0%, rgba(255, 194, 126, 0.3), transparent 38%),
+    radial-gradient(circle at 10% 90%, rgba(120, 203, 237, 0.14), transparent 34%),
+    linear-gradient(135deg, #ffffff, #f6fbff);
 }
 
 .home-checkin-head {
@@ -202,8 +208,9 @@
   padding: 22rpx 20rpx;
   border: none;
   background:
-    radial-gradient(circle at 100% 0%, rgba(131, 179, 255, 0.26), transparent 34%),
-    linear-gradient(135deg, #ffffff, #f1f6ff);
+    radial-gradient(circle at 100% 0%, rgba(132, 186, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 12% 92%, rgba(255, 171, 122, 0.15), transparent 32%),
+    linear-gradient(135deg, #ffffff, #f0f7ff);
 }
 
 .home-week-tag {
@@ -240,13 +247,15 @@
   border: none;
   background:
     radial-gradient(circle at 100% 0%, rgba(156, 201, 255, 0.24), transparent 34%),
-    linear-gradient(140deg, #fffefe, #eef5ff);
+    radial-gradient(circle at 12% 92%, rgba(255, 180, 120, 0.14), transparent 30%),
+    linear-gradient(140deg, #fffefe, #edf7ff);
 }
 
 .home-banner-card-accent {
   background:
-    radial-gradient(circle at 100% 0%, rgba(255, 216, 141, 0.24), transparent 34%),
-    linear-gradient(140deg, #ffffff, #f6f5ff);
+    radial-gradient(circle at 100% 0%, rgba(255, 194, 133, 0.24), transparent 34%),
+    radial-gradient(circle at 12% 92%, rgba(117, 204, 232, 0.16), transparent 34%),
+    linear-gradient(140deg, #ffffff, #f3f6ff);
 }
 
 .home-banner-label {

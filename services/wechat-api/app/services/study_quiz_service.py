@@ -1,5 +1,7 @@
 import json
+import os
 import re
+import threading
 import uuid
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -8,8 +10,11 @@ from typing import Any, Optional
 
 from app.schemas.study_quiz import (
     QuizAnswerSubmission,
+    QuizBankIngestQuestion,
+    QuizBankIngestResponse,
     QuizHistoryResponse,
     QuizPaperQuestion,
+    QuizPointsReward,
     QuizPaperResponse,
     QuizQuestionResult,
     QuizQuestionType,
@@ -26,10 +31,13 @@ from app.services.history_service import (
     list_quiz_wrongbook_entries,
     record_quiz_submission,
 )
+from app.services.points_service import credit_points_for_action
 
 
 _COURSE_ENGLISH = "english"
 _SUPPORTED_COURSES = {_COURSE_ENGLISH}
+_BANK_STORE_LOCK = threading.RLock()
+_DEFAULT_BANK_STORE_PATH = "/tmp/emotion_culture/study_quiz_bank_store.json"
 
 
 def _iso_now_utc() -> str:
@@ -52,8 +60,109 @@ def _normalize_course(course: Optional[str]) -> str:
     return value
 
 
+def _bank_store_path() -> Path:
+    raw = (os.getenv("STUDY_QUIZ_BANK_STORE_PATH", _DEFAULT_BANK_STORE_PATH) or "").strip()
+    path = Path(raw).expanduser()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def _load_bank_store() -> dict[str, Any]:
+    path = _bank_store_path()
+    if not path.exists():
+        return {"version": 1, "courses": {}}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {"version": 1, "courses": {}}
+    if not isinstance(payload, dict):
+        return {"version": 1, "courses": {}}
+    courses = payload.get("courses")
+    if not isinstance(courses, dict):
+        payload["courses"] = {}
+    return payload
+
+
+def _save_bank_store(payload: dict[str, Any]) -> None:
+    path = _bank_store_path()
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
+    tmp.replace(path)
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = (os.getenv(name, "") or "").strip().lower()
+    if not raw:
+        return default
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+    if raw in {"0", "false", "no", "off"}:
+        return False
+    return default
+
+
+def _quiz_points_enabled() -> bool:
+    return _env_bool("STUDY_QUIZ_ENABLE_POINTS", True)
+
+
+def _quiz_points_by_score(score: int) -> int:
+    value = max(0, min(100, int(score or 0)))
+    if value >= 95:
+        return 8
+    if value >= 85:
+        return 6
+    if value >= 75:
+        return 4
+    if value >= 60:
+        return 2
+    return 1
+
+
+def _load_override_bank(course: str) -> Optional[dict[str, Any]]:
+    with _BANK_STORE_LOCK:
+        payload = _load_bank_store()
+        courses = payload.get("courses", {})
+        if not isinstance(courses, dict):
+            return None
+        bank = courses.get(course)
+        return bank if isinstance(bank, dict) else None
+
+
+def _normalize_bank_question(raw: dict[str, Any], index: int) -> dict[str, Any]:
+    question_id = str(raw.get("question_id") or f"{index + 1}").strip()
+    question_type = str(raw.get("type") or "").strip().lower()
+    if question_type not in {"radio", "check", "fill"}:
+        raise ValueError(f"[QUIZ_BANK_INVALID] 第 {index + 1} 题 type 非法，仅支持 radio/check/fill。")
+    stem = str(raw.get("stem") or "").strip()
+    if not stem:
+        raise ValueError(f"[QUIZ_BANK_INVALID] 第 {index + 1} 题 stem 不能为空。")
+    answer = str(raw.get("answer") or "").strip()
+    if not answer:
+        raise ValueError(f"[QUIZ_BANK_INVALID] 第 {index + 1} 题 answer 不能为空。")
+    options = raw.get("options") if isinstance(raw.get("options"), list) else []
+    fills = raw.get("fills") if isinstance(raw.get("fills"), list) else []
+    tags = raw.get("tags") if isinstance(raw.get("tags"), list) else []
+    return {
+        "question_id": question_id,
+        "type": question_type,
+        "stem": stem,
+        "options": options,
+        "fills": fills,
+        "audio": str(raw.get("audio") or "no").strip() or "no",
+        "tags": [str(item).strip() for item in tags if str(item).strip()],
+        "difficulty": str(raw.get("difficulty") or "normal").strip() or "normal",
+        "answer": answer,
+    }
+
+
 @lru_cache(maxsize=4)
 def _load_course_bank(course: str) -> dict[str, Any]:
+    override_bank = _load_override_bank(course)
+    if isinstance(override_bank, dict):
+        questions = override_bank.get("questions")
+        if isinstance(questions, list) and questions:
+            return override_bank
+
     path = _seed_file_path(course)
     try:
         with path.open("r", encoding="utf-8") as file_obj:
@@ -106,6 +215,107 @@ def get_quiz_paper(course: Optional[str] = None) -> QuizPaperResponse:
         total_questions=len(questions),
         questions=questions,
     )
+
+
+def upsert_quiz_bank(
+    *,
+    course: str,
+    title: str,
+    version: Optional[str],
+    questions: list[dict[str, Any]],
+    source_type: str = "manual",
+) -> QuizBankIngestResponse:
+    normalized_course = _normalize_course(course)
+    cleaned_questions: list[dict[str, Any]] = []
+    for index, raw in enumerate(questions):
+        if not isinstance(raw, dict):
+            raise ValueError(f"[QUIZ_BANK_INVALID] 第 {index + 1} 题结构非法。")
+        cleaned_questions.append(_normalize_bank_question(raw, index))
+
+    if not cleaned_questions:
+        raise ValueError("[QUIZ_BANK_EMPTY] 导入后题库为空。")
+
+    payload = {
+        "course": normalized_course,
+        "title": (title or "伴学小测").strip() or "伴学小测",
+        "version": (version or _iso_now_utc().replace(":", "").replace("-", "")).strip(),
+        "questions": cleaned_questions,
+        "updated_at": _iso_now_utc(),
+        "source_type": (source_type or "manual").strip() or "manual",
+    }
+
+    with _BANK_STORE_LOCK:
+        store = _load_bank_store()
+        courses = store.setdefault("courses", {})
+        courses[normalized_course] = payload
+        _save_bank_store(store)
+    _load_course_bank.cache_clear()
+
+    excel_rows = export_quiz_bank_excel_rows(course=normalized_course)
+    return QuizBankIngestResponse(
+        course=normalized_course,
+        title=str(payload.get("title") or "伴学小测"),
+        version=str(payload.get("version") or "v1"),
+        source_type=str(payload.get("source_type") or "manual"),
+        persisted=True,
+        total_questions=len(cleaned_questions),
+        questions=[
+            QuizBankIngestQuestion.model_validate(item)
+            for item in cleaned_questions
+        ],
+        excel_rows=excel_rows,
+    )
+
+
+def export_quiz_bank_excel_rows(course: Optional[str] = None) -> list[list[str]]:
+    normalized_course = _normalize_course(course)
+    bank = _load_course_bank(normalized_course)
+    questions = [item for item in bank.get("questions", []) if isinstance(item, dict)]
+    rows: list[list[str]] = [
+        ["question_id", "type", "stem", "options", "fills", "answer", "difficulty", "tags", "audio"]
+    ]
+    for item in questions:
+        options = item.get("options") if isinstance(item.get("options"), list) else []
+        fills = item.get("fills") if isinstance(item.get("fills"), list) else []
+        tags = item.get("tags") if isinstance(item.get("tags"), list) else []
+        option_text = " | ".join(
+            [
+                f"{str(opt.get('item') or '').strip()}:{str(opt.get('content') or '').strip()}"
+                for opt in options
+                if isinstance(opt, dict)
+            ]
+        )
+        fill_text = " | ".join(
+            [
+                f"{str(fill.get('item') or '').strip()}:{str(fill.get('content') or '').strip()}"
+                for fill in fills
+                if isinstance(fill, dict)
+            ]
+        )
+        tag_text = ",".join([str(tag).strip() for tag in tags if str(tag).strip()])
+        rows.append(
+            [
+                str(item.get("question_id") or "").strip(),
+                str(item.get("type") or "").strip(),
+                str(item.get("stem") or "").strip(),
+                option_text,
+                fill_text,
+                str(item.get("answer") or "").strip(),
+                str(item.get("difficulty") or "normal").strip() or "normal",
+                tag_text,
+                str(item.get("audio") or "no").strip() or "no",
+            ]
+        )
+    return rows
+
+
+def export_quiz_bank_excel_tsv(course: Optional[str] = None) -> str:
+    rows = export_quiz_bank_excel_rows(course=course)
+    escaped_rows: list[str] = []
+    for row in rows:
+        cells = [str(cell or "").replace("\t", " ").replace("\n", " ") for cell in row]
+        escaped_rows.append("\t".join(cells))
+    return "\n".join(escaped_rows)
 
 
 def _normalize_radio_answer(value: Any) -> str:
@@ -163,6 +373,32 @@ def _answers_map(submissions: list[QuizAnswerSubmission]) -> dict[str, QuizAnswe
             continue
         mapping[question_id] = item
     return mapping
+
+
+def _award_points_for_quiz_submit(
+    user_id: str,
+    *,
+    quiz_record_id: str,
+    score: int,
+) -> Optional[QuizPointsReward]:
+    if not _quiz_points_enabled():
+        return None
+
+    points = _quiz_points_by_score(score)
+    action_key = f"quiz_submit:{quiz_record_id}"
+    result = credit_points_for_action(
+        user_id=user_id,
+        action_key=action_key,
+        points=points,
+        reason="study_quiz_submit",
+    )
+    return QuizPointsReward(
+        awarded=bool(result.get("awarded")),
+        points=int(result.get("points") or points),
+        balance=int(result.get("balance")) if result.get("balance") is not None else None,
+        reason="study_quiz_submit",
+        action_key=action_key,
+    )
 
 
 def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmitResponse:
@@ -304,12 +540,19 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
         wrong_count=wrong_count,
     )
 
+    points_reward = _award_points_for_quiz_submit(
+        user_id=user_id,
+        quiz_record_id=quiz_record_id,
+        score=score_int,
+    )
+
     record_quiz_submission(
         user_id=user_id,
         summary=summary,
         results=results,
         wrong_items=wrong_items,
         submit_token=submit_token,
+        points_reward=points_reward,
     )
 
     return QuizSubmitResponse(
@@ -317,6 +560,7 @@ def submit_quiz_for_user(user_id: str, payload: QuizSubmitRequest) -> QuizSubmit
         results=results,
         wrong_items=wrong_items,
         next_action_hint="小测已完成，可去做一次情绪分析，看看今天更适合怎样安排学习节奏。",
+        points_reward=points_reward,
     )
 
 
