@@ -7,6 +7,7 @@
       <view class="status-chip">进度 {{answeredQuestions}} / {{totalQuestions}}</view>
       <view class="status-chip">未答 {{unansweredQuestions}}</view>
       <view wx:if="{{loadedFromCache}}" class="status-chip">缓存题库</view>
+      <view wx:if="{{isRefreshingPaper}}" class="status-chip">题库更新中</view>
       <view wx:if="{{draftRecovered}}" class="status-chip">已恢复草稿</view>
       <view wx:if="{{paperVersion}}" class="status-chip">版本 {{paperVersion}}</view>
     </view>
@@ -17,11 +18,15 @@
 
   <view wx:if="{{errorMsg}}" class="card error-card">
     <view class="error-text">{{errorMsg}}</view>
-    <button class="btn btn-secondary error-retry-btn" bindtap="handleRetryLoadPaper" disabled="{{isLoading}}">
+    <button
+      class="btn btn-secondary error-retry-btn"
+      bindtap="handleRetryLoadPaper"
+      disabled="{{isLoading || isRefreshingPaper}}"
+    >
       重试加载
     </button>
   </view>
-  <view wx:if="{{isLoading}}" class="card loading-card">试卷加载中...</view>
+  <view wx:if="{{isLoading && !currentQuestion}}" class="card loading-card">试卷加载中...</view>
 
   <block wx:if="{{!isLoading && currentQuestion}}">
     <view class="card question-card">

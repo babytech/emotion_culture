@@ -311,6 +311,7 @@ function countAnswered(questions) {
 Page({
   data: {
     isLoading: false,
+    isRefreshingPaper: false,
     isSubmitting: false,
     errorMsg: "",
     loadedFromCache: false,
@@ -388,7 +389,7 @@ Page({
   },
 
   async loadPaper(options = {}) {
-    if (this.data.isLoading) return;
+    if (this.data.isLoading || this.data.isRefreshingPaper) return;
     const manual = !!options.manual;
     const stopPullDown = !!options.stopPullDown;
     const hasQuestions = Array.isArray(this.data.questions) && this.data.questions.length > 0;
@@ -403,8 +404,10 @@ Page({
       });
     }
 
+    const useBackgroundRefresh = hasQuestions || !!cachedPaper;
     this.setData({
-      isLoading: true,
+      isLoading: !useBackgroundRefresh,
+      isRefreshingPaper: useBackgroundRefresh,
       errorMsg: "",
     });
     try {
@@ -446,6 +449,7 @@ Page({
     } finally {
       this.setData({
         isLoading: false,
+        isRefreshingPaper: false,
       });
       if (stopPullDown) {
         wx.stopPullDownRefresh();
